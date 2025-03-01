@@ -107,9 +107,9 @@ const jobs = ref([
         experience: "5 years experience",
         description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска",
         requirements: [
-            "Опыт работы с Vue.js от 3 лет",
+            "Опыт работы с Vue.js 3 года",
             "Знание TypeScript",
-            "Опыт интеграции с Telegram API"
+            "Имею опыт интеграции с Telegram API"
         ],
         tags: ["JavaScript", "Vue 3", "Pinia", "Rust"],
         contact: "https://t.me/matvey_example"
