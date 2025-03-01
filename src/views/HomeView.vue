@@ -165,8 +165,8 @@ onMounted(() => {
 }
 
 .profile-icon {
-    width: 45px;
-    height: 45px;
+    width: 47px;
+    height: 47px;
     border-radius: 50%;
     border: 2px solid #97f492;
     position: relative;
