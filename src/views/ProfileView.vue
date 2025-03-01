@@ -70,8 +70,8 @@ const startAnimation = () => {
 }
 
 .profile-avatar {
-    width: 125px;
-    height: 125px;
+    width: 100px;
+    height: 100px;
     border-radius: 50%;
     border: 3px solid transparent;
     box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
