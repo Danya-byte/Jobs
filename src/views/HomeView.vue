@@ -371,8 +371,8 @@ onMounted(() => {
     overflow-y: auto;
     transform: translateY(100%);
     animation: slide-up 0.3s ease-out forwards;
-    padding-right: 30px;
-    margin-right: -30px;
+    padding-right: 20px;
+    margin-right: -40px;
 }
 
 @keyframes slide-up {
