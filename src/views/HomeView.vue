@@ -8,7 +8,6 @@
             >
             <div class="user-name" v-if="userFirstName || userLastName">
                 <span class="first-name">{{ userFirstName }}</span>
-                <span class="last-name">{{ userLastName }}</span>
             </div>
         </RouterLink>
         <a href="https://t.me/workiks_admin" class="add-button">

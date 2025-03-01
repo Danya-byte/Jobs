@@ -11,7 +11,7 @@
             @load="startAnimation"
             :class="{'avatar-visible': loaded}"
         >
-        <h1 class="profile-name">@{{ username }}</h1>
+        <h1 class="profile-name">@{{ FirstName }}</h1>
     </div>
 </div>
 </template>
@@ -22,6 +22,7 @@ import { ref, onMounted } from 'vue';
 const loaded = ref(false);
 const userPhoto = ref('');
 const username = ref('');
+const userFirstName = ref('');
 
 onMounted(() => {
     if (window.Telegram?.WebApp) {
@@ -34,6 +35,8 @@ onMounted(() => {
         const user = Telegram.WebApp.initDataUnsafe.user;
         userPhoto.value = user.photo_url;
         username.value = user.username || 'None';
+        userFirstName.value = user.first_name || '';
+        userLastName.value = user.last_name || '';
     }
 });
 
