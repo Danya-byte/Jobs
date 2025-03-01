@@ -184,7 +184,6 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    animation: fade-in 0.5s ease-in-out;
 }
 
 @keyframes fade-in {
@@ -192,10 +191,18 @@ onMounted(() => {
     to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes color-change {
+    0% { color: #97f492; }
+    25% { color: #6de06a; }
+    50% { color: #4acf8e; }
+    75% { color: #3bb3b3; }
+    100% { color: #97f492; }
+}
+
 .first-name, .last-name {
-    color: #fff;
     font-size: 16px;
     font-weight: 600;
+    animation: fade-in 0.5s ease-in-out, color-change 5s infinite;
 }
 
 .add-button {
