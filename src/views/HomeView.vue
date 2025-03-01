@@ -108,7 +108,7 @@ const jobIcon = 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png';
 const jobs = ref([
     {
         nick: "Matvey",
-        position: "Frontend Developer",
+        position: "Vrotend Developer",
         profileLink: '/profile/Matvey',
         experience: "5 years experience",
         description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска",
