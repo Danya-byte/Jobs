@@ -274,7 +274,8 @@ onMounted(() => {
 .jobs-scroll-container {
     flex-grow: 1;
     overflow-y: auto;
-    padding-right: 10px;
+    padding-right: 20px;
+    margin-right: -10px;
 }
 
 .jobs-list {
