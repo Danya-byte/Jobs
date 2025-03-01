@@ -1,6 +1,5 @@
 <template>
 <div class="container">
-    <!-- Навбар -->
     <nav class="nav-bar">
         <RouterLink to="/profile">
             <img
@@ -15,12 +14,9 @@
 
     <!-- Основной контент -->
     <div class="content">
-        <h1 class="page-title">Jobs</h1>
-
-        <!-- Кнопки категорий -->
         <div class="categories">
-            <button class="category-btn active">All</button>
-            <RouterLink to="/nft">
+            <button class="category-btn active">Jobs</button>
+            <RouterLink to="#">
                 <button class="category-btn">Gift</button>
             </RouterLink>
         </div>
