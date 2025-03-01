@@ -149,6 +149,7 @@ onMounted(() => {
     min-height: 100vh;
     padding: 20px;
     overflow: hidden;
+    position: absolute;
 }
 
 body {
