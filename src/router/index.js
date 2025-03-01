@@ -14,6 +14,11 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue'),
     },
     {
+      path: '/profile/:username',
+      name: 'user-profile',
+      component: () => import('../views/ProfileView.vue'),
+    },
+    {
       path: '/nft',
       name: 'nft',
       component: () => import('../views/NftView.vue'),

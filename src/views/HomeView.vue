@@ -55,7 +55,7 @@
                 </div>
 
                 <div class="job-details">
-                    <div class="user-info">
+                    <div class="user-info" @click="$router.push(selectedJob.profileLink)">
                         <img :src="jobIcon" class="job-icon">
                         <div>
                             <p class="nickname">{{ selectedJob.nick }}</p>
@@ -110,6 +110,7 @@ const jobs = ref([
     {
         nick: "Matvey",
         position: "Frontend Developer",
+        profileLink: '/profile/Matvey',
         experience: "5 years experience",
         description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска",
         requirements: [
@@ -243,7 +244,7 @@ onMounted(() => {
 .category-btn.active {
     background: #97f492;
     color: #000;
-    animation: pulse 2s infinite; /* Анимация только для активной кнопки */
+    animation: pulse 2s infinite;
 }
 
 .job-card {
