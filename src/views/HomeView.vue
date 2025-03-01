@@ -8,7 +8,7 @@
             >
         </RouterLink>
         <a href="https://t.me/workiks_admin" class="add-button">
-            <span>+</span> Add Job
+            <span>+</span> Add Jobs
         </a>
     </nav>
 
@@ -32,7 +32,7 @@
                 <div class="card-header">
                     <img class="job-icon" src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png">
                     <div class="job-info">
-                        <p class="nick">@{{ job.nick }}</p>
+                        <p class="nick">{{ job.nick }}</p>
                         <p class="work">{{ job.position }}</p>
                     </div>
                 </div>
@@ -61,7 +61,7 @@ import { ref } from 'vue';
 const open = ref(false);
 const jobs = ref([
     {
-        nick: "Whsxg",
+        nick: "Matvey",
         position: "Frontend Developer",
         description: "Разработка Telegram Mini App по ТЗ",
         tags: ["JavaScript", "Rust"]
