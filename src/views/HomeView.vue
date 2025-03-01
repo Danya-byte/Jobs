@@ -152,9 +152,6 @@ onMounted(() => {
     position: absolute;
 }
 
-body {
-    overflow: hidden;
-}
 
 .nav-bar {
     display: flex;

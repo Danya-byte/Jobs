@@ -51,11 +51,6 @@ const startAnimation = () => {
     min-height: 100vh;
     padding: 30px 20px;
     overflow: hidden;
-    position: absolute;
-}
-
-body {
-    overflow: hidden;
 }
 
 .back-btn img {
