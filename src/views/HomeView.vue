@@ -171,13 +171,13 @@ onMounted(() => {
     border: 2px solid #97f492;
     position: relative;
     overflow: hidden;
-    animation: pulse 2s infinite;
+    animation: pulse-border 2s infinite;
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.05); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(151, 244, 146, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0); }
 }
 
 .user-name {
@@ -186,11 +186,23 @@ onMounted(() => {
     gap: 2px;
 }
 
+@keyframes fade-in {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes color-change {
+    0% { color: #97f492; }
+    25% { color: #6de06a; }
+    50% { color: #4acf8e; }
+    75% { color: #3bb3b3; }
+    100% { color: #97f492; }
+}
+
 .first-name, .last-name {
-    color: #fff;
     font-size: 16px;
     font-weight: 600;
-    animation: pulse 2s infinite;
+    animation: fade-in 0.5s ease-in-out, color-change 5s infinite;
 }
 
 .add-button {
