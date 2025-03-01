@@ -51,6 +51,7 @@ const startAnimation = () => {
     background: linear-gradient(-45deg, #101622, #182038);
     min-height: 100vh;
     padding: 30px 20px;
+    overflow: hidden;
 }
 
 .back-btn img {
