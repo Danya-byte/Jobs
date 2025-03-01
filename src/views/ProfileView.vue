@@ -6,7 +6,7 @@
 
     <div class="profile-content">
         <img
-            :src="userPhoto || 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png'"
+            :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
             class="profile-avatar"
             @load="startAnimation"
             :class="{'avatar-visible': loaded}"
@@ -23,9 +23,8 @@ const loaded = ref(false);
 const userPhoto = ref('');
 
 onMounted(() => {
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-        const user = Telegram.WebApp.initDataUnsafe.user;
-        userPhoto.value = user.photo_url;
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url) {
+        userPhoto.value = Telegram.WebApp.initDataUnsafe.user.photo_url;
     }
 });
 
