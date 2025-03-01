@@ -215,6 +215,7 @@ onMounted(() => {
     transition: 0.3s;
     font-size: 14px;
     text-decoration: none;
+    animation: pulse 2s infinite;
 }
 
 .add-button:hover {
@@ -237,11 +238,13 @@ onMounted(() => {
     transition: 0.3s;
     font-size: 14px;
     font-weight: 600;
+    animation: pulse 2s infinite;
 }
 
 .category-btn.active {
     background: #97f492;
     color: #000;
+    animation: none;
 }
 
 .job-card {
@@ -425,5 +428,11 @@ onMounted(() => {
 .slide-up-leave-to {
     opacity: 0;
     transform: translateY(100%);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 </style>
