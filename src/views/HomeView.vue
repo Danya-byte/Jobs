@@ -25,8 +25,7 @@
         </div>
 
         <div class="jobs-list">
-            <button
-                @click="openProfile(job.userId)"
+            <div
                 class="job-card"
                 v-for="(job, index) in jobs"
                 :key="index"
@@ -34,7 +33,12 @@
                 <div class="card-header">
                     <img class="job-icon" src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png">
                     <div class="job-info">
-                        <p class="nick">{{ job.nick }}</p>
+                        <RouterLink
+                            :to="'/profile/' + job.userId"
+                            class="nick-link"
+                        >
+                            <p class="nick">{{ job.nick }}</p>
+                        </RouterLink>
                         <p class="work">{{ job.position }}</p>
                     </div>
                 </div>
@@ -42,7 +46,7 @@
                 <div class="tags">
                     <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
                 </div>
-            </button>
+            </div>
         </div>
     </div>
 </div>
@@ -50,9 +54,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 
-const router = useRouter();
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
@@ -66,10 +68,6 @@ const jobs = ref([
         tags: ["JavaScript", "Vue 3", "Pinia", "Rust"]
     }
 ]);
-
-const openProfile = (userId) => {
-    router.push(`/profile/${userId}`);
-};
 
 onMounted(() => {
     if (window.Telegram?.WebApp) {
@@ -128,19 +126,6 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 2px;
-}
-
-@keyframes fade-in {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes color-change {
-    0% { color: #97f492; }
-    25% { color: #6de06a; }
-    50% { color: #4acf8e; }
-    75% { color: #3bb3b3; }
-    100% { color: #97f492; }
 }
 
 .first-name, .last-name {
@@ -249,6 +234,11 @@ onMounted(() => {
     padding: 5px 12px;
     border-radius: 8px;
     font-size: 12px;
+}
+
+.nick-link {
+    text-decoration: none;
+    color: inherit;
 }
 
 @keyframes pulse {

@@ -116,16 +116,25 @@ const saveReview = async (reviewText, rating) => {
 
 const initiatePayment = () => {
     if (!paymentAllowed.value) {
-        window.Telegram.WebApp.sendInvoice({
-            title: 'Оставить отзыв',
-            description: 'Публикация отзыва для пользователя',
-            currency: 'XTR',
-            prices: [{ label: 'Отзыв', amount: 1000 }],
-            payload: JSON.stringify({
-                type: 'review',
-                targetUserId: userId.value
-            })
-        });
+        if (window.Telegram?.WebApp?.sendInvoice) {
+            window.Telegram.WebApp.sendInvoice({
+                title: 'Оставить отзыв',
+                description: 'Публикация отзыва для пользователя',
+                currency: 'XTR',
+                prices: [{ label: 'Отзыв', amount: 1000 }],
+                payload: JSON.stringify({
+                    type: 'review',
+                    targetUserId: userId.value
+                })
+            }, (status) => {
+                if (status === 'successful') {
+                    handlePaymentSuccess();
+                }
+            });
+        } else {
+            console.error('Telegram WebApp payment API not available');
+            handlePaymentSuccess();
+        }
     } else {
         showReviewForm();
     }

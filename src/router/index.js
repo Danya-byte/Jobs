@@ -9,9 +9,10 @@ const router = createRouter({
       component: () => import('../views/HomeView.vue'),
     },
     {
-      path: '/profile/:userId?', // Добавлен параметр userId
+      path: '/profile/:userId',
       name: 'profile',
       component: () => import('../views/ProfileView.vue'),
+      props: true
     },
     {
       path: '/nft',
