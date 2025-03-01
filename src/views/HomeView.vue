@@ -169,7 +169,7 @@ onMounted(() => {
     padding: 8px 20px; /* Уменьшен размер кнопки */
     border-radius: 30px;
     color: #000;
-    font-weight: 600;
+    font-weight: 400;
     box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
     transition: 0.3s;
     font-size: 14px; /* Уменьшен размер текста */
@@ -194,6 +194,8 @@ onMounted(() => {
     cursor: pointer;
     transition: 0.3s;
     font-size: 14px; /* Увеличен размер текста */
+    font-weight: 600;
+
 }
 
 .category-btn.active {
