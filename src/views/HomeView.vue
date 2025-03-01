@@ -275,7 +275,7 @@ onMounted(() => {
     flex-grow: 1;
     overflow-y: auto;
     padding-right: 20px;
-    margin-right: -10px;
+    margin-right: -15px;
 }
 
 .jobs-list {
