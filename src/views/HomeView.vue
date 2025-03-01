@@ -238,13 +238,12 @@ onMounted(() => {
     transition: 0.3s;
     font-size: 14px;
     font-weight: 600;
-    animation: pulse 2s infinite;
 }
 
 .category-btn.active {
     background: #97f492;
     color: #000;
-    animation: none;
+    animation: pulse 2s infinite; /* Анимация только для активной кнопки */
 }
 
 .job-card {
