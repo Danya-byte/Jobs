@@ -1,16 +1,74 @@
 <template>
 <div class="profile-container">
-    <img
-        src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png"
-        class="profile-avatar"
-        style="transform: translateZ(0)"
-    >
+    <RouterLink to="/" class="back-btn">
+        <img src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png" alt="Back">
+    </RouterLink>
+
+    <div class="profile-content">
+        <img
+            src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png"
+            class="profile-avatar"
+            @load="startAnimation"
+            :class="{'avatar-visible': loaded}"
+        >
+        <h1 class="profile-name">@whsxg</h1>
+    </div>
 </div>
 </template>
 
+<script setup>
+import { ref } from 'vue';
+
+const loaded = ref(false);
+
+const startAnimation = () => {
+    loaded.value = true;
+};
+</script>
+
 <style scoped>
+.profile-container {
+    background: #101622;
+    min-height: 100vh;
+    padding: 30px 20px;
+}
+
+.back-btn img {
+    width: 30px;
+    height: 30px;
+    filter: invert(1);
+    transition: transform 0.3s ease;
+}
+
+.back-btn:hover img {
+    transform: translateX(-5px);
+}
+
+.profile-content {
+    text-align: center;
+    margin-top: 50px;
+}
+
 .profile-avatar {
-    will-change: transform, opacity;
-    backface-visibility: hidden;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid #97f492;
+    box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.avatar-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.profile-name {
+    color: #fff;
+    font-size: 28px;
+    margin-top: 25px;
+    text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
 }
 </style>

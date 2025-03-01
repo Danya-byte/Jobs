@@ -1,40 +1,43 @@
 <template>
 <div class="nft-container">
-    <div
-        class="nft"
-        style="transform: translateZ(0)"
-        @mouseenter="hoverNFT = true"
-        @mouseleave="hoverNFT = false"
-        :style="{
-            transform: hoverNFT ? 'rotate3d(1, 2, 1, 5deg) scale(1.05)' : 'none'
-        }"
-    >
-        <img
-            src="https://media0.giphy.com/media/qrII0WLKNJLltYiv6R/giphy.gif"
-            class="nft-image"
-            alt="NFT"
-        >
-        <p class="infonft">Eternal Candle</p>
-        <p class="numbergift">#24216</p>
-        <button @click="open1 = true" class="buygift">0.75 TON</button>
-    </div>
-
-    <div v-if="open1" class="modal">
-        <button @click="open1 = false" class="close-btn">&times;</button>
-    </div>
+    <!-- Аналогичная структура с акцентом на NFT -->
 </div>
 </template>
 
-<script setup>
-import { ref } from 'vue';
-
-const open1 = ref(false);
-const hoverNFT = ref(false);
-</script>
-
 <style scoped>
-.nft {
-    backface-visibility: hidden;
-    will-change: transform;
+.nft-container {
+    background: #101622;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.nft-card {
+    background: #181e29;
+    border-radius: 20px;
+    padding: 15px;
+    margin: 10px;
+    border: 1px solid #2d3540;
+    transition: 0.3s;
+}
+
+.nft-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 25px rgba(151, 244, 146, 0.1);
+}
+
+.nft-image {
+    width: 100%;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.buy-button {
+    background: #97f492;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    color: #000;
+    font-weight: 600;
+    margin-top: 10px;
 }
 </style>
