@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -9,7 +9,7 @@ const router = createRouter({
       component: () => import('../views/HomeView.vue'),
     },
     {
-      path: '/profile',
+      path: '/profile/:userId?', // Добавлен параметр userId
       name: 'profile',
       component: () => import('../views/ProfileView.vue'),
     },
@@ -19,6 +19,6 @@ const router = createRouter({
       component: () => import('../views/NftView.vue'),
     },
   ],
-})
+});
 
-export default router
+export default router;
