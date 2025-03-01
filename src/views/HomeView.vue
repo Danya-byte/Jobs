@@ -119,7 +119,7 @@ const jobs = ref([
         ],
         tags: ["JavaScript", "Vue 3", "Toxic", "School"],
         contact: "https://t.me/workiks_admin"
-    }
+    };
     {
         nick: "Danone",
         position: "Moderator",
