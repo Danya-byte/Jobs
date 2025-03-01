@@ -26,7 +26,7 @@
 
         <div class="jobs-list">
             <button
-                @click="showJobDetails(job)"
+                @click="openProfile(job.userId)"
                 class="job-card"
                 v-for="(job, index) in jobs"
                 :key="index"
@@ -45,86 +45,30 @@
             </button>
         </div>
     </div>
-
-    <transition name="slide-up">
-        <div v-if="open" class="modal-overlay" @click.self="open = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>{{ selectedJob.position }}</h2>
-                    <button class="close-btn" @click="open = false">&times;</button>
-                </div>
-
-                <div class="job-details">
-                    <div class="user-info">
-                        <img :src="jobIcon" class="job-icon">
-                        <div>
-                            <p class="nickname">{{ selectedJob.nick }}</p>
-                            <p class="experience">{{ selectedJob.experience }}</p>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <h3>Description</h3>
-                        <p class="description">{{ selectedJob.description }}</p>
-                    </div>
-
-                    <div class="section">
-                        <h3>Requirements</h3>
-                        <ul class="requirements">
-                            <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
-                        </ul>
-                    </div>
-
-                    <div class="section">
-                        <h3>Skills</h3>
-                        <div class="tags">
-                            <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-
-                    <a
-                        :href="selectedJob.contact || 'https://t.me/workiks_admin'"
-                        class="contact-btn"
-                        target="_blank"
-                    >
-                        Contact via Telegram
-                    </a>
-                </div>
-            </div>
-        </div>
-    </transition>
 </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
-const open = ref(false);
-const selectedJob = ref({});
+const router = useRouter();
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
-const jobIcon = 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png';
 
 const jobs = ref([
     {
         nick: "Matvey",
         position: "Frontend Developer",
-        experience: "5 years experience",
+        userId: 12345,
         description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска",
-        requirements: [
-            "Опыт работы с Vue.js 3 года",
-            "Знание TypeScript",
-            "Имею опыт интеграции с Telegram API"
-        ],
-        tags: ["JavaScript", "Vue 3", "Pinia", "Rust"],
-        contact: "https://t.me/workiks_admin"
+        tags: ["JavaScript", "Vue 3", "Pinia", "Rust"]
     }
 ]);
 
-const showJobDetails = (job) => {
-    selectedJob.value = job;
-    open.value = true;
+const openProfile = (userId) => {
+    router.push(`/profile/${userId}`);
 };
 
 onMounted(() => {
@@ -243,7 +187,7 @@ onMounted(() => {
 .category-btn.active {
     background: #97f492;
     color: #000;
-    animation: pulse 2s infinite; /* Анимация только для активной кнопки */
+    animation: pulse 2s infinite;
 }
 
 .job-card {
@@ -305,128 +249,6 @@ onMounted(() => {
     padding: 5px 12px;
     border-radius: 8px;
     font-size: 12px;
-}
-
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    align-items: flex-end;
-}
-
-.modal {
-    background: #181e29;
-    width: 100%;
-    border-radius: 20px 20px 0 0;
-    padding: 25px;
-    max-height: 90vh;
-    overflow-y: auto;
-    transform: translateY(100%);
-    animation: slide-up 0.3s ease-out forwards;
-}
-
-@keyframes slide-up {
-    to {
-        transform: translateY(0);
-    }
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-}
-
-.modal-header h2 {
-    color: #97f492;
-    margin: 0;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 28px;
-    cursor: pointer;
-    padding: 0 10px;
-}
-
-.job-details {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.nickname {
-    color: #97f492;
-    margin: 0;
-    font-size: 18px;
-}
-
-.experience {
-    color: #8a8f98;
-    margin: 0;
-    font-size: 14px;
-}
-
-.section h3 {
-    color: #fff;
-    margin: 0 0 10px 0;
-    font-size: 16px;
-}
-
-.description {
-    color: #c2c6cf;
-    line-height: 1.5;
-    margin: 0;
-}
-
-.requirements {
-    padding-left: 20px;
-    margin: 0;
-    color: #c2c6cf;
-}
-
-.requirements li {
-    margin-bottom: 8px;
-}
-
-.contact-btn {
-    background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
-    color: #000;
-    text-align: center;
-    padding: 15px;
-    border-radius: 12px;
-    text-decoration: none;
-    font-weight: 600;
-    margin-top: 20px;
-    transition: transform 0.2s;
-}
-
-.contact-btn:hover {
-    transform: translateY(-2px);
-}
-
-.slide-up-enter-active,
-.slide-up-leave-active {
-    transition: opacity 0.3s, transform 0.3s;
-}
-
-.slide-up-enter-from,
-.slide-up-leave-to {
-    opacity: 0;
-    transform: translateY(100%);
 }
 
 @keyframes pulse {
