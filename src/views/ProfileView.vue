@@ -113,6 +113,63 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.profile-container {
+    background: linear-gradient(-45deg, #101622, #182038);
+    min-height: 100vh;
+    padding: 30px 20px;
+}
+
+.back-btn img {
+    width: 30px;
+    height: 30px;
+    filter: invert(1);
+    transition: transform 0.3s ease;
+}
+
+.back-btn:hover img {
+    transform: translateX(-5px);
+}
+
+.profile-content {
+    text-align: center;
+    margin-top: 50px;
+}
+
+.profile-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: border-rotate 3s infinite linear;
+}
+
+@keyframes border-rotate {
+    0% {
+        border-color: #97f492;
+        filter: hue-rotate(0deg);
+    }
+    100% {
+        border-color: #97f492;
+        filter: hue-rotate(360deg);
+    }
+}
+
+.avatar-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.profile-name {
+    color: #fff;
+    font-size: 28px;
+    margin-top: 25px;
+    text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
+}
+
 .reviews-section {
     margin-top: 40px;
     padding: 20px;
@@ -127,6 +184,7 @@ onMounted(() => {
     border: 1px solid #2d3540;
     color: white;
     border-radius: 8px;
+    resize: none;
 }
 
 .add-review button {
@@ -136,6 +194,12 @@ onMounted(() => {
     border-radius: 20px;
     border: none;
     cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s;
+}
+
+.add-review button:hover {
+    transform: translateY(-2px);
 }
 
 .reviews-list {
@@ -147,6 +211,7 @@ onMounted(() => {
     padding: 15px;
     border-radius: 12px;
     margin-bottom: 15px;
+    border: 1px solid #2d3540;
 }
 
 .review-header {
@@ -160,15 +225,19 @@ onMounted(() => {
     width: 30px;
     height: 30px;
     border-radius: 50%;
+    border: 1px solid #97f492;
 }
 
 .review-author {
     color: #97f492;
     font-size: 14px;
+    font-weight: 500;
 }
 
 .review-text {
-    color: #fff;
+    color: #e0e0e0;
     margin: 0;
+    line-height: 1.5;
+    font-size: 14px;
 }
 </style>
