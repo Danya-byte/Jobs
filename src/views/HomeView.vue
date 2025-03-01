@@ -372,7 +372,7 @@ onMounted(() => {
     transform: translateY(100%);
     animation: slide-up 0.3s ease-out forwards;
     padding-right: 20px;
-    margin-right: -40px;
+    margin-right: -500px;
 }
 
 @keyframes slide-up {
