@@ -1,11 +1,15 @@
 <template>
 <div class="container">
     <nav class="nav-bar">
-        <RouterLink to="/profile">
+        <RouterLink to="/profile" class="profile-link">
             <img
                 :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
                 class="profile-icon"
             >
+            <div class="user-name" v-if="userFirstName || userLastName">
+                <span class="first-name">{{ userFirstName }}</span>
+                <span class="last-name">{{ userLastName }}</span>
+            </div>
         </RouterLink>
         <a href="https://t.me/workiks_admin" class="add-button">
             <span></span> Add Jobs
@@ -98,6 +102,8 @@ import { ref, onMounted } from 'vue';
 const open = ref(false);
 const selectedJob = ref({});
 const userPhoto = ref('');
+const userFirstName = ref('');
+const userLastName = ref('');
 const jobIcon = 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png';
 
 const jobs = ref([
@@ -128,8 +134,11 @@ onMounted(() => {
         Telegram.WebApp.disableVerticalSwipes();
     }
 
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url) {
-        userPhoto.value = Telegram.WebApp.initDataUnsafe.user.photo_url;
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        userPhoto.value = user.photo_url || '';
+        userFirstName.value = user.first_name || '';
+        userLastName.value = user.last_name || '';
     }
 });
 </script>
@@ -148,6 +157,13 @@ onMounted(() => {
     margin-bottom: 30px;
 }
 
+.profile-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
 .profile-icon {
     width: 50px;
     height: 50px;
@@ -164,15 +180,33 @@ onMounted(() => {
     100% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0); }
 }
 
+.user-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: fade-in 0.5s ease-in-out;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.first-name, .last-name {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
 .add-button {
     background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
-    padding: 8px 20px; /* размер кнопки */
+    padding: 8px 20px;
     border-radius: 30px;
     color: #000;
     font-weight: 400;
     box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
     transition: 0.3s;
-    font-size: 14px; /* размер текста */
+    font-size: 14px;
     text-decoration: none;
 }
 
@@ -190,13 +224,12 @@ onMounted(() => {
     background: #272e38;
     color: #fff;
     border: none;
-    padding: 10px 25px; /* размер кнопок */
+    padding: 10px 25px;
     border-radius: 12px;
     cursor: pointer;
     transition: 0.3s;
-    font-size: 14px; /* размер текста */
+    font-size: 14px;
     font-weight: 600;
-
 }
 
 .category-btn.active {
