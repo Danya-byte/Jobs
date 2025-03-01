@@ -8,7 +8,7 @@
             >
         </RouterLink>
         <a href="https://t.me/workiks_admin" class="add-button">
-            <span>+</span> Add Jobs
+            <span></span> Add Jobs
         </a>
     </nav>
 
