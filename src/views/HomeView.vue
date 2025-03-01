@@ -163,7 +163,7 @@ onMounted(() => {
     min-height: 100vh;
     padding: 20px;
     overflow: hidden;
-    position: absolute;
+    position: relative;
 }
 
 
@@ -243,6 +243,7 @@ onMounted(() => {
     display: flex;
     gap: 15px;
     margin-bottom: 30px;
+
 }
 
 .category-btn {
@@ -263,15 +264,22 @@ onMounted(() => {
     animation: pulse 2s infinite;
 }
 
+.jobs-list {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
 .job-card {
     background: #181e29;
-    width: 100%;
+    width: auto;
+    min-width: 300px;
     border-radius: 20px;
     padding: 20px;
-    margin-bottom: 15px;
     border: 1px solid #2d3540;
     transition: 0.3s;
     text-align: left;
+    box-sizing: border-box;
 }
 
 .job-card:hover {
