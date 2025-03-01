@@ -21,10 +21,13 @@ import { ref, onMounted } from 'vue';
 
 const loaded = ref(false);
 const userPhoto = ref('');
+const username = ref('');
 
 onMounted(() => {
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url) {
-        userPhoto.value = Telegram.WebApp.initDataUnsafe.user.photo_url;
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        userPhoto.value = user.photo_url;
+        username.value = user.username || 'None';
     }
 });
 
