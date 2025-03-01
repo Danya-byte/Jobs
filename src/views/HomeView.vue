@@ -1,30 +1,28 @@
 <template>
 <div class="container">
-    <div class="static-header">
-        <nav class="nav-bar">
-            <RouterLink to="/profile" class="profile-link">
-                <img
-                    :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
-                    class="profile-icon"
-                >
-                <div class="user-name" v-if="userFirstName || userLastName">
-                    <span class="first-name">{{ userFirstName }}</span>
-                </div>
-            </RouterLink>
-            <a href="https://t.me/workiks_admin" class="add-button">
-                <span></span> Add Jobs
-            </a>
-        </nav>
+    <nav class="nav-bar">
+        <RouterLink to="/profile" class="profile-link">
+            <img
+                :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
+                class="profile-icon"
+            >
+            <div class="user-name" v-if="userFirstName || userLastName">
+                <span class="first-name">{{ userFirstName }}</span>
+            </div>
+        </RouterLink>
+        <a href="https://t.me/workiks_admin" class="add-button">
+            <span></span> Add Jobs
+        </a>
+    </nav>
 
+    <div class="content">
         <div class="categories">
             <button class="category-btn active">Jobs</button>
             <RouterLink to="#">
                 <button class="category-btn">Gift</button>
             </RouterLink>
         </div>
-    </div>
 
-    <div class="scrollable-jobs">
         <div class="jobs-list">
             <button
                 @click="showJobDetails(job)"
@@ -134,6 +132,7 @@ onMounted(() => {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.disableVerticalSwipes();
+
     }
 
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
@@ -147,28 +146,105 @@ onMounted(() => {
 
 <style scoped>
 .container {
+    background: linear-gradient(45deg, #101622, #1a2233);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.nav-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.profile-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.profile-icon {
+    width: 47px;
+    height: 47px;
+    border-radius: 50%;
+    border: 2px solid #97f492;
+    position: relative;
+    overflow: hidden;
+    animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(151, 244, 146, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0); }
+}
+
+.user-name {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+    gap: 2px;
 }
 
-.static-header {
-    background: linear-gradient(45deg, #101622, #1a2233);
-    padding: 20px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+@keyframes fade-in {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
 }
 
-.scrollable-jobs {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 20px 20px;
+@keyframes color-change {
+    0% { color: #97f492; }
+    25% { color: #6de06a; }
+    50% { color: #4acf8e; }
+    75% { color: #3bb3b3; }
+    100% { color: #97f492; }
 }
 
-.jobs-list {
-    padding-bottom: 20px;
+.first-name, .last-name {
+    font-size: 16px;
+    font-weight: 600;
+    animation: fade-in 0.5s ease-in-out, color-change 5s infinite;
+}
+
+.add-button {
+    background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
+    padding: 8px 20px;
+    border-radius: 30px;
+    color: #000;
+    font-weight: 400;
+    box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
+    transition: 0.3s;
+    font-size: 14px;
+    text-decoration: none;
+    animation: pulse 2s infinite;
+}
+
+.add-button:hover {
+    transform: translateY(-2px);
+}
+
+.categories {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.category-btn {
+    background: #272e38;
+    color: #fff;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.category-btn.active {
+    background: #97f492;
+    color: #000;
+    animation: pulse 2s infinite;
 }
 
 .job-card {
