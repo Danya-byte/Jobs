@@ -111,7 +111,7 @@ const jobs = ref([
         position: "Vrotend Developer",
         profileLink: '/profile/Matvey',
         experience: "5 years experience",
-        description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска",
+        description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска(я вас скамну и сольюсь)",
         requirements: [
             "Опыт работы с Vue.js 1 час",
             "Знание HTML на школьном уровне",
