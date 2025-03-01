@@ -24,6 +24,13 @@ const userPhoto = ref('');
 const username = ref('');
 
 onMounted(() => {
+    if (window.Telegram?.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.requestFullscreen();
+        Telegram.WebApp.disableVerticalSwipes();
+    }
+
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const user = Telegram.WebApp.initDataUnsafe.user;
         userPhoto.value = user.photo_url;

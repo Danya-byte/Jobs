@@ -122,6 +122,13 @@ const showJobDetails = (job) => {
 };
 
 onMounted(() => {
+    if (window.Telegram?.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.requestFullscreen();
+        Telegram.WebApp.disableVerticalSwipes();
+    }
+
     if (window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url) {
         userPhoto.value = Telegram.WebApp.initDataUnsafe.user.photo_url;
     }
