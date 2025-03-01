@@ -189,11 +189,11 @@ onMounted(() => {
     background: #272e38;
     color: #fff;
     border: none;
-    padding: 15px 30px; /* Увеличен размер кнопок */
+    padding: 10px 25px; /* Увеличен размер кнопок */
     border-radius: 12px;
     cursor: pointer;
     transition: 0.3s;
-    font-size: 16px; /* Увеличен размер текста */
+    font-size: 14px; /* Увеличен размер текста */
 }
 
 .category-btn.active {
