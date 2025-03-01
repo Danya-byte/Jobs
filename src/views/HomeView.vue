@@ -275,7 +275,7 @@ onMounted(() => {
     flex-grow: 1;
     overflow-y: auto;
     padding-right: 20px;
-    margin-right: -50px;
+    margin-right: -20px;
 }
 
 .jobs-list {
@@ -372,7 +372,7 @@ onMounted(() => {
     transform: translateY(100%);
     animation: slide-up 0.3s ease-out forwards;
     padding-right: 30px;
-    margin-right: -50px;
+    margin-right: -20px;
 }
 
 @keyframes slide-up {
