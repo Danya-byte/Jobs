@@ -322,6 +322,8 @@ onMounted(() => {
     display: flex;
     gap: 10px;
     margin-top: 15px;
+    flex-wrap: wrap;
+    max-width: 100%;
 }
 
 .tag {
@@ -330,6 +332,8 @@ onMounted(() => {
     padding: 5px 12px;
     border-radius: 8px;
     font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .modal-overlay {
