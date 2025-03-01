@@ -29,7 +29,6 @@ onMounted(() => {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.disableVerticalSwipes();
-
     }
 
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
@@ -51,6 +50,10 @@ const startAnimation = () => {
     background: linear-gradient(-45deg, #101622, #182038);
     min-height: 100vh;
     padding: 30px 20px;
+    overflow: hidden;
+}
+
+body {
     overflow: hidden;
 }
 
