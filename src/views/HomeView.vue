@@ -166,12 +166,13 @@ onMounted(() => {
 
 .add-button {
     background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
-    padding: 12px 25px;
+    padding: 8px 20px; /* Уменьшен размер кнопки */
     border-radius: 30px;
     color: #000;
     font-weight: 600;
     box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
     transition: 0.3s;
+    font-size: 14px; /* Уменьшен размер текста */
 }
 
 .add-button:hover {
@@ -188,10 +189,11 @@ onMounted(() => {
     background: #272e38;
     color: #fff;
     border: none;
-    padding: 10px 25px;
+    padding: 15px 30px; /* Увеличен размер кнопок */
     border-radius: 12px;
     cursor: pointer;
     transition: 0.3s;
+    font-size: 16px; /* Увеличен размер текста */
 }
 
 .category-btn.active {
