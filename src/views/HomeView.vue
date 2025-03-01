@@ -3,7 +3,7 @@
     <nav class="nav-bar">
         <RouterLink to="/profile">
             <img
-                src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png"
+                :src="userPhoto || 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png'"
                 class="profile-icon"
             >
         </RouterLink>
@@ -12,7 +12,6 @@
         </a>
     </nav>
 
-    <!-- Основной контент -->
     <div class="content">
         <div class="categories">
             <button class="category-btn active">Jobs</button>
@@ -21,7 +20,6 @@
             </RouterLink>
         </div>
 
-        <!-- Карточки -->
         <div class="jobs-list">
             <button
                 @click="open = true"
@@ -44,11 +42,9 @@
         </div>
     </div>
 
-    <!-- Модальное окно -->
     <transition name="fade">
         <div v-if="open" class="modal-overlay" @click.self="open = false">
             <div class="modal">
-                <!-- Контент модалки -->
             </div>
         </div>
     </transition>
@@ -56,9 +52,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 const open = ref(false);
+const userPhoto = ref('');
+
+onMounted(() => {
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        userPhoto.value = user.photo_url;
+    }
+});
+
 const jobs = ref([
     {
         nick: "Matvey",
@@ -71,7 +76,7 @@ const jobs = ref([
 
 <style scoped>
 .container {
-    background: #101622;
+    background: linear-gradient(45deg, #101622, #1a2233);
     min-height: 100vh;
     padding: 20px;
 }
@@ -88,10 +93,19 @@ const jobs = ref([
     height: 40px;
     border-radius: 50%;
     border: 2px solid #97f492;
+    position: relative;
+    overflow: hidden;
+    animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(151, 244, 146, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0); }
 }
 
 .add-button {
-    background: #97f492;
+    background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
     padding: 12px 25px;
     border-radius: 30px;
     color: #000;
@@ -102,12 +116,6 @@ const jobs = ref([
 
 .add-button:hover {
     transform: translateY(-2px);
-}
-
-.page-title {
-    color: #fff;
-    font-size: 32px;
-    margin-bottom: 20px;
 }
 
 .categories {

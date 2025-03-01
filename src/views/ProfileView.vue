@@ -6,7 +6,7 @@
 
     <div class="profile-content">
         <img
-            src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png"
+            :src="userPhoto || 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png'"
             class="profile-avatar"
             @load="startAnimation"
             :class="{'avatar-visible': loaded}"
@@ -17,9 +17,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 const loaded = ref(false);
+const userPhoto = ref('');
+
+onMounted(() => {
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        userPhoto.value = user.photo_url;
+    }
+});
 
 const startAnimation = () => {
     loaded.value = true;
@@ -28,7 +36,7 @@ const startAnimation = () => {
 
 <style scoped>
 .profile-container {
-    background: #101622;
+    background: linear-gradient(-45deg, #101622, #182038);
     min-height: 100vh;
     padding: 30px 20px;
 }
@@ -53,11 +61,23 @@ const startAnimation = () => {
     width: 150px;
     height: 150px;
     border-radius: 50%;
-    border: 3px solid #97f492;
+    border: 3px solid transparent;
     box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
     opacity: 0;
     transform: translateY(20px);
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: border-rotate 3s infinite linear;
+}
+
+@keyframes border-rotate {
+    0% {
+        border-color: #97f492;
+        filter: hue-rotate(0deg);
+    }
+    100% {
+        border-color: #97f492;
+        filter: hue-rotate(360deg);
+    }
 }
 
 .avatar-visible {

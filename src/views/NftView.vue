@@ -1,12 +1,11 @@
 <template>
 <div class="nft-container">
-    <!-- Аналогичная структура с акцентом на NFT -->
 </div>
 </template>
 
 <style scoped>
 .nft-container {
-    background: #101622;
+    background: linear-gradient(45deg, #101622, #1a2233);
     padding: 20px;
     min-height: 100vh;
 }
@@ -32,7 +31,7 @@
 }
 
 .buy-button {
-    background: #97f492;
+    background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
     width: 100%;
     padding: 12px;
     border-radius: 12px;
