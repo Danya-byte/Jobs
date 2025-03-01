@@ -11,7 +11,7 @@
             @load="startAnimation"
             :class="{'avatar-visible': loaded}"
         >
-        <h1 class="profile-name">@whsxg</h1>
+        <h1 class="profile-name">{{ username }}</h1>
     </div>
 </div>
 </template>
