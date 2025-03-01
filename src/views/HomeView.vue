@@ -23,25 +23,27 @@
             </RouterLink>
         </div>
 
-        <div class="jobs-list">
-            <button
-                @click="showJobDetails(job)"
-                class="job-card"
-                v-for="(job, index) in jobs"
-                :key="index"
-            >
-                <div class="card-header">
-                    <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
-                    <div class="job-info">
-                        <p class="nick">{{ job.nick }}</p>
-                        <p class="work">{{ job.position }}</p>
+        <div class="jobs-scroll-container">
+            <div class="jobs-list">
+                <button
+                    @click="showJobDetails(job)"
+                    class="job-card"
+                    v-for="(job, index) in jobs"
+                    :key="index"
+                >
+                    <div class="card-header">
+                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
+                        <div class="job-info">
+                            <p class="nick">{{ job.nick }}</p>
+                            <p class="work">{{ job.position }}</p>
+                        </div>
                     </div>
-                </div>
-                <p class="job-description">{{ job.description }}</p>
-                <div class="tags">
-                    <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
-                </div>
-            </button>
+                    <p class="job-description">{{ job.description }}</p>
+                    <div class="tags">
+                        <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
+                    </div>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -166,7 +168,6 @@ onMounted(() => {
     position: relative;
 }
 
-
 .nav-bar {
     display: flex;
     justify-content: space-between;
@@ -242,8 +243,8 @@ onMounted(() => {
 .categories {
     display: flex;
     gap: 15px;
-    margin-bottom: 30px;
-
+    margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .category-btn {
@@ -264,10 +265,23 @@ onMounted(() => {
     animation: pulse 2s infinite;
 }
 
+.content {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 100px);
+}
+
+.jobs-scroll-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
 .jobs-list {
     display: grid;
     gap: 15px;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    padding-bottom: 20px;
 }
 
 .job-card {
