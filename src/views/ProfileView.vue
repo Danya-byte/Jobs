@@ -29,6 +29,7 @@ onMounted(() => {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.disableVerticalSwipes();
+        Telegram.WebApp.requestFullscreen();
     }
 
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
