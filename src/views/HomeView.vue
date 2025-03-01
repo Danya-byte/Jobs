@@ -31,7 +31,7 @@
                 :key="index"
             >
                 <div class="card-header">
-                    <img class="job-icon" src="https://i.postimg.cc/FK8K0bcd/IMG-1157.png">
+                    <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
                     <div class="job-info">
                         <p class="nick">{{ job.nick }}</p>
                         <p class="work">{{ job.position }}</p>
@@ -103,7 +103,7 @@ const selectedJob = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
-const jobIcon = 'https://i.postimg.cc/FK8K0bcd/IMG-1157.png';
+const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 
 const jobs = ref([
     {
@@ -119,6 +119,20 @@ const jobs = ref([
         ],
         tags: ["JavaScript", "Vue 3", "Toxic", "School"],
         contact: "https://t.me/workiks_admin"
+    }
+    {
+        nick: "Danone",
+        position: "Moderator",
+        profileLink: '/profile/Matvey',
+        experience: "5 years ebli",
+        description: "Я ничего не умею,сосу хуй с Deleted у Raven-а,ну в принципе и всё,а еще могу повыебываться",
+        requirements: [
+            "Опыт работы с Raven 10 лет",
+            "Знание Iznanki на все 100%",
+            "Имею опыт сосать хуй у обоих сразу(такое никто не может делать)"
+        ],
+        tags: ["ДИНАХУ", "ДИНАХУ", "ДИНАХУ", "ДУДКУ", "ДУДКУ", "ДУДКУ"],
+        contact: "https://t.me/Danoneee777"
     }
 ]);
 
