@@ -117,7 +117,7 @@ const jobs = ref([
             "Знание HTML на школьном уровне",
             "Имею опыт интеграции с Telegram API(на самом деле - нет)"
         ],
-        tags: ["JavaScript", "Vue 3", "Pinia", "Rust"],
+        tags: ["JavaScript", "Vue 3", "Toxic", "School"],
         contact: "https://t.me/workiks_admin"
     }
 ]);
