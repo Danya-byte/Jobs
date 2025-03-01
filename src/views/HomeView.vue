@@ -112,7 +112,7 @@ const jobs = ref([
             "Имею опыт интеграции с Telegram API"
         ],
         tags: ["JavaScript", "Vue 3", "Pinia", "Rust"],
-        contact: "https://t.me/matvey_example"
+        contact: "https://t.me/workiks_admin"
     }
 ]);
 
