@@ -1,0 +1,12 @@
+* {
+    transition: 
+        background-color 0.3s ease,
+        transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+        opacity 0.3s ease !important;
+    will-change: transform, opacity;
+}
+
+.jobs1, .nft, .modal, .contact {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
