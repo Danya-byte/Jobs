@@ -56,7 +56,10 @@
                 </div>
 
                 <div class="job-details">
-                    <div class="user-info" @click="$router.push(selectedJob.profileLink)">
+                    <div class="user-info" @click="$router.push({
+                        path: selectedJob.profileLink,
+                        query: { username: selectedJob.username }
+                    })">
                         <img :src="jobIcon" class="job-icon">
                         <div>
                             <p class="nickname">{{ selectedJob.nick }}</p>
@@ -140,6 +143,13 @@ const jobs = ref([
     }
 ]);
 
+const getAvatarUrl = (username) => {
+  if (username) {
+    return `https://t.me/i/userpic/160/${username}.jpg`;
+  }
+  return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+};
+
 const showJobDetails = (job) => {
     selectedJob.value = job;
     open.value = true;
@@ -154,7 +164,7 @@ onMounted(() => {
 
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const user = Telegram.WebApp.initDataUnsafe.user;
-        userPhoto.value = user.photo_url || '';
+        userPhoto.value = user.photo_url || getAvatarUrl(user.username);
         userFirstName.value = user.first_name || '';
         userLastName.value = user.last_name || '';
     }

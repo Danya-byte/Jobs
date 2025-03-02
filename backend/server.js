@@ -71,9 +71,10 @@ app.get("/api/user/:userId", async (req, res) => {
     res.json({
       id: userId,
       firstName: member.user.first_name,
+      username: member.user.username || '',
       photoUrl: member.user.photo?.small_file_id
         ? `https://api.telegram.org/file/bot${BOT_TOKEN}/${(await bot.api.getFile(member.user.photo.small_file_id)).file_path}`
-        : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+        : ''
     });
   } catch (e) {
     res.status(404).json({ error: "Профиль не найден" });

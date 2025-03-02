@@ -59,7 +59,7 @@ const userId = route.params.userId;
 const currentUser = Telegram.WebApp.initDataUnsafe.user;
 
 const loaded = ref(false);
-const profileData = ref({ firstName: '', photoUrl: '' });
+const profileData = ref({ firstName: '', photoUrl: '', username: '' });
 const allReviews = ref([]);
 const reviewText = ref('');
 
@@ -67,37 +67,38 @@ const isOwner = computed(() => {
   return currentUser?.id?.toString() === userId?.toString();
 });
 
+const getAvatarUrl = (username) => {
+  if (username && username !== 'undefined') {
+    return `https://t.me/i/userpic/160/${username}.jpg`;
+  } else {
+    return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  }
+};
+
 const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
 };
 
 const handleAvatarError = (e) => {
-  e.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  e.target.src = getAvatarUrl(profileData.value.username);
 };
 
 const loadProfileData = async () => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`, {
-      headers: {
-        "Cache-Control": "no-cache",
-        "X-Requested-With": "XMLHttpRequest"
-      }
-    });
-
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`);
     if (response.status === 404) {
       Telegram.WebApp.showAlert("Профиль не найден");
       router.push("/");
       return;
     }
-
     if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
-
     const data = await response.json();
-    profileData.value = data;
+    profileData.value = {
+      ...data,
+      photoUrl: data.photoUrl || getAvatarUrl(data.username)
+    };
   } catch (error) {
-    console.error("Ошибка загрузки профиля:", error);
-    Telegram.WebApp.showAlert("Ошибка загрузки");
-    router.push("/");
+    profileData.value.photoUrl = getAvatarUrl(profileData.value.username);
   }
 };
 
@@ -123,7 +124,6 @@ const initiatePayment = async () => {
     });
 
     if (!response.ok) throw new Error('Ошибка создания платежа');
-
     const { invoiceLink } = await response.json();
 
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
