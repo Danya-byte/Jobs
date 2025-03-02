@@ -65,17 +65,16 @@ app.post("/api/createInvoiceLink", async (req, res) => {
       title: "Submit a Review",
       description: "Pay 1 Telegram Star to submit a review",
       payload: `${user.id}_${Date.now()}`,
-      provider_token: "TEST",
-      currency: "USD",
-      prices: JSON.stringify([{ label: "Review Submission", amount: 100 }]),
-      need_shipping_address: false
+      provider_token: "",
+      currency: "XTR",
+      prices: [{ label: "Review Submission", amount: 100 }]
     };
 
     const invoiceLink = await bot.createInvoiceLink(invoiceOptions);
-    res.json({ success: true, invoice_link: invoiceLink });
-
+    res.json({ success: true, invoiceLink });
   } catch (error) {
-    res.status(500).json({ success: false, error: "Failed to create payment link" });
+    console.error("Invoice error:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
