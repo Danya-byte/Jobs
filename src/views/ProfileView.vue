@@ -92,7 +92,7 @@ const initiatePayment = async () => {
 
     if (!response.ok) throw new Error('Ошибка сервера');
     const { invoice_link } = await response.json();
-    Telegram.WebApp.openInvoice(invoice_link, { test: true });
+    Telegram.WebApp.openInvoice(invoice_link);
 
     Telegram.WebApp.onEvent('invoiceClosed', (status) => {
       if (status === 'paid') {

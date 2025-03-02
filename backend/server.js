@@ -28,10 +28,15 @@ function validateTelegramData(data) {
                            .update(BOT_TOKEN)
                            .digest();
 
-        const checkString = [
-            `auth_date=${data.auth_date}`,
-            `user=${decodeURIComponent(data.user)}`
-        ].sort().join('\n');
+        const params = new URLSearchParams();
+        params.append('auth_date', data.auth_date);
+        params.append('user', decodeURIComponent(data.user));
+        if (data.query_id) params.append('query_id', data.query_id);
+
+        const checkString = Array.from(params.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, val]) => `${key}=${val}`)
+            .join('\n');
 
         return crypto.createHmac('sha256', secret)
                    .update(checkString)
@@ -59,8 +64,9 @@ app.post('/create-invoice', async (req, res) => {
             title: "Публикация отзыва",
             description: "Размещение отзыва в вашем профиле",
             currency: "XTR",
-            prices: [{ label: "1 Telegram Star", amount: 1 }],
-            payload: Buffer.from(JSON.stringify(payload)).toString('base64')
+            prices: [{ label: "Отзыв", amount: 1 }],
+            payload: Buffer.from(JSON.stringify(payload)).toString('base64'),
+            provider_token: ""
         });
 
         res.json({ invoice_link: response.data.result });
