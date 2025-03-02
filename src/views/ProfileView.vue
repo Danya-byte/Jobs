@@ -238,3 +238,4 @@ const submitReview = async (text) => {
   margin-top: 8px;
 }
 </style>
+

@@ -139,3 +139,4 @@ bot.on("pre_checkout_query", (query) => {
 initReviewsFile().then(() => {
   app.listen(port, () => console.log(`Server running on port ${port}`));
 });
+
