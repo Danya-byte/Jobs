@@ -2,7 +2,10 @@ const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
 const app = express();
+
+app.use(cors());
 app.use(express.json());
+
 
 const BOT_TOKEN ="7745513073:AAHn69lYwvKBx-gXn7fKBevLnnDZzXp1lrY";
 const CLOUDPUB_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
