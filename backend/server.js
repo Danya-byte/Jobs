@@ -1,177 +1,147 @@
-const express = require('express');
-const cors = require('cors');
-const crypto = require('crypto');
-const axios = require('axios');
-const fs = require('fs').promises;
-const path = require('path');
+const express = require("express");
+const TelegramBot = require("node-telegram-bot-api");
+const cors = require("cors");
+const crypto = require("crypto");
+const fs = require("fs").promises;
+const path = require("path");
+require("dotenv").config();
 
 const app = express();
+const port = 3000;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 
-// Настройка CORS
-const corsOptions = {
-    origin: (origin, callback) => {
-        const allowedOrigins = ['https://jobs-iota-one.vercel.app', 'http://localhost:5173'];
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'X-Telegram-Data'],
-};
-app.use(cors(corsOptions));
+// Track paid users
+const paidUsers = new Map();
+
 app.use(express.json());
+app.use(cors({
+  origin: ["https://jobs-iota-one.vercel.app", "http://localhost:5173"],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "X-Telegram-Data"],
+}));
 
-const BOT_TOKEN = "7745513073:AAHn69lYwvKBx-gXn7fKBevLnnDZzXp1lrY";
-const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
-
-// Инициализация файла отзывов
+// Initialize reviews file
 async function initReviewsFile() {
-    try {
-        await fs.access(REVIEWS_FILE);
-    } catch {
-        await fs.writeFile(REVIEWS_FILE, '{}');
-    }
+  try {
+    await fs.access(REVIEWS_FILE);
+  } catch {
+    await fs.writeFile(REVIEWS_FILE, "{}");
+  }
 }
 
-// Валидация данных Telegram
+// Validate Telegram data
 function validateTelegramData(initData) {
-    try {
-        console.log("📌 Валидация Telegram-данных:", initData);
-        const params = new URLSearchParams(initData);
-        const receivedHash = params.get('hash');
-        params.delete('hash'); // Удаляем hash для формирования checkString
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get("hash");
+  params.delete("hash");
 
-        if (!receivedHash || !params.get('auth_date')) {
-            console.error("⚠️ Отсутствуют обязательные параметры");
-            return false;
-        }
+  const secretKey = crypto.createHash("sha256").update(BOT_TOKEN).digest();
+  const checkString = Array.from(params.entries())
+    .map(([key, value]) => `${key}=${value}`)
+    .sort()
+    .join("\n");
+  const calculatedHash = crypto
+    .createHmac("sha256", secretKey)
+    .update(checkString)
+    .digest("hex");
 
-        // Исключаем signature, если он есть, так как он не используется в WebApp initData
-        params.delete('signature');
-
-        const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest();
-        const checkString = Array.from(params.entries())
-            .map(([key, value]) => `${key}=${value}`)
-            .sort()
-            .join('\n');
-
-        console.log("🔹 Check String:", checkString);
-        const calculatedHash = crypto.createHmac('sha256', secretKey)
-            .update(checkString)
-            .digest('hex');
-
-        console.log("🔹 Calculated Hash:", calculatedHash);
-        console.log("🔹 Received Hash:", receivedHash);
-
-        return calculatedHash === receivedHash;
-    } catch (e) {
-        console.error("⚠️ Ошибка в validateTelegramData:", e);
-        return false;
-    }
+  return calculatedHash === receivedHash;
 }
 
-// Эндпоинт для получения отзывов
-app.get('/reviews', async (req, res) => {
-    try {
-        const { user_id } = req.query;
-        if (!user_id) {
-            return res.status(400).json({ error: 'Missing user_id' });
-        }
-
-        const reviewsData = await fs.readFile(REVIEWS_FILE, 'utf8');
-        const reviews = JSON.parse(reviewsData);
-        const userReviews = reviews[user_id] || [];
-        res.json(userReviews);
-    } catch (error) {
-        console.error('Ошибка при получении отзывов:', error);
-        res.status(500).json({ error: 'Failed to load reviews' });
+// Create invoice
+app.post("/api/createInvoiceLink", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Invalid signature" });
     }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+    const payload = `${user.id}_${Date.now()}`;
+
+    const invoiceLink = await bot.createInvoiceLink(
+      "Submit a Review",
+      "Pay 1 Telegram Star to submit a review",
+      payload,
+      "", // No provider_token for XTR
+      "XTR",
+      [{ label: "Review Submission", amount: 1 }]
+    );
+
+    res.json({ success: true, invoiceLink });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// Эндпоинт для создания инвойса
-app.post('/create-invoice', async (req, res) => {
-    try {
-        const telegramData = req.headers['x-telegram-data'];
-        console.log("🔹 Полученные данные от Telegram:", telegramData);
-
-        if (!validateTelegramData(telegramData)) {
-            console.error("❌ Ошибка валидации Telegram-данных");
-            return res.status(401).json({ error: 'Invalid signature' });
-        }
-
-        const params = new URLSearchParams(telegramData);
-        const user = JSON.parse(params.get('user'));
-        const orderId = `${user.id}_${Date.now()}`;
-
-        console.log("📨 Запрос к Telegram API: createInvoiceLink");
-        const response = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
-            title: "Публикация отзыва",
-            description: "Размещение отзыва в профиле пользователя",
-            currency: "XTR",
-            prices: [{ label: "1 Telegram Star", amount: 1 }],
-            payload: Buffer.from(JSON.stringify({ user_id: user.id, order_id: orderId })).toString('base64'),
-            provider_token: "",
-            photo_url: "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp",
-            max_tip_amount: 0
-        });
-
-        console.log("📩 Ответ от Telegram API:", response.data);
-        res.json({ invoice_link: response.data.result });
-    } catch (error) {
-        console.error("❌ Ошибка при создании инвойса:", error.response?.data || error.message);
-        res.status(500).json({ error: error.message });
+// Submit review
+app.post("/api/submit-review", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Invalid signature" });
     }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: "Missing review text" });
+    }
+
+    if (!paidUsers.has(user.id)) {
+      return res.status(403).json({ error: "Payment required" });
+    }
+
+    const reviewsData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviews = JSON.parse(reviewsData);
+    if (!reviews[user.id]) reviews[user.id] = [];
+    reviews[user.id].push({ text, date: new Date().toISOString() });
+
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
+    paidUsers.delete(user.id); // Clear payment status after submission
+    res.sendStatus(200);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to submit review" });
+  }
 });
 
-// Эндпоинт для отправки отзыва
-app.post('/submit-review', async (req, res) => {
-    try {
-        const telegramData = req.headers['x-telegram-data'];
-        if (!validateTelegramData(telegramData)) {
-            return res.status(401).json({ error: 'Invalid signature' });
-        }
-
-        const { text, user_id } = req.body;
-        if (!text || !user_id) {
-            return res.status(400).json({ error: 'Missing text or user_id' });
-        }
-
-        const reviewsData = await fs.readFile(REVIEWS_FILE, 'utf8');
-        const reviews = JSON.parse(reviewsData);
-        if (!reviews[user_id]) reviews[user_id] = [];
-        reviews[user_id].push({ text, date: new Date().toISOString() });
-
-        await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
-        res.sendStatus(200);
-    } catch (error) {
-        console.error('Ошибка при сохранении отзыва:', error);
-        res.status(500).json({ error: 'Failed to submit review' });
+// Get reviews
+app.get("/api/reviews", async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    if (!user_id) {
+      return res.status(400).json({ error: "Missing user_id" });
     }
+
+    const reviewsData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviews = JSON.parse(reviewsData);
+    const userReviews = reviews[user_id] || [];
+    res.json(userReviews);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load reviews" });
+  }
 });
 
-// Webhook для обработки платежей
-app.post('/webhook', async (req, res) => {
-    try {
-        console.log("📩 Webhook вызван:", req.body);
-        const { message } = req.body;
-
-        if (message?.successful_payment) {
-            console.log("✅ Успешный платёж:", message.successful_payment);
-            const payload = JSON.parse(
-                Buffer.from(message.successful_payment.invoice_payload, 'base64').toString()
-            );
-            console.log("🔹 Расшифрованный payload:", payload);
-        }
-        res.sendStatus(200);
-    } catch (error) {
-        console.error("❌ Ошибка в Webhook:", error);
-        res.status(500).json({ error: error.message });
-    }
+// Handle successful payments
+bot.on("message", (msg) => {
+  if (msg.successful_payment) {
+    const userId = msg.from.id;
+    paidUsers.set(userId, msg.successful_payment.telegram_payment_charge_id);
+    bot.sendMessage(msg.chat.id, "Payment successful! You can now submit a review.");
+  }
 });
 
-// Запуск сервера
+bot.on("pre_checkout_query", (query) => {
+  bot.answerPreCheckoutQuery(query.id, true).catch((err) =>
+    console.error("Pre-checkout query failed:", err)
+  );
+});
+
 initReviewsFile().then(() => {
-    app.listen(3000, () => console.log('🚀 Сервер запущен на порту 3000'));
+  app.listen(port, () => console.log(`Server running on port ${port}`));
 });

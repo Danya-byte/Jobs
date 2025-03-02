@@ -67,7 +67,7 @@ const startAnimation = () => loaded.value = true;
 const loadReviews = async () => {
   try {
     const userId = Telegram.WebApp.initDataUnsafe.user?.id;
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/reviews?user_id=${userId}`);
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?user_id=${userId}`);
     reviews.value = await response.json();
   } catch (error) {
     console.error('Ошибка загрузки отзывов:', error);
@@ -76,7 +76,7 @@ const loadReviews = async () => {
 
 const initiatePayment = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/create-invoice', {
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/create-invoice', {
       method: 'POST',
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData
@@ -109,7 +109,7 @@ const initiatePayment = async () => {
 
 const submitReview = async (text) => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/submit-review', {
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/submit-review', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
