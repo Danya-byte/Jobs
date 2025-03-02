@@ -34,12 +34,14 @@
       </div>
 
       <div v-else class="reviews-chat">
-        <div v-for="(review, index) in allReviews" :key="index" class="review-message">
-          <div class="message-content">
-            {{ review.text }}
-          </div>
-          <div class="message-date">
-            {{ new Date(review.date).toLocaleString() }}
+        <div class="reviews-scroll-container">
+          <div v-for="(review, index) in allReviews" :key="index" class="review-message">
+            <div class="message-content">
+              {{ review.text }}
+            </div>
+            <div class="message-date">
+              {{ new Date(review.date).toLocaleString() }}
+            </div>
           </div>
         </div>
       </div>
@@ -181,7 +183,7 @@ const initiatePayment = async () => {
 
 .review-input {
   width: 100%;
-  height: 100px;
+  height: 70px;
   margin: 20px 0;
   padding: 15px;
   background: rgba(255,255,255,0.1);
@@ -220,6 +222,23 @@ const initiatePayment = async () => {
 
 .reviews-chat {
   margin-top: 20px;
+  overflow: hidden;
+}
+
+.reviews-scroll-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 12px;
+}
+
+.reviews-scroll-container::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+.reviews-scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .review-message {
