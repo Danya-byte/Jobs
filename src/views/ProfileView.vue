@@ -70,7 +70,7 @@ const loadReviews = async () => {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?user_id=${userId}`);
     reviews.value = await response.json();
   } catch (error) {
-    console.error('Ошибка загрузки отзывов:', error);
+    Telegram.WebApp.showAlert('Ошибка загрузки отзывов');
   }
 };
 
@@ -83,23 +83,16 @@ const initiatePayment = async () => {
       }
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Unknown error');
-    }
+    if (!response.ok) throw new Error('Ошибка создания платежа');
 
-    const { invoice_link } = await response.json();
+    const { invoiceLink } = await response.json();
 
-    Telegram.WebApp.openInvoice(invoice_link, (status) => {
+    Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'paid') {
         Telegram.WebApp.showPopup({
           title: 'Напишите отзыв',
           message: 'Введите текст:',
-          buttons: [{
-            type: 'default',
-            text: 'Отправить',
-            id: 'submit'
-          }]
+          buttons: [{ type: 'default', text: 'Отправить', id: 'submit' }]
         }, (buttonId) => {
           if (buttonId === 'submit') {
             submitReview(Telegram.WebApp.popupParams.value);
@@ -108,7 +101,7 @@ const initiatePayment = async () => {
       }
     });
   } catch (error) {
-    Telegram.WebApp.showAlert(`Ошибка: ${error.message}`);
+    Telegram.WebApp.showAlert(error.message);
   }
 };
 
@@ -120,15 +113,16 @@ const submitReview = async (text) => {
         'Content-Type': 'application/json',
         'X-Telegram-Data': Telegram.WebApp.initData
       },
-      body: JSON.stringify({
-        text: text,
-        user_id: Telegram.WebApp.initDataUnsafe.user?.id
-      })
+      body: JSON.stringify({ text })
     });
 
-    if (response.ok) loadReviews();
+    if (!response.ok) throw new Error('Ошибка отправки');
+
+    await loadReviews();
+    Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
+
   } catch (error) {
-    console.error('Ошибка отправки отзыва:', error);
+    Telegram.WebApp.showAlert(error.message);
   }
 };
 </script>
