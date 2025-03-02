@@ -4,15 +4,14 @@
       <img src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png" alt="Back">
     </RouterLink>
 
-    <div class="profile-header">
-      <div class="avatar-container" :class="{'avatar-shrink': loaded}">
-        <img
-          :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
-          class="profile-avatar"
-          @load="startAnimation"
-        >
-      </div>
-      <h1 class="profile-name" :class="{'name-visible': loaded}">{{ userFirstName }}</h1>
+    <div class="profile-content">
+      <img
+        :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
+        class="profile-avatar"
+        @load="startAnimation"
+        :class="{'avatar-visible': loaded}"
+      >
+      <h1 class="profile-name">{{ userFirstName }}</h1>
     </div>
 
     <div class="reviews-section">
@@ -139,59 +138,48 @@ const initiatePayment = async () => {
   transform: translateX(-5px);
 }
 
-.profile-header {
-  position: relative;
-  z-index: 2;
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.avatar-container {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  margin: -50px auto 0;
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+.profile-content {
+  text-align: center;
+  margin-top: 50px;
 }
 
 .profile-avatar {
-  width: 100%;
-  height: 100%;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   border: 3px solid transparent;
   box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
-  transform: scale(1);
+  opacity: 0;
+  transform: translateY(20px);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   animation: border-rotate 3s infinite linear;
 }
 
-.avatar-shrink {
-  margin-top: 20px;
-  width: 100px;
-  height: 100px;
+@keyframes border-rotate {
+  0% { border-color: #97f492; filter: hue-rotate(0deg); }
+  100% { border-color: #97f492; filter: hue-rotate(360deg); }
 }
 
-.avatar-shrink .profile-avatar {
-  transform: scale(0.6);
-  box-shadow: 0 0 15px rgba(151, 244, 146, 0.2);
-}
-
-.profile-name {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
-}
-
-.name-visible {
+.avatar-visible {
   opacity: 1;
   transform: translateY(0);
 }
 
+.profile-name {
+  color: #fff;
+  font-size: 28px;
+  margin-top: 25px;
+  text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
+}
+
 .reviews-section {
-  position: relative;
-  z-index: 1;
-  margin-top: -40px;
-  padding-top: 120px;
-  transition: margin-top 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 40px;
+  padding: 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 12px;
+  height: calc(100vh - 300px);
+  display: flex;
+  flex-direction: column;
 }
 
 .review-input {
