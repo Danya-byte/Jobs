@@ -1,5 +1,6 @@
+const { Bot, Keyboard } = require("grammy");
+const { hydrateFiles } = require("@grammyjs/files");
 const express = require("express");
-const TelegramBot = require("node-telegram-bot-api");
 const cors = require("cors");
 const crypto = require("crypto");
 const fs = require("fs").promises;
@@ -9,8 +10,11 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
+
+// Инициализация бота Grammy
+const bot = new Bot(BOT_TOKEN);
+bot.api.config.use(hydrateFiles(bot.token));
 
 const paidUsers = new Map();
 
@@ -21,6 +25,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "X-Telegram-Data"],
 }));
 
+// Инициализация файла отзывов
 async function initReviewsFile() {
   try {
     await fs.access(REVIEWS_FILE);
@@ -29,6 +34,7 @@ async function initReviewsFile() {
   }
 }
 
+// Валидация данных Telegram
 function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
@@ -51,6 +57,7 @@ function validateTelegramData(initData) {
   }
 }
 
+// Маршрут для создания инвойса
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -61,23 +68,27 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     const user = JSON.parse(params.get("user"));
     if (!user?.id) return res.status(400).json({ error: "Invalid user data" });
 
-    const invoiceOptions = {
+    const invoice = {
       title: "Submit a Review",
       description: "Pay 1 Telegram Star to submit a review",
-      payload: `${user.id}_${Date.now()}`,
-      provider_token: "",
       currency: "XTR",
-      prices: [{ label: "Review Submission", amount: 100 }]
+      prices: [{ label: "Review Submission", amount: 100 }],
+      payload: `${user.id}_${Date.now()}`,
+      provider_data: JSON.stringify({ user_id: user.id })
     };
 
-    const invoiceLink = await bot.createInvoiceLink(invoiceOptions);
+    const invoiceLink = await bot.api.createInvoiceLink(invoice);
     res.json({ success: true, invoiceLink });
   } catch (error) {
     console.error("Invoice error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({
+      success: false,
+      error: error.description || error.message
+    });
   }
 });
 
+// Остальные маршруты остаются без изменений
 app.post("/api/submit-review", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -114,21 +125,24 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
-bot.on("message", (msg) => {
-  if (msg.successful_payment) {
-    const userId = msg.from.id;
-    paidUsers.set(userId, msg.successful_payment.telegram_payment_charge_id);
-    bot.sendMessage(msg.chat.id, "Payment successful! You can now submit a review.");
-  }
+// Обработчики платежей в Grammy
+bot.on("pre_checkout_query", async (ctx) => {
+  await ctx.answerPreCheckoutQuery(true);
 });
 
-bot.on("pre_checkout_query", (query) => {
-  bot.answerPreCheckoutQuery(query.id, true);
+bot.on("message:successful_payment", async (ctx) => {
+  const userId = ctx.from.id;
+  paidUsers.set(userId, ctx.message.successful_payment.telegram_payment_charge_id);
+  await ctx.reply("Payment successful! You can now submit a review.");
+});
+
+// Запуск сервера и бота
+initReviewsFile().then(() => {
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+    bot.start();
+  });
 });
 
 process.on("uncaughtException", console.error);
 process.on("unhandledRejection", console.error);
-
-initReviewsFile().then(() => {
-  app.listen(port, () => console.log(`Server running on port ${port}`));
-});

@@ -1,11 +1,16 @@
 {
   "name": "telegram-payment-backend",
   "dependencies": {
+    "@grammyjs/files": "^1.1.1",
     "axios": "^1.8.1",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "crypto-js": "^4.1.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "node-telegram-bot-api": "^0.66.0"
+    "fs": "^0.0.1-security",
+    "grammy": "^1.35.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "path": "^0.12.7"
   }
 }
