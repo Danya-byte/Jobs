@@ -13,6 +13,18 @@
         >
         <h1 class="profile-name">{{ userFirstName }}</h1>
     </div>
+
+    <div class="reviews-section">
+        <button class="leave-review-btn" @click="initiatePayment">
+            Оставить отзыв за 1★
+        </button>
+        <div class="reviews-list">
+            <div v-for="(review, index) in reviews" :key="index" class="review-item">
+                <p class="review-text">{{ review.text }}</p>
+                <span class="review-author">{{ review.author }}</span>
+            </div>
+        </div>
+    </div>
 </div>
 </template>
 
@@ -21,27 +33,47 @@ import { ref, onMounted } from 'vue';
 
 const loaded = ref(false);
 const userPhoto = ref('');
-const username = ref('');
 const userFirstName = ref('');
+const reviews = ref([]);
 
 onMounted(() => {
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
-        Telegram.WebApp.disableVerticalSwipes();
+        loadReviews();
     }
 
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const user = Telegram.WebApp.initDataUnsafe.user;
         userPhoto.value = user.photo_url;
-        username.value = user.username || 'None';
         userFirstName.value = user.first_name || '';
-        userLastName.value = user.last_name || '';
     }
 });
 
-const startAnimation = () => {
-    loaded.value = true;
+const startAnimation = () => loaded.value = true;
+
+const initiatePayment = async () => {
+    try {
+        const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/create-invoice', {
+            method: 'POST',
+            headers: {
+                'X-Telegram-Data': Telegram.WebApp.initData
+            }
+        });
+        const { invoice_link } = await response.json();
+        Telegram.WebApp.openInvoice(invoice_link);
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+const loadReviews = async () => {
+    try {
+        const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/reviews');
+        reviews.value = await response.json();
+    } catch (error) {
+        console.error(error);
+    }
 };
 </script>
 
@@ -82,14 +114,8 @@ const startAnimation = () => {
 }
 
 @keyframes border-rotate {
-    0% {
-        border-color: #97f492;
-        filter: hue-rotate(0deg);
-    }
-    100% {
-        border-color: #97f492;
-        filter: hue-rotate(360deg);
-    }
+    0% { border-color: #97f492; filter: hue-rotate(0deg); }
+    100% { border-color: #97f492; filter: hue-rotate(360deg); }
 }
 
 .avatar-visible {
@@ -102,5 +128,50 @@ const startAnimation = () => {
     font-size: 28px;
     margin-top: 25px;
     text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
+}
+
+.reviews-section {
+    margin-top: 40px;
+    padding: 20px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+}
+
+.leave-review-btn {
+    background: linear-gradient(45deg, #97f492, #6adf66);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    color: #182038;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.leave-review-btn:hover {
+    transform: scale(1.05);
+}
+
+.reviews-list {
+    margin-top: 20px;
+}
+
+.review-item {
+    background: rgba(255,255,255,0.05);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.review-text {
+    color: #fff;
+    margin: 0;
+}
+
+.review-author {
+    color: #97f492;
+    font-size: 0.9em;
+    margin-top: 8px;
+    display: block;
 }
 </style>
