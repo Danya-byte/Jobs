@@ -63,6 +63,7 @@ const startAnimation = () => loaded.value = true;
 
 const initiatePayment = async () => {
     try {
+        console.log('Sending Telegram Data:', Telegram.WebApp.initData);
         const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/create-invoice', {
             method: 'POST',
             headers: {

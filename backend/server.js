@@ -22,21 +22,33 @@ async function initReviewsFile() {
 
 function validateTelegramData(data) {
     try {
-        if (!data.hash) {
-            console.error('Missing Telegram hash');
+        if (!data.hash || !data.auth_date || !data.user) {
+            console.error('Missing required fields');
             return false;
         }
 
-        const secret = crypto.createHash('sha256').update(BOT_TOKEN).digest();
-        const checkString = Object.keys(data)
-            .filter(key => key !== 'hash')
-            .sort()
-            .map(key => `${key}=${data[key]}`)
+        const checkParams = new URLSearchParams();
+        checkParams.append('auth_date', data.auth_date);
+        checkParams.append('user', data.user);
+        if (data.query_id) checkParams.append('query_id', data.query_id);
+
+        const checkString = Array.from(checkParams.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([key, val]) => `${key}=${val}`)
             .join('\n');
 
-        return crypto.createHmac('sha256', secret)
-                   .update(checkString)
-                   .digest('hex') === data.hash;
+        const secretKey = crypto.createHmac('sha256', 'WebAppData')
+                             .update(BOT_TOKEN)
+                             .digest();
+
+        const generatedHash = crypto.createHmac('sha256', secretKey)
+                                  .update(checkString)
+                                  .digest('hex');
+
+        console.log('Generated hash:', generatedHash);
+        console.log('Received hash:', data.hash);
+
+        return generatedHash === data.hash;
     } catch (e) {
         console.error('Validation error:', e);
         return false;
@@ -45,12 +57,24 @@ function validateTelegramData(data) {
 
 app.post('/create-invoice', async (req, res) => {
     try {
+        if (!req.headers['x-telegram-data']) {
+            return res.status(401).send('Authorization required');
+        }
+
         const telegramData = new URLSearchParams(req.headers['x-telegram-data']);
         const dataObject = Object.fromEntries(telegramData);
 
         if (!validateTelegramData(dataObject)) {
-            console.error('Validation failed:', dataObject);
-            return res.status(401).send('Invalid Telegram data');
+            return res.status(401).json({ error: 'Invalid signature' });
+        }
+
+        const payload = {
+            user_id: dataObject.user?.id,
+            temp_data: Date.now()
+        };
+
+        if (!payload.user_id) {
+            return res.status(400).send('User ID is required');
         }
 
         const response = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
@@ -58,16 +82,13 @@ app.post('/create-invoice', async (req, res) => {
             description: "Публикация отзыва в профиле",
             currency: "XTR",
             prices: [{ label: "Отзыв", amount: 1 }],
-            payload: Buffer.from(JSON.stringify({
-                user_id: dataObject.user?.id,
-                temp_data: Date.now()
-            })).toString('base64')
+            payload: Buffer.from(JSON.stringify(payload)).toString('base64')
         });
 
         res.json({ invoice_link: response.data.result });
     } catch (error) {
-        console.error('Invoice creation error:', error.response?.data || error.message);
-        res.status(500).send(error.message);
+        console.error('Full error:', error);
+        res.status(500).send('Internal server error');
     }
 });
 
