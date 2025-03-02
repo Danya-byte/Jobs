@@ -56,27 +56,26 @@ function validateTelegramData(initData) {
   }
 }
 
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
-
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    if (!userId || userId === "undefined") return res.status(400).json({ error: "Invalid ID" });
+    if (!userId || isNaN(userId)) return res.status(400).json({ error: "Invalid ID" });
 
-    const member = await bot.api.getChatMember(userId, userId);
+    const user = await bot.api.getChat(userId);
+
+    const avatarUrl = user.username
+      ? `https://t.me/i/userpic/160/${user.username}.jpg`
+      : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 
     res.json({
       id: userId,
-      firstName: member.user.first_name,
-      username: member.user.username || '',
-      photoUrl: member.user.photo?.small_file_id
-        ? `https://api.telegram.org/file/bot${BOT_TOKEN}/${(await bot.api.getFile(member.user.photo.small_file_id)).file_path}`
-        : ''
+      firstName: user.first_name || 'User',
+      username: user.username || '',
+      photoUrl: avatarUrl
     });
+
   } catch (e) {
+    console.error('User error:', e);
     res.status(404).json({ error: "Профиль не найден" });
   }
 });
@@ -141,22 +140,6 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
-app.get("/api/all-reviews", async (req, res) => {
-  try {
-    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
-    const reviews = JSON.parse(rawData || "{}");
-
-    const allReviews = Object.values(reviews).filter(review =>
-      review.authorUserId && review.targetUserId && review.text
-    );
-
-    res.json(allReviews);
-  } catch (e) {
-    console.error("All reviews error:", e);
-    res.status(500).json({ error: "Failed to load all reviews" });
-  }
-});
-
 bot.on("pre_checkout_query", async (ctx) => {
   await ctx.answerPreCheckoutQuery(true);
 });
@@ -177,6 +160,7 @@ bot.on("message:successful_payment", async (ctx) => {
       reviewsData[userKey].push({
         text,
         authorUserId,
+        authorUsername: (await bot.api.getChat(authorUserId)).username,
         date: new Date().toISOString()
       });
 
