@@ -28,34 +28,24 @@ function validateTelegramData(data) {
             return false;
         }
 
-        const secretKey = crypto.createHmac('sha256', 'WebAppData')
-                              .update(BOT_TOKEN)
-                              .digest();
+        const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest(); // ✅ Исправленный ключ
 
-        const checkParams = new URLSearchParams({
-            auth_date: data.auth_date,
-            user: data.user,
-            ...(data.query_id && { query_id: data.query_id })
-        });
-
-        const checkString = Array.from(checkParams.entries())
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, v]) => `${k}=${v}`)
-            .join('\n');
-
+        const checkString = `auth_date=${data.auth_date}\nuser=${data.user}${data.query_id ? `\nquery_id=${data.query_id}` : ''}`;
         console.log("🔹 Check String:", checkString);
 
         const calculatedHash = crypto.createHmac('sha256', secretKey)
-                                   .update(checkString)
-                                   .digest('hex');
+                                    .update(checkString)
+                                    .digest('hex');
 
         console.log("🔹 Calculated Hash:", calculatedHash);
         console.log("🔹 Received Hash:", data.hash);
 
-        const isValid = calculatedHash === data.hash;
-        if (!isValid) console.error("❌ Хэш не совпадает!");
+        if (calculatedHash !== data.hash) {
+            console.error("❌ Хэш не совпадает!");
+            return false;
+        }
 
-        return isValid;
+        return true;
     } catch (e) {
         console.error("⚠️ Ошибка в validateTelegramData:", e);
         return false;
