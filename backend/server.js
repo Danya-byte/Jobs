@@ -17,10 +17,14 @@ bot.api.config.use(hydrateFiles(bot.token));
 
 app.use(express.json());
 app.use(cors({
-  origin: ["https://jobs-iota-one.vercel.app", "http://localhost:5173"],
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type", "X-Telegram-Data"],
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "X-Telegram-Data", "Authorization"],
+  exposedHeaders: ["Content-Length", "X-Request-Id"],
+  credentials: true
 }));
+
+app.options("*", cors());
 
 async function initReviewsFile() {
   try {
@@ -55,22 +59,23 @@ function validateTelegramData(initData) {
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+    if (!userId.match(/^\d+$/)) {
+      return res.status(400).json({ error: "Invalid user ID format" });
+    }
+
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     const reviews = JSON.parse(rawData || "{}");
 
-    const userReview = Object.values(reviews).find(
-      (review) => review.targetUserId === userId
-    );
-
     const userData = {
       id: userId,
-      firstName: userReview?.nick || "Пользователь",
+      firstName: "User#" + userId.slice(-4),
       photoUrl: "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp"
     };
 
-    res.json(userData);
+    res.status(200).json(userData);
   } catch (e) {
-    res.status(500).json({ error: "Ошибка загрузки данных пользователя" });
+    console.error("User data error:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

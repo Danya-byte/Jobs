@@ -71,7 +71,13 @@ const handleClickOutside = () => {
 
 const loadProfileData = async () => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`);
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`, {
+      headers: {
+        "Cache-Control": "no-cache",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    });
+
     if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
 
     const data = await response.json();
