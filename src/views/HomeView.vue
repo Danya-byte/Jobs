@@ -276,6 +276,12 @@ onMounted(() => {
     overflow-y: auto;
     padding-right: 20px;
     margin-right: -30px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.jobs-scroll-container::-webkit-scrollbar {
+    display: none;
 }
 
 .jobs-list {
