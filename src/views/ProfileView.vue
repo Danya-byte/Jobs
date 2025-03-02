@@ -15,8 +15,18 @@
     </div>
 
     <div class="reviews-section">
-      <button class="leave-review-btn" @click="initiatePayment">
-        Оставить отзыв за 1★
+      <textarea
+        v-model="reviewText"
+        class="review-input"
+        placeholder="Напишите ваш отзыв..."
+      ></textarea>
+
+      <button
+        class="leave-review-btn"
+        @click="initiatePayment"
+        :disabled="!reviewText"
+      >
+        Оплатить 1★ и отправить
       </button>
 
       <div v-if="reviews.length === 0" class="no-reviews">
@@ -44,6 +54,7 @@ const loaded = ref(false);
 const userPhoto = ref('');
 const userFirstName = ref('');
 const reviews = ref([]);
+const reviewText = ref('');
 
 onMounted(() => {
   if (window.Telegram?.WebApp) {
@@ -79,8 +90,10 @@ const initiatePayment = async () => {
     const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
       method: 'POST',
       headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData
-      }
+        'X-Telegram-Data': Telegram.WebApp.initData,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ text: reviewText.value })
     });
 
     if (!response.ok) throw new Error('Ошибка создания платежа');
@@ -89,38 +102,11 @@ const initiatePayment = async () => {
 
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'paid') {
-        Telegram.WebApp.showPopup({
-          title: 'Напишите отзыв',
-          message: 'Введите текст:',
-          buttons: [{ type: 'default', text: 'Отправить', id: 'submit' }]
-        }, (buttonId) => {
-          if (buttonId === 'submit') {
-            submitReview(Telegram.WebApp.popupParams.value);
-          }
-        });
+        loadReviews();
+        reviewText.value = '';
+        Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }
     });
-  } catch (error) {
-    Telegram.WebApp.showAlert(error.message);
-  }
-};
-
-const submitReview = async (text) => {
-  try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/submit-review', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Telegram-Data': Telegram.WebApp.initData
-      },
-      body: JSON.stringify({ text })
-    });
-
-    if (!response.ok) throw new Error('Ошибка отправки');
-
-    await loadReviews();
-    Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
-
   } catch (error) {
     Telegram.WebApp.showAlert(error.message);
   }
@@ -187,6 +173,18 @@ const submitReview = async (text) => {
   border-radius: 12px;
 }
 
+.review-input {
+  width: 100%;
+  height: 100px;
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #97f492;
+  border-radius: 12px;
+  color: white;
+  resize: vertical;
+}
+
 .leave-review-btn {
   background: linear-gradient(45deg, #97f492, #6adf66);
   border: none;
@@ -200,6 +198,11 @@ const submitReview = async (text) => {
 
 .leave-review-btn:hover {
   transform: scale(1.05);
+}
+
+.leave-review-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .no-reviews {

@@ -12,7 +12,6 @@ const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 
-// Инициализация бота Grammy
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
 
@@ -25,7 +24,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "X-Telegram-Data"],
 }));
 
-// Инициализация файла отзывов
 async function initReviewsFile() {
   try {
     await fs.access(REVIEWS_FILE);
@@ -34,7 +32,6 @@ async function initReviewsFile() {
   }
 }
 
-// Валидация данных Telegram
 function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
@@ -57,7 +54,6 @@ function validateTelegramData(initData) {
   }
 }
 
-// Маршрут для создания инвойса
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -68,48 +64,26 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     const user = JSON.parse(params.get("user"));
     if (!user?.id) return res.status(400).json({ error: "Invalid user data" });
 
-    const invoice = {
-      title: "Submit a Review",
-      description: "Pay 1 Telegram Star to submit a review",
-      currency: "XTR",
-      prices: [{ label: "Review Submission", amount: 100 }],
-      payload: `${user.id}_${Date.now()}`,
-      provider_data: JSON.stringify({ user_id: user.id })
-    };
+    const { text } = req.body;
+    const payload = `${user.id}_${Date.now()}`;
 
-    const invoiceLink = await bot.api.createInvoiceLink(invoice);
+    const pendingReviews = JSON.parse(await fs.readFile(REVIEWS_FILE));
+    pendingReviews[payload] = { text, userId: user.id };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(pendingReviews));
+
+    const invoiceLink = await bot.api.createInvoiceLink(
+      "Submit a Review",
+      "Pay 1 Telegram Star to submit a review",
+      payload,
+      "",
+      "XTR",
+      [{ label: "Review Submission", amount: 1 }]
+    );
+
     res.json({ success: true, invoiceLink });
   } catch (error) {
     console.error("Invoice error:", error);
-    res.status(500).json({
-      success: false,
-      error: error.description || error.message
-    });
-  }
-});
-
-// Остальные маршруты остаются без изменений
-app.post("/api/submit-review", async (req, res) => {
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!validateTelegramData(telegramData)) return res.status(401).json({ error: "Invalid signature" });
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-    const { text } = req.body;
-
-    if (!text) return res.status(400).json({ error: "Missing review text" });
-    if (!paidUsers.has(user.id)) return res.status(403).json({ error: "Payment required" });
-
-    const reviewsData = await fs.readFile(REVIEWS_FILE, "utf8");
-    const reviews = JSON.parse(reviewsData);
-    reviews[user.id] = [...(reviews[user.id] || []), { text, date: new Date().toISOString() }];
-
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
-    paidUsers.delete(user.id);
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: "Failed to submit review" });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -119,24 +93,38 @@ app.get("/api/reviews", async (req, res) => {
     if (!user_id) return res.status(400).json({ error: "Missing user_id" });
 
     const reviewsData = await fs.readFile(REVIEWS_FILE, "utf8");
-    res.json(JSON.parse(reviewsData)[user_id] || []);
-  } catch {
+    const reviews = JSON.parse(reviewsData || "{}");
+    res.json(reviews[user_id] || []);
+  } catch(e) {
+    console.error(e);
     res.status(500).json({ error: "Failed to load reviews" });
   }
 });
 
-// Обработчики платежей в Grammy
 bot.on("pre_checkout_query", async (ctx) => {
   await ctx.answerPreCheckoutQuery(true);
 });
 
 bot.on("message:successful_payment", async (ctx) => {
-  const userId = ctx.from.id;
-  paidUsers.set(userId, ctx.message.successful_payment.telegram_payment_charge_id);
-  await ctx.reply("Payment successful! You can now submit a review.");
+  const payload = ctx.message.invoice_payload;
+  const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
+
+  if (reviewsData[payload]) {
+    const { userId, text } = reviewsData[payload];
+
+    reviewsData[userId] = reviewsData[userId] || [];
+    reviewsData[userId].push({
+      text,
+      date: new Date().toISOString()
+    });
+
+    delete reviewsData[payload];
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData));
+
+    await ctx.reply("Отзыв опубликован! Спасибо!");
+  }
 });
 
-// Запуск сервера и бота
 initReviewsFile().then(() => {
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
