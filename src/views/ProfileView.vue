@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-container">
+  <div class="profile-container" @click="handleClickOutside">
     <RouterLink to="/" class="back-btn">
       <img src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png" alt="Back">
     </RouterLink>
@@ -19,6 +19,7 @@
         v-model="reviewText"
         class="review-input"
         placeholder="Напишите ваш отзыв..."
+        @click.stop
       ></textarea>
 
       <button
@@ -55,6 +56,10 @@ const userPhoto = ref('');
 const userFirstName = ref('');
 const allReviews = ref([]);
 const reviewText = ref('');
+
+const handleClickOutside = () => {
+  Telegram.WebApp.closeScanQrPopup();
+};
 
 onMounted(() => {
   if (window.Telegram?.WebApp) {
@@ -140,12 +145,12 @@ const initiatePayment = async () => {
 
 .profile-content {
   text-align: center;
-  margin-top: 50px;
+  margin-top: 30px;
 }
 
 .profile-avatar {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   border: 3px solid transparent;
   box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
@@ -167,17 +172,17 @@ const initiatePayment = async () => {
 
 .profile-name {
   color: #fff;
-  font-size: 28px;
-  margin-top: 25px;
+  font-size: 24px;
+  margin-top: 15px;
   text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
 }
 
 .reviews-section {
-  margin-top: 40px;
+  margin-top: 20px;
   padding: 20px;
   background: rgba(255,255,255,0.1);
   border-radius: 12px;
-  height: calc(100vh - 300px);
+  height: calc(100vh - 260px);
   display: flex;
   flex-direction: column;
 }
@@ -192,6 +197,7 @@ const initiatePayment = async () => {
   border-radius: 12px;
   color: white;
   resize: none;
+  overflow: hidden;
 }
 
 .leave-review-btn {
