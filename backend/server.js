@@ -23,19 +23,18 @@ async function initReviewsFile() {
 function validateTelegramData(data) {
     try {
         if (!data.hash || !data.auth_date || !data.user) {
-            console.error('Missing required fields');
             return false;
         }
 
-        const checkParams = new URLSearchParams();
-        checkParams.append('auth_date', data.auth_date);
-        checkParams.append('user', data.user);
-        if (data.query_id) checkParams.append('query_id', data.query_id);
+        const decodedUser = decodeURIComponent(data.user);
+        const checkParams = [
+            ['auth_date', data.auth_date],
+            ['user', decodedUser]
+        ];
+        if (data.query_id) checkParams.push(['query_id', data.query_id]);
 
-        const checkString = Array.from(checkParams.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([key, val]) => `${key}=${val}`)
-            .join('\n');
+        checkParams.sort((a, b) => a[0].localeCompare(b[0]));
+        const checkString = checkParams.map(([key, val]) => `${key}=${val}`).join('\n');
 
         const secretKey = crypto.createHmac('sha256', 'WebAppData')
                              .update(BOT_TOKEN)
@@ -45,12 +44,8 @@ function validateTelegramData(data) {
                                   .update(checkString)
                                   .digest('hex');
 
-        console.log('Generated hash:', generatedHash);
-        console.log('Received hash:', data.hash);
-
         return generatedHash === data.hash;
     } catch (e) {
-        console.error('Validation error:', e);
         return false;
     }
 }
@@ -87,7 +82,6 @@ app.post('/create-invoice', async (req, res) => {
 
         res.json({ invoice_link: response.data.result });
     } catch (error) {
-        console.error('Full error:', error);
         res.status(500).send('Internal server error');
     }
 });
@@ -114,7 +108,6 @@ app.post('/submit-review', async (req, res) => {
         await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
         res.sendStatus(200);
     } catch (error) {
-        console.error('Ошибка сохранения отзыва:', error);
         res.status(500).send(error.message);
     }
 });
