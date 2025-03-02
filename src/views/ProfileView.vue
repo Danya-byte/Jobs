@@ -33,15 +33,13 @@
         Пока отзывов нет, вы можете быть первым!
       </div>
 
-      <div v-else class="reviews-chat">
-        <div class="reviews-scroll-container">
-          <div v-for="(review, index) in allReviews" :key="index" class="review-message">
-            <div class="message-content">
-              {{ review.text }}
-            </div>
-            <div class="message-date">
-              {{ new Date(review.date).toLocaleString() }}
-            </div>
+      <div v-else class="reviews-list">
+        <div v-for="(review, index) in allReviews" :key="index" class="review-message">
+          <div class="message-content">
+            {{ review.text }}
+          </div>
+          <div class="message-date">
+            {{ new Date(review.date).toLocaleString() }}
           </div>
         </div>
       </div>
@@ -179,18 +177,21 @@ const initiatePayment = async () => {
   padding: 20px;
   background: rgba(255,255,255,0.1);
   border-radius: 12px;
+  height: calc(100vh - 300px);
+  display: flex;
+  flex-direction: column;
 }
 
 .review-input {
   width: 100%;
   height: 70px;
-  margin: 20px 0;
+  margin-bottom: 20px;
   padding: 15px;
   background: rgba(255,255,255,0.1);
   border: 1px solid #97f492;
   border-radius: 12px;
   color: white;
-  resize: vertical;
+  resize: none;
 }
 
 .leave-review-btn {
@@ -202,6 +203,7 @@ const initiatePayment = async () => {
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s;
+  margin-bottom: 20px;
 }
 
 .leave-review-btn:hover {
@@ -220,23 +222,18 @@ const initiatePayment = async () => {
   opacity: 0.7;
 }
 
-.reviews-chat {
-  margin-top: 20px;
-  overflow: hidden;
-}
-
-.reviews-scroll-container {
-  max-height: 300px;
+.reviews-list {
+  flex-grow: 1;
   overflow-y: auto;
   padding-right: 12px;
 }
 
-.reviews-scroll-container::-webkit-scrollbar {
+.reviews-list::-webkit-scrollbar {
   width: 0;
   background: transparent;
 }
 
-.reviews-scroll-container {
+.reviews-list {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
