@@ -110,31 +110,33 @@ const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.
 const jobs = ref([
     {
         nick: "Matvey",
-        position: "Vrotend Developer",
-        profileLink: '/profile/Matvey',
+        userId: 1029594875,
+        position: "Frontend Developer",
+        profileLink: '/profile/1029594875',
         experience: "5 years experience",
-        description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска(я вас скамну и сольюсь)",
+        description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
         requirements: [
-            "Опыт работы с Vue.js 1 час",
-            "Знание HTML на школьном уровне",
-            "Имею опыт интеграции с Telegram API(на самом деле - нет)"
+            "Опыт работы с Vue.js",
+            "Знание HTML, CSS, JavaScript",
+            "Интеграция с Telegram API"
         ],
-        tags: ["JavaScript", "Vue 3", "Toxic", "School"],
+        tags: ["JavaScript", "Vue 3", "Telegram API"],
         contact: "https://t.me/workiks_admin"
     },
     {
         nick: "Danone",
+        userId: 7079899705,
         position: "Moderator",
-        profileLink: '/profile/Matvey',
-        experience: "5 years ebli",
-        description: "Я ничего не умею,сосу хуй с Deleted у Raven-а,ну в принципе и всё,а еще могу повыебываться",
+        profileLink: '/profile/7079899705',
+        experience: "3 years experience",
+        description: "Модерация сообществ и управление контентом.",
         requirements: [
-            "Опыт работы с Raven 10 лет",
-            "Знание Iznanki на все 100%",
-            "Имею опыт сосать хуй у обоих сразу(такое никто не может делать)"
+            "Опыт работы с социальными сетями",
+            "Коммуникативные навыки",
+            "Знание основ модерации"
         ],
-        tags: ["ДИНАХУ", "ДИНАХУ", "ДИНАХУ", "ДУДКУ", "ДУДКУ", "ДУДКУ"],
-        contact: "https://t.me/@Danoneee777"
+        tags: ["Модерация", "Социальные сети"],
+        contact: "https://t.me/Danoneee777"
     }
 ]);
 
@@ -204,20 +206,7 @@ onMounted(() => {
     gap: 2px;
 }
 
-@keyframes fade-in {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes color-change {
-    0% { color: #97f492; }
-    25% { color: #6de06a; }
-    50% { color: #4acf8e; }
-    75% { color: #3bb3b3; }
-    100% { color: #97f492; }
-}
-
-.first-name, .last-name {
+.first-name {
     font-size: 16px;
     font-weight: 600;
     animation: fade-in 0.5s ease-in-out, color-change 5s infinite;

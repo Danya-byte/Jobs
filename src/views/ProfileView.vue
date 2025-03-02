@@ -50,6 +50,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+const userId = route.params.userId;
 
 const loaded = ref(false);
 const userPhoto = ref('');
@@ -61,15 +65,6 @@ const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
 };
 
-onMounted(() => {
-  if (window.Telegram?.WebApp) {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
-    loadUserData();
-    loadAllReviews();
-  }
-});
-
 const loadUserData = () => {
   if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
     const user = Telegram.WebApp.initDataUnsafe.user;
@@ -80,19 +75,13 @@ const loadUserData = () => {
 
 const startAnimation = () => loaded.value = true;
 
-const loadAllReviews = async () => {
+const loadUserReviews = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/all-reviews');
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?user_id=${userId}`);
     const data = await response.json();
     allReviews.value = data;
   } catch (error) {
-    console.error("Load all reviews error:", error);
-    Telegram.WebApp.showAlert('Ошибка загрузки отзывов');
+    console.error("Ошибка загрузки отзывов:", error);
   }
 };
 
@@ -113,7 +102,7 @@ const initiatePayment = async () => {
 
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'paid') {
-        loadAllReviews();
+        loadUserReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }
@@ -122,6 +111,15 @@ const initiatePayment = async () => {
     Telegram.WebApp.showAlert(error.message);
   }
 };
+
+onMounted(() => {
+  if (window.Telegram?.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+    loadUserData();
+    loadUserReviews();
+  }
+});
 </script>
 
 <style scoped>

@@ -94,12 +94,9 @@ app.get("/api/reviews", async (req, res) => {
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     const reviews = JSON.parse(rawData || "{}");
 
-    const userReviews = [];
-    for (const key in reviews) {
-      if (reviews[key].userId === user_id) {
-        userReviews.push(reviews[key]);
-      }
-    }
+    const userReviews = Object.values(reviews).filter(review =>
+      review.userId && review.userId.toString() === user_id
+    );
 
     res.json(userReviews);
   } catch(e) {
@@ -107,21 +104,15 @@ app.get("/api/reviews", async (req, res) => {
     res.status(500).json({ error: "Failed to load reviews" });
   }
 });
+
 app.get("/api/all-reviews", async (req, res) => {
   try {
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     const reviews = JSON.parse(rawData || "{}");
 
-    const allReviews = [];
-    for (const key in reviews) {
-      if (reviews[key].userId && reviews[key].text) {
-        allReviews.push({
-          userId: reviews[key].userId,
-          text: reviews[key].text,
-          date: reviews[key].date || new Date().toISOString()
-        });
-      }
-    }
+    const allReviews = Object.values(reviews).filter(review =>
+      review.userId && review.text
+    );
 
     res.json(allReviews);
   } catch(e) {
