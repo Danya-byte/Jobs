@@ -62,42 +62,27 @@ app.get("/api/user/:userId", async (req, res) => {
     const { userId } = req.params;
     const initData = req.headers['x-telegram-data'];
 
-    if (!userId || userId === "undefined" || !initData) {
-      return res.status(400).json({ error: "Invalid request" });
-    }
-
-    if (!validateTelegramData(initData)) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
     const params = new URLSearchParams(initData);
-    const user = JSON.parse(params.get("user"));
+    const currentUser = JSON.parse(params.get("user"));
 
-    if (user?.id?.toString() === userId) {
+    if (currentUser?.id?.toString() === userId) {
       return res.json({
-        id: userId,
-        firstName: user.first_name || 'User',
-        username: user.username || '',
-        photoUrl: user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`
+        firstName: currentUser.first_name,
+        username: currentUser.username,
+        photoUrl: currentUser.photo_url
       });
     }
 
     const member = await bot.api.getChatMember(userId, userId);
-
     res.json({
-      id: userId,
-      firstName: member.user.first_name || 'User',
-      username: member.user.username || '',
+      firstName: member.user.first_name,
+      username: member.user.username,
       photoUrl: member.user.photo?.small_file_id
-        ? `https://api.telegram.org/file/bot${BOT_TOKEN}/${(await bot.api.getFile(member.user.photo.small_file_id)).file_path}`
+        ? await getPhotoUrl(member.user.photo.small_file_id)
         : `https://t.me/i/userpic/160/${member.user.username}.jpg`
     });
-
   } catch (e) {
-    res.status(404).json({
-      error: "Профиль не найден",
-      photoUrl: `https://t.me/i/userpic/160/${req.query.username}.jpg`
-    });
+    res.status(404).json({ error: "Profile not found" });
   }
 });
 

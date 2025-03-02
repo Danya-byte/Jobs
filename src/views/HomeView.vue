@@ -1,7 +1,12 @@
 <template>
 <div class="container">
     <nav class="nav-bar">
-        <RouterLink to="/profile" class="profile-link">
+        <RouterLink
+            :to="{
+                path: `/profile/${currentUserId}`,
+                query: { username: currentUsername }
+            }"
+            class="profile-link">
             <img
                 :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
                 class="profile-icon"
@@ -105,12 +110,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router'
 
 const open = ref(false);
 const selectedJob = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
+const currentUserId = ref('');
+const currentUsername = ref('');
 const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 
 const jobs = ref([
@@ -165,6 +173,8 @@ onMounted(() => {
         userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
         userFirstName.value = user.first_name || '';
         userLastName.value = user.last_name || '';
+        currentUserId.value = user.id;
+        currentUsername.value = user.username;
     }
 });
 </script>

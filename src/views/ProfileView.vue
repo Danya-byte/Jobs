@@ -55,8 +55,8 @@ import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
-const userId = route.params.userId;
-const currentUser = Telegram.WebApp.initDataUnsafe.user;
+const currentUser = ref(null);
+const userId = ref('');
 
 const loaded = ref(false);
 const profileData = ref({ firstName: '', photoUrl: '', username: '' });
@@ -64,7 +64,7 @@ const allReviews = ref([]);
 const reviewText = ref('');
 
 const isOwner = computed(() => {
-  return currentUser?.id?.toString() === userId?.toString();
+  return currentUser.value?.id?.toString() === userId.value?.toString();
 });
 
 const handleClickOutside = () => {
@@ -79,28 +79,26 @@ const handleAvatarError = (e) => {
 
 const loadProfileData = async () => {
   try {
-    const response = await fetch(
-      `https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}?ts=${Date.now()}`
-    );
-
-    if (!response.ok) throw new Error();
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
     const data = await response.json();
 
     profileData.value = {
-      ...data,
-      photoUrl: data.photoUrl + `?ts=${Date.now()}`
+      firstName: data.firstName || currentUser.value?.first_name,
+      photoUrl: data.photoUrl || `https://t.me/i/userpic/160/${data.username}.jpg`,
+      username: data.username
     };
-
   } catch (error) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const username = urlParams.get('username');
-    profileData.value.photoUrl = `https://t.me/i/userpic/160/${username}.jpg`;
+    profileData.value = {
+      firstName: currentUser.value?.first_name,
+      photoUrl: `https://t.me/i/userpic/160/${currentUser.value?.username}.jpg`,
+      username: currentUser.value?.username
+    };
   }
 };
 
 const loadReviews = async () => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId}`);
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
     const data = await response.json();
     allReviews.value = data;
   } catch (error) {
@@ -116,7 +114,7 @@ const initiatePayment = async () => {
         'X-Telegram-Data': Telegram.WebApp.initData,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ text: reviewText.value, targetUserId: userId })
+      body: JSON.stringify({ text: reviewText.value, targetUserId: userId.value })
     });
 
     if (!response.ok) throw new Error('Ошибка создания платежа');
@@ -134,13 +132,17 @@ const initiatePayment = async () => {
   }
 };
 
-onMounted(() => {
-  if (window.Telegram?.WebApp) {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
-    loadProfileData();
-    loadReviews();
+onMounted(async () => {
+  currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
+  userId.value = route.params.userId || currentUser.value?.id;
+
+  if (!userId.value) {
+    router.push('/');
+    return;
   }
+
+  await loadProfileData();
+  await loadReviews();
 });
 </script>
 
