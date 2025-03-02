@@ -145,7 +145,7 @@ const initiatePayment = async () => {
 
 .profile-content {
   text-align: center;
-  margin-top: 25px;
+  margin-top: 20px;
 }
 
 .profile-avatar {
@@ -172,8 +172,8 @@ const initiatePayment = async () => {
 
 .profile-name {
   color: #fff;
-  font-size: 30px;
-  margin-top: 20px;
+  font-size: 25px;
+  margin-top: 15px;
   text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
 }
 
