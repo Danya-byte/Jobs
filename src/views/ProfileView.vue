@@ -79,8 +79,15 @@ const loadReviews = async () => {
   try {
     const userId = Telegram.WebApp.initDataUnsafe.user?.id;
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?user_id=${userId}`);
-    reviews.value = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    reviews.value = data.filter(item => item.text);
   } catch (error) {
+    console.error("Load reviews error:", error);
     Telegram.WebApp.showAlert('Ошибка загрузки отзывов');
   }
 };

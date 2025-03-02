@@ -15,8 +15,6 @@ const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
 
-const paidUsers = new Map();
-
 app.use(express.json());
 app.use(cors({
   origin: ["https://jobs-iota-one.vercel.app", "http://localhost:5173"],
@@ -67,9 +65,10 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     const { text } = req.body;
     const payload = `${user.id}_${Date.now()}`;
 
-    const pendingReviews = JSON.parse(await fs.readFile(REVIEWS_FILE));
-    pendingReviews[payload] = { text, userId: user.id };
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(pendingReviews));
+    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviewsData = JSON.parse(rawData || "{}");
+    reviewsData[payload] = { text, userId: user.id };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
       "Submit a Review",
@@ -92,11 +91,19 @@ app.get("/api/reviews", async (req, res) => {
     const { user_id } = req.query;
     if (!user_id) return res.status(400).json({ error: "Missing user_id" });
 
-    const reviewsData = await fs.readFile(REVIEWS_FILE, "utf8");
-    const reviews = JSON.parse(reviewsData || "{}");
-    res.json(reviews[user_id] || []);
+    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviews = JSON.parse(rawData || "{}");
+
+    const userReviews = [];
+    for (const key in reviews) {
+      if (reviews[key].userId === user_id) {
+        userReviews.push(reviews[key]);
+      }
+    }
+
+    res.json(userReviews);
   } catch(e) {
-    console.error(e);
+    console.error("Reviews error:", e);
     res.status(500).json({ error: "Failed to load reviews" });
   }
 });
@@ -107,21 +114,30 @@ bot.on("pre_checkout_query", async (ctx) => {
 
 bot.on("message:successful_payment", async (ctx) => {
   const payload = ctx.message.invoice_payload;
-  const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
+  console.log("Payment received for payload:", payload);
 
-  if (reviewsData[payload]) {
-    const { userId, text } = reviewsData[payload];
+  try {
+    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviewsData = JSON.parse(rawData);
 
-    reviewsData[userId] = reviewsData[userId] || [];
-    reviewsData[userId].push({
-      text,
-      date: new Date().toISOString()
-    });
+    if (reviewsData[payload]) {
+      const { userId, text } = reviewsData[payload];
 
-    delete reviewsData[payload];
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData));
+      const userKey = `user_${userId}`;
+      reviewsData[userKey] = reviewsData[userKey] || [];
+      reviewsData[userKey].push({
+        text,
+        date: new Date().toISOString()
+      });
 
-    await ctx.reply("Отзыв опубликован! Спасибо!");
+      delete reviewsData[payload];
+      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+      console.log("Review published for user:", userId);
+      await ctx.reply("Отзыв опубликован! Спасибо!");
+    }
+  } catch(e) {
+    console.error("Payment processing error:", e);
   }
 });
 
