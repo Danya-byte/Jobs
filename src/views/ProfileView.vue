@@ -71,7 +71,7 @@ const handleClickOutside = () => {
 
 const loadProfileData = async () => {
   try {
-    const response = await fetch(`https://your-server.com/api/user/${userId}`);
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`);
     const data = await response.json();
     profileData.value = data;
   } catch (error) {
@@ -81,7 +81,7 @@ const loadProfileData = async () => {
 
 const loadReviews = async () => {
   try {
-    const response = await fetch(`https://your-server.com/api/reviews?targetUserId=${userId}`);
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId}`);
     const data = await response.json();
     allReviews.value = data;
   } catch (error) {
@@ -91,7 +91,7 @@ const loadReviews = async () => {
 
 const initiatePayment = async () => {
   try {
-    const response = await fetch('https://your-server.com/api/createInvoiceLink', {
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
       method: 'POST',
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData,
