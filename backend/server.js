@@ -24,23 +24,26 @@ function validateTelegramData(data) {
     try {
         if (!data.hash || !data.auth_date || !data.user) return false;
 
-        const secret = crypto.createHmac('sha256', 'WebAppData')
-                           .update(BOT_TOKEN)
-                           .digest();
+        const secretKey = crypto.createHmac('sha256', 'WebAppData')
+                              .update(BOT_TOKEN)
+                              .digest();
 
-        const params = new URLSearchParams();
-        params.append('auth_date', data.auth_date);
-        params.append('user', decodeURIComponent(data.user));
-        if (data.query_id) params.append('query_id', data.query_id);
+        const checkParams = new URLSearchParams({
+            auth_date: data.auth_date,
+            user: data.user,
+            ...(data.query_id && { query_id: data.query_id })
+        });
 
-        const checkString = Array.from(params.entries())
+        const checkString = Array.from(checkParams.entries())
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, val]) => `${key}=${val}`)
+            .map(([k, v]) => `${k}=${v}`)
             .join('\n');
 
-        return crypto.createHmac('sha256', secret)
-                   .update(checkString)
-                   .digest('hex') === data.hash;
+        const calculatedHash = crypto.createHmac('sha256', secretKey)
+                                   .update(checkString)
+                                   .digest('hex');
+
+        return calculatedHash === data.hash;
     } catch (e) {
         return false;
     }
@@ -49,7 +52,6 @@ function validateTelegramData(data) {
 app.post('/create-invoice', async (req, res) => {
     try {
         const telegramData = Object.fromEntries(new URLSearchParams(req.headers['x-telegram-data']));
-
         if (!validateTelegramData(telegramData)) {
             return res.status(401).json({ error: 'Invalid signature' });
         }
@@ -57,19 +59,18 @@ app.post('/create-invoice', async (req, res) => {
         const user = JSON.parse(decodeURIComponent(telegramData.user));
         const orderId = `${user.id}_${Date.now()}`;
 
-        const payload = {
-            order_id: orderId,
-            user_id: user.id,
-            timestamp: Date.now()
-        };
-
         const response = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
             title: "Публикация отзыва",
-            description: "Размещение отзыва в вашем профиле",
+            description: "Размещение отзыва в профиле пользователя",
             currency: "XTR",
-            prices: [{ label: "Отзыв", amount: 1 }],
-            payload: Buffer.from(JSON.stringify(payload)).toString('base64'),
-            provider_token: ""
+            prices: [{ label: "1 Telegram Star", amount: 1 }],
+            payload: Buffer.from(JSON.stringify({
+                user_id: user.id,
+                order_id: orderId
+            })).toString('base64'),
+            provider_token: "",
+            photo_url: "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp",
+            max_tip_amount: 0
         });
 
         res.json({ invoice_link: response.data.result });
@@ -88,7 +89,14 @@ app.post('/webhook', async (req, res) => {
             );
 
             const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
-            if (!reviewsData[payload.user_id]) reviewsData[payload.user_id] = [];
+            if (!reviewsData[payload.user_id]) {
+                reviewsData[payload.user_id] = {
+                    paid: true,
+                    reviews: []
+                };
+            } else {
+                reviewsData[payload.user_id].paid = true;
+            }
 
             await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData));
         }
@@ -104,18 +112,22 @@ app.post('/submit-review', async (req, res) => {
         const telegramData = Object.fromEntries(new URLSearchParams(req.headers['x-telegram-data']));
         if (!validateTelegramData(telegramData)) return res.status(401).send('Invalid data');
 
+        const user = JSON.parse(decodeURIComponent(telegramData.user));
+        const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
+
+        if (!reviewsData[user.id]?.paid) {
+            return res.status(402).send('Payment required');
+        }
+
         const review = {
             text: req.body.text,
-            author: JSON.parse(decodeURIComponent(telegramData.user)).first_name || 'Аноним',
-            author_photo: JSON.parse(decodeURIComponent(telegramData.user)).photo_url,
+            author: user.first_name || 'Аноним',
+            author_photo: user.photo_url,
             date: new Date().toISOString()
         };
 
-        const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
-        const userId = req.body.user_id;
-
-        if (!reviewsData[userId]) reviewsData[userId] = [];
-        reviewsData[userId].push(review);
+        reviewsData[user.id].reviews.push(review);
+        reviewsData[user.id].paid = false;
 
         await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
         res.sendStatus(200);
@@ -128,7 +140,7 @@ app.get('/reviews', async (req, res) => {
     try {
         const userId = req.query.user_id;
         const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
-        res.json(reviewsData[userId] || []);
+        res.json(reviewsData[userId]?.reviews || []);
     } catch (error) {
         res.status(500).send(error.message);
     }
