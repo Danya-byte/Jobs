@@ -7,8 +7,8 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
-const port = 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN;
+const port = process.env.PORT || 3000;
+const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 
@@ -30,26 +30,38 @@ async function initReviewsFile() {
 }
 
 function validateTelegramData(initData) {
-  const params = new URLSearchParams(initData);
-  const receivedHash = params.get("hash");
-  params.delete("hash");
+  try {
+    const params = new URLSearchParams(initData);
+    const receivedHash = params.get("hash");
+    const dataCheckString = Array.from(params.entries())
+      .filter(([key]) => key !== "hash")
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => `${key}=${val}`)
+      .join("\n");
 
-  const secretKey = crypto.createHash("sha256").update(BOT_TOKEN).digest();
-  const checkString = Array.from(params.entries())
-    .map(([key, value]) => `${key}=${value}`)
-    .sort()
-    .join("\n");
-  const calculatedHash = crypto
-    .createHmac("sha256", secretKey)
-    .update(checkString)
-    .digest("hex");
+    const secretKey = crypto.createHmac("sha256", "WebAppData")
+      .update(BOT_TOKEN)
+      .digest();
 
-  return calculatedHash === receivedHash;
+    const calculatedHash = crypto
+      .createHmac("sha256", secretKey)
+      .update(dataCheckString)
+      .digest("hex");
+
+    return calculatedHash === receivedHash;
+  } catch (e) {
+    return false;
+  }
 }
 
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData) {
+      return res.status(401).json({ error: "Missing Telegram data" });
+    }
+
     if (!validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Invalid signature" });
     }
@@ -62,18 +74,21 @@ app.post("/api/createInvoiceLink", async (req, res) => {
       "Submit a Review",
       "Pay 1 Telegram Star to submit a review",
       payload,
-      "",
+      "PROVIDER_TOKEN",
       "XTR",
       [{ label: "Review Submission", amount: 1 }]
     );
 
     res.json({ success: true, invoiceLink });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined
+    });
   }
 });
 
-// Submit review
 app.post("/api/submit-review", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -136,11 +151,14 @@ bot.on("pre_checkout_query", (query) => {
   );
 });
 
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
 initReviewsFile().then(() => {
   app.listen(port, () => console.log(`Server running on port ${port}`));
 });
-
-
-
-
-

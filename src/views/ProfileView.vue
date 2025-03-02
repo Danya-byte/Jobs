@@ -84,7 +84,8 @@ const initiatePayment = async () => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Unknown error');
     }
 
     const { invoice_link } = await response.json();
@@ -238,8 +239,3 @@ const submitReview = async (text) => {
   margin-top: 8px;
 }
 </style>
-
-
-
-
-
