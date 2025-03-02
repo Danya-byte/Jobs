@@ -72,25 +72,45 @@ const handleClickOutside = () => {
 };
 
 const handleAvatarError = (e) => {
+  const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
   const urlParams = new URLSearchParams(window.location.search);
   const username = urlParams.get('username');
-  e.target.src = `https://t.me/i/userpic/160/${username}.jpg`;
+
+  if (e.target.src.includes('userpic')) {
+    e.target.src = fallbackAvatar;
+  } else {
+    e.target.src = `https://t.me/i/userpic/160/${username}.jpg`;
+    setTimeout(() => {
+      if (e.target.naturalWidth === 0) {
+        e.target.src = fallbackAvatar;
+      }
+    }, 500);
+  }
 };
 
 const loadProfileData = async () => {
+  const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
     const data = await response.json();
 
+    const checkAvatar = new Image();
+    checkAvatar.src = data.photoUrl;
+    checkAvatar.onerror = () => {
+      profileData.value.photoUrl = fallbackAvatar;
+    };
+
     profileData.value = {
       firstName: data.firstName || currentUser.value?.first_name,
-      photoUrl: data.photoUrl || `https://t.me/i/userpic/160/${data.username}.jpg`,
+      photoUrl: data.photoUrl || fallbackAvatar,
       username: data.username
     };
+
   } catch (error) {
     profileData.value = {
       firstName: currentUser.value?.first_name,
-      photoUrl: `https://t.me/i/userpic/160/${currentUser.value?.username}.jpg`,
+      photoUrl: fallbackAvatar,
       username: currentUser.value?.username
     };
   }
