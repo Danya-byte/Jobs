@@ -1,7 +1,10 @@
 <template>
 <div class="container">
     <nav class="nav-bar">
-        <RouterLink to="/profile" class="profile-link">
+        <RouterLink :to="{
+            path: '/profile/' + Telegram.WebApp.initDataUnsafe.user.id,
+            query: { username: Telegram.WebApp.initDataUnsafe.user.username }
+        }" class="profile-link">
             <img
                 :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
                 class="profile-icon"

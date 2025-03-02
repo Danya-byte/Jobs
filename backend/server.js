@@ -59,19 +59,19 @@ function validateTelegramData(initData) {
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    if (!userId || isNaN(userId)) return res.status(400).json({ error: "Invalid ID" });
+    if (!userId || userId === "undefined") {
+      return res.status(400).json({ error: "User ID required" });
+    }
 
-    const user = await bot.api.getChat(userId);
-
-    const avatarUrl = user.username
-      ? `https://t.me/i/userpic/160/${user.username}.jpg`
-      : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    const member = await bot.api.getChatMember(userId, userId);
 
     res.json({
       id: userId,
-      firstName: user.first_name || 'User',
-      username: user.username || '',
-      photoUrl: avatarUrl
+      firstName: member.user.first_name || 'User',
+      username: member.user.username || '',
+      photoUrl: member.user.photo?.small_file_id
+        ? `https://api.telegram.org/file/bot${BOT_TOKEN}/${(await bot.api.getFile(member.user.photo.small_file_id)).file_path}`
+        : `https://t.me/i/userpic/160/${member.user.username}.jpg`
     });
 
   } catch (e) {
