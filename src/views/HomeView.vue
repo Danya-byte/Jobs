@@ -133,7 +133,7 @@ const jobs = ref([
             "Знание Iznanki на все 100%",
             "Имею опыт сосать хуй у обоих сразу(такое никто не может делать)"
         ],
-        tags: ["ДИНАХУ", "ДИНАХУ", "ДИНАХУ", "ДУДКУ", "ДУдКУ", "ДУДКУ"],
+        tags: ["ДИНАХУ", "ДИНАХУ", "ДИНАХУ", "ДУДКУ", "ДУДКУ", "ДУДКУ"],
         contact: "https://t.me/Danoneee777"
     }
 ]);
@@ -371,22 +371,12 @@ onMounted(() => {
     overflow-y: auto;
     transform: translateY(100%);
     animation: slide-up 0.3s ease-out forwards;
-    padding-right: 30px;
-    margin-right: -20px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .modal::-webkit-scrollbar {
-    width: 8px;
-}
-
-.modal::-webkit-scrollbar-track {
-    background: #2d3540;
-    border-radius: 4px;
-}
-
-.modal::-webkit-scrollbar-thumb {
-    background: #97f492;
-    border-radius: 4px;
+    display: none;
 }
 
 @keyframes slide-up {
