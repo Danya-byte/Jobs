@@ -72,13 +72,18 @@ const initiatePayment = async () => {
             body: JSON.stringify({ user_id: Telegram.WebApp.initDataUnsafe.user?.id })
         });
 
+        if (response.status === 401) {
+            Telegram.WebApp.showAlert('Сессия устарела. Перезагрузите страницу');
+            return;
+        }
+
         if (!response.ok) throw new Error('Ошибка сервера');
         const { invoice_link } = await response.json();
-        Telegram.WebApp.openInvoice(invoice_link);
+        Telegram.WebApp.openInvoice(invoice_link, { test: true });
 
     } catch (error) {
         console.error('Ошибка платежа:', error);
-        Telegram.WebApp.showAlert('Ошибка при создании платежа');
+        Telegram.WebApp.showAlert(`Ошибка: ${error.message}`);
     }
 };
 

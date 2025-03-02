@@ -21,19 +21,37 @@ async function initReviewsFile() {
 }
 
 function validateTelegramData(data) {
-    const secret = crypto.createHash('sha256').update(BOT_TOKEN).digest();
-    const checkString = Object.keys(data)
-        .filter(key => key !== 'hash')
-        .sort()
-        .map(key => `${key}=${data[key]}`)
-        .join('\n');
-    return crypto.createHmac('sha256', secret).update(checkString).digest('hex') === data.hash;
+    try {
+        if (!data.hash) {
+            console.error('Missing Telegram hash');
+            return false;
+        }
+
+        const secret = crypto.createHash('sha256').update(BOT_TOKEN).digest();
+        const checkString = Object.keys(data)
+            .filter(key => key !== 'hash')
+            .sort()
+            .map(key => `${key}=${data[key]}`)
+            .join('\n');
+
+        return crypto.createHmac('sha256', secret)
+                   .update(checkString)
+                   .digest('hex') === data.hash;
+    } catch (e) {
+        console.error('Validation error:', e);
+        return false;
+    }
 }
 
 app.post('/create-invoice', async (req, res) => {
     try {
-        const telegramData = Object.fromEntries(new URLSearchParams(req.headers['x-telegram-data']));
-        if (!validateTelegramData(telegramData)) return res.status(401).send('Invalid data');
+        const telegramData = new URLSearchParams(req.headers['x-telegram-data']);
+        const dataObject = Object.fromEntries(telegramData);
+
+        if (!validateTelegramData(dataObject)) {
+            console.error('Validation failed:', dataObject);
+            return res.status(401).send('Invalid Telegram data');
+        }
 
         const response = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
             title: "Оставить отзыв",
@@ -41,26 +59,28 @@ app.post('/create-invoice', async (req, res) => {
             currency: "XTR",
             prices: [{ label: "Отзыв", amount: 1 }],
             payload: Buffer.from(JSON.stringify({
-                user_id: telegramData.user?.id,
+                user_id: dataObject.user?.id,
                 temp_data: Date.now()
             })).toString('base64')
         });
 
         res.json({ invoice_link: response.data.result });
     } catch (error) {
+        console.error('Invoice creation error:', error.response?.data || error.message);
         res.status(500).send(error.message);
     }
 });
 
 app.post('/submit-review', async (req, res) => {
     try {
-        const telegramData = Object.fromEntries(new URLSearchParams(req.headers['x-telegram-data']));
-        if (!validateTelegramData(telegramData)) return res.status(401).send('Invalid data');
+        const telegramData = new URLSearchParams(req.headers['x-telegram-data']);
+        const dataObject = Object.fromEntries(telegramData);
+        if (!validateTelegramData(dataObject)) return res.status(401).send('Invalid data');
 
         const review = {
             text: req.body.text,
-            author: telegramData.user?.first_name || 'Аноним',
-            author_photo: telegramData.user?.photo_url,
+            author: dataObject.user?.first_name || 'Аноним',
+            author_photo: dataObject.user?.photo_url,
             date: new Date().toISOString()
         };
 
