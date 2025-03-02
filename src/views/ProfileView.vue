@@ -29,12 +29,12 @@
         Оплатить 1★ и отправить
       </button>
 
-      <div v-if="reviews.length === 0" class="no-reviews">
+      <div v-if="allReviews.length === 0" class="no-reviews">
         Пока отзывов нет, вы можете быть первым!
       </div>
 
       <div v-else class="reviews-chat">
-        <div v-for="(review, index) in reviews" :key="index" class="review-message">
+        <div v-for="(review, index) in allReviews" :key="index" class="review-message">
           <div class="message-content">
             {{ review.text }}
           </div>
@@ -53,7 +53,7 @@ import { ref, onMounted } from 'vue';
 const loaded = ref(false);
 const userPhoto = ref('');
 const userFirstName = ref('');
-const reviews = ref([]);
+const allReviews = ref([]);
 const reviewText = ref('');
 
 onMounted(() => {
@@ -61,7 +61,7 @@ onMounted(() => {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     loadUserData();
-    loadReviews();
+    loadAllReviews();
   }
 });
 
@@ -75,19 +75,18 @@ const loadUserData = () => {
 
 const startAnimation = () => loaded.value = true;
 
-const loadReviews = async () => {
+const loadAllReviews = async () => {
   try {
-    const userId = Telegram.WebApp.initDataUnsafe.user?.id;
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?user_id=${userId}`);
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/all-reviews');
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    reviews.value = data.filter(item => item.text);
+    allReviews.value = data;
   } catch (error) {
-    console.error("Load reviews error:", error);
+    console.error("Load all reviews error:", error);
     Telegram.WebApp.showAlert('Ошибка загрузки отзывов');
   }
 };
@@ -109,7 +108,7 @@ const initiatePayment = async () => {
 
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'paid') {
-        loadReviews();
+        loadAllReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }

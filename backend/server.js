@@ -107,6 +107,28 @@ app.get("/api/reviews", async (req, res) => {
     res.status(500).json({ error: "Failed to load reviews" });
   }
 });
+app.get("/api/all-reviews", async (req, res) => {
+  try {
+    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviews = JSON.parse(rawData || "{}");
+
+    const allReviews = [];
+    for (const key in reviews) {
+      if (reviews[key].userId && reviews[key].text) {
+        allReviews.push({
+          userId: reviews[key].userId,
+          text: reviews[key].text,
+          date: reviews[key].date || new Date().toISOString()
+        });
+      }
+    }
+
+    res.json(allReviews);
+  } catch(e) {
+    console.error("All reviews error:", e);
+    res.status(500).json({ error: "Failed to load all reviews" });
+  }
+});
 
 bot.on("pre_checkout_query", async (ctx) => {
   await ctx.answerPreCheckoutQuery(true);
