@@ -19,7 +19,8 @@ const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'X-Telegram-Data', 'Authorization','Cache-Control','X-Requested-With'],
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['X-Telegram-Data']
 };
 
 app.use(express.json());
@@ -63,6 +64,23 @@ app.get("/api/user/:userId", async (req, res) => {
       return res.status(400).json({ error: "User ID required" });
     }
 
+    const initData = req.headers['x-telegram-data'];
+    if (!validateTelegramData(initData)) {
+      return res.status(401).json({ error: "Invalid Telegram data" });
+    }
+
+    const params = new URLSearchParams(initData);
+    const user = JSON.parse(params.get("user"));
+
+    if (user?.id?.toString() === userId.toString()) {
+      return res.json({
+        id: userId,
+        firstName: user.first_name || 'User',
+        username: user.username || '',
+        photoUrl: user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`
+      });
+    }
+
     const member = await bot.api.getChatMember(userId, userId);
 
     res.json({
@@ -76,7 +94,10 @@ app.get("/api/user/:userId", async (req, res) => {
 
   } catch (e) {
     console.error('User error:', e);
-    res.status(404).json({ error: "Профиль не найден" });
+    res.status(404).json({
+      error: "Профиль не найден",
+      photoUrl: `https://t.me/i/userpic/160/${req.query.username}.jpg`
+    });
   }
 });
 
