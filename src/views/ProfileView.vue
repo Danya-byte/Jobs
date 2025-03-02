@@ -50,9 +50,10 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
+const router = useRouter();
 const userId = route.params.userId;
 const currentUser = Telegram.WebApp.initDataUnsafe.user;
 
@@ -62,7 +63,7 @@ const allReviews = ref([]);
 const reviewText = ref('');
 
 const isOwner = computed(() => {
-  return currentUser?.id?.toString() === userId;
+  return currentUser?.id?.toString() === userId?.toString();
 });
 
 const handleClickOutside = () => {
@@ -78,13 +79,20 @@ const loadProfileData = async () => {
       }
     });
 
+    if (response.status === 404) {
+      Telegram.WebApp.showAlert("Профиль не найден");
+      router.push("/");
+      return;
+    }
+
     if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
 
     const data = await response.json();
     profileData.value = data;
   } catch (error) {
     console.error("Ошибка загрузки профиля:", error);
-    Telegram.WebApp.showAlert("Профиль не найден");
+    Telegram.WebApp.showAlert("Ошибка загрузки");
+    router.push("/");
   }
 };
 

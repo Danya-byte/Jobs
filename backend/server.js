@@ -18,7 +18,7 @@ bot.api.config.use(hydrateFiles(bot.token));
 const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-Telegram-Data', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'X-Telegram-Data', 'Authorization','Cache-Control','X-Requested-With'],
   credentials: true
 };
 
@@ -64,20 +64,20 @@ app.use((req, res, next) => {
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    if (!userId.match(/^[\d_]+$/)) {
-      return res.status(400).json({ error: "Invalid user ID format" });
+
+    try {
+      const user = await bot.api.getChat(userId);
+      res.status(200).json({
+        id: userId,
+        firstName: user.first_name || `User#${userId.slice(-4)}`,
+        photoUrl: user.photo?.small_file_id
+          ? `https://api.telegram.org/file/bot${BOT_TOKEN}/${await bot.api.getFile(user.photo.small_file_id)}`
+          : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+      });
+    } catch (e) {
+      res.status(404).json({ error: "Профиль не найден" });
     }
 
-    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
-    const reviews = JSON.parse(rawData || "{}");
-
-    const userData = {
-      id: userId,
-      firstName: "User#" + userId.slice(-4),
-      photoUrl: "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp"
-    };
-
-    res.status(200).json(userData);
   } catch (e) {
     console.error("User data error:", e);
     res.status(500).json({ error: "Internal server error" });
