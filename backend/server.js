@@ -60,19 +60,20 @@ function validateTelegramData(initData) {
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    if (!userId || userId === "undefined") {
-      return res.status(400).json({ error: "User ID required" });
+    const initData = req.headers['x-telegram-data'];
+
+    if (!userId || userId === "undefined" || !initData) {
+      return res.status(400).json({ error: "Invalid request" });
     }
 
-    const initData = req.headers['x-telegram-data'];
     if (!validateTelegramData(initData)) {
-      return res.status(401).json({ error: "Invalid Telegram data" });
+      return res.status(403).json({ error: "Access denied" });
     }
 
     const params = new URLSearchParams(initData);
     const user = JSON.parse(params.get("user"));
 
-    if (user?.id?.toString() === userId.toString()) {
+    if (user?.id?.toString() === userId) {
       return res.json({
         id: userId,
         firstName: user.first_name || 'User',
@@ -93,7 +94,6 @@ app.get("/api/user/:userId", async (req, res) => {
     });
 
   } catch (e) {
-    console.error('User error:', e);
     res.status(404).json({
       error: "Профиль не найден",
       photoUrl: `https://t.me/i/userpic/160/${req.query.username}.jpg`
@@ -104,19 +104,29 @@ app.get("/api/user/:userId", async (req, res) => {
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData) return res.status(401).json({ error: "Missing Telegram data" });
-    if (!validateTelegramData(telegramData)) return res.status(401).json({ error: "Invalid signature" });
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user"));
-    if (!user?.id) return res.status(400).json({ error: "Invalid user data" });
-
     const { text, targetUserId } = req.body;
-    const payload = `${user.id}_${Date.now()}`;
 
+    if (!user?.id || !targetUserId) {
+      return res.status(400).json({ error: "Invalid data" });
+    }
+
+    const payload = `${user.id}_${Date.now()}`;
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     const reviewsData = JSON.parse(rawData || "{}");
-    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, date: new Date().toISOString() };
+
+    reviewsData[payload] = {
+      text,
+      authorUserId: user.id,
+      targetUserId,
+      date: new Date().toISOString()
+    };
+
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
@@ -130,7 +140,6 @@ app.post("/api/createInvoiceLink", async (req, res) => {
 
     res.json({ success: true, invoiceLink });
   } catch (error) {
-    console.error("Invoice error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -141,22 +150,10 @@ app.get("/api/reviews", async (req, res) => {
     if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
 
     const rawData = await fs.readFile(REVIEWS_FILE, 'utf8').catch(() => "{}");
-    const reviews = JSON.parse(rawData);
+    const reviews = Object.values(JSON.parse(rawData)).filter(item => item.targetUserId === targetUserId);
 
-    const filteredReviews = Object.entries(reviews).reduce((acc, [key, value]) => {
-      if (Array.isArray(value)) {
-        value.forEach(item => {
-          if (item.targetUserId === targetUserId) acc.push(item);
-        });
-      } else if (value?.targetUserId === targetUserId) {
-        acc.push(value);
-      }
-      return acc;
-    }, []);
-
-    res.json(filteredReviews);
+    res.json(reviews);
   } catch (e) {
-    console.error("Reviews error:", e);
     res.status(500).json({ error: "Failed to load reviews" });
   }
 });
@@ -167,7 +164,6 @@ bot.on("pre_checkout_query", async (ctx) => {
 
 bot.on("message:successful_payment", async (ctx) => {
   const payload = ctx.message.invoice_payload;
-  console.log("Payment received for payload:", payload);
 
   try {
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
@@ -175,8 +171,8 @@ bot.on("message:successful_payment", async (ctx) => {
 
     if (reviewsData[payload]) {
       const { authorUserId, targetUserId, text } = reviewsData[payload];
-
       const userKey = `user_${targetUserId}`;
+
       reviewsData[userKey] = reviewsData[userKey] || [];
       reviewsData[userKey].push({
         text,
@@ -187,12 +183,10 @@ bot.on("message:successful_payment", async (ctx) => {
 
       delete reviewsData[payload];
       await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-      console.log("Review published for user:", targetUserId);
       await ctx.reply("Отзыв опубликован! Спасибо!");
     }
   } catch (e) {
-    console.error("Payment processing error:", e);
+    console.error("Payment error:", e);
   }
 });
 

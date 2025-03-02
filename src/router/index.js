@@ -15,9 +15,12 @@ const router = createRouter({
     },
     {
       path: '/profile/:userId',
-      name: 'user-profile',
+      name: 'profile',
       component: () => import('../views/ProfileView.vue'),
-      props: true,
+      props: (route) => ({
+        userId: route.params.userId,
+        username: route.query.username
+      })
     },
     {
       path: '/nft',
