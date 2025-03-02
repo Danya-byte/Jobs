@@ -22,29 +22,20 @@ async function initReviewsFile() {
 
 function validateTelegramData(data) {
     try {
-        if (!data.hash || !data.auth_date || !data.user) {
-            return false;
-        }
+        if (!data.hash || !data.auth_date || !data.user) return false;
 
-        const decodedUser = decodeURIComponent(data.user);
-        const checkParams = [
-            ['auth_date', data.auth_date],
-            ['user', decodedUser]
-        ];
-        if (data.query_id) checkParams.push(['query_id', data.query_id]);
+        const secret = crypto.createHmac('sha256', 'WebAppData')
+                           .update(BOT_TOKEN)
+                           .digest();
 
-        checkParams.sort((a, b) => a[0].localeCompare(b[0]));
-        const checkString = checkParams.map(([key, val]) => `${key}=${val}`).join('\n');
+        const checkString = [
+            `auth_date=${data.auth_date}`,
+            `user=${decodeURIComponent(data.user)}`
+        ].sort().join('\n');
 
-        const secretKey = crypto.createHmac('sha256', 'WebAppData')
-                             .update(BOT_TOKEN)
-                             .digest();
-
-        const generatedHash = crypto.createHmac('sha256', secretKey)
-                                  .update(checkString)
-                                  .digest('hex');
-
-        return generatedHash === data.hash;
+        return crypto.createHmac('sha256', secret)
+                   .update(checkString)
+                   .digest('hex') === data.hash;
     } catch (e) {
         return false;
     }
@@ -52,50 +43,41 @@ function validateTelegramData(data) {
 
 app.post('/create-invoice', async (req, res) => {
     try {
-        if (!req.headers['x-telegram-data']) {
-            return res.status(401).send('Authorization required');
-        }
+        const telegramData = Object.fromEntries(new URLSearchParams(req.headers['x-telegram-data']));
 
-        const telegramData = new URLSearchParams(req.headers['x-telegram-data']);
-        const dataObject = Object.fromEntries(telegramData);
-
-        if (!validateTelegramData(dataObject)) {
+        if (!validateTelegramData(telegramData)) {
             return res.status(401).json({ error: 'Invalid signature' });
         }
 
+        const user = JSON.parse(decodeURIComponent(telegramData.user));
         const payload = {
-            user_id: dataObject.user?.id,
-            temp_data: Date.now()
+            user_id: user.id,
+            timestamp: Date.now()
         };
 
-        if (!payload.user_id) {
-            return res.status(400).send('User ID is required');
-        }
-
         const response = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
-            title: "Оставить отзыв",
-            description: "Публикация отзыва в профиле",
+            title: "Публикация отзыва",
+            description: "Размещение отзыва в вашем профиле",
             currency: "XTR",
-            prices: [{ label: "Отзыв", amount: 1 }],
+            prices: [{ label: "1 Telegram Star", amount: 1 }],
             payload: Buffer.from(JSON.stringify(payload)).toString('base64')
         });
 
         res.json({ invoice_link: response.data.result });
     } catch (error) {
-        res.status(500).send('Internal server error');
+        res.status(500).send(error.message);
     }
 });
 
 app.post('/submit-review', async (req, res) => {
     try {
-        const telegramData = new URLSearchParams(req.headers['x-telegram-data']);
-        const dataObject = Object.fromEntries(telegramData);
-        if (!validateTelegramData(dataObject)) return res.status(401).send('Invalid data');
+        const telegramData = Object.fromEntries(new URLSearchParams(req.headers['x-telegram-data']));
+        if (!validateTelegramData(telegramData)) return res.status(401).send('Invalid data');
 
         const review = {
             text: req.body.text,
-            author: dataObject.user?.first_name || 'Аноним',
-            author_photo: dataObject.user?.photo_url,
+            author: JSON.parse(decodeURIComponent(telegramData.user)).first_name || 'Аноним',
+            author_photo: JSON.parse(decodeURIComponent(telegramData.user)).photo_url,
             date: new Date().toISOString()
         };
 
