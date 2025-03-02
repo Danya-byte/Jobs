@@ -76,12 +76,16 @@ const loadReviews = async () => {
 
 const initiatePayment = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/create-invoice', {
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
       method: 'POST',
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData
       }
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
 
     const { invoice_link } = await response.json();
 
