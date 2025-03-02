@@ -1,12 +1,12 @@
 <template>
 <div class="container">
     <nav class="nav-bar">
-        <RouterLink to="/profile" class="profile-link">
+        <RouterLink :to="`/profile/${userId}`" class="profile-link">
             <img
                 :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
                 class="profile-icon"
             >
-            <div class="user-name" v-if="userFirstName || userLastName">
+            <div class="user-name" v-if="userFirstName">
                 <span class="first-name">{{ userFirstName }}</span>
             </div>
         </RouterLink>
@@ -99,13 +99,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const open = ref(false);
 const selectedJob = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
-const userLastName = ref('');
-const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+const userId = ref('');
 
 const jobs = ref([
     {
@@ -149,14 +150,14 @@ onMounted(() => {
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
-        Telegram.WebApp.disableVerticalSwipes();
-    }
 
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const user = Telegram.WebApp.initDataUnsafe.user;
-        userPhoto.value = user.photo_url || '';
-        userFirstName.value = user.first_name || '';
-        userLastName.value = user.last_name || '';
+        if (user) {
+            userId.value = user.id;
+            userPhoto.value = user.photo_url || '';
+            userFirstName.value = user.first_name || '';
+            router.replace(`/profile/${user.id}`);
+        }
     }
 });
 </script>

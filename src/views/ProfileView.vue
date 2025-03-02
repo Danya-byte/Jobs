@@ -77,6 +77,11 @@ const handleAvatarError = (e) => {
 
 const loadProfileData = async () => {
   try {
+    if (!userId || userId === "undefined") {
+      Telegram.WebApp.showAlert("Некорректный профиль");
+      return router.push("/");
+    }
+
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`, {
       headers: {
         "Cache-Control": "no-cache",
