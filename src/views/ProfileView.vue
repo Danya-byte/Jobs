@@ -35,7 +35,7 @@
       </div>
 
       <div v-else class="reviews-list">
-        <div v-for="(review, index) in allReviews" :key="index" class="review-message">
+        <div v-for="(review, index) in allReviews.slice().reverse()" :key="index" class="review-message">
           <div class="message-content">
             {{ review.text }}
           </div>
