@@ -72,10 +72,13 @@ const handleClickOutside = () => {
 const loadProfileData = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId}`);
+    if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
+
     const data = await response.json();
     profileData.value = data;
   } catch (error) {
     console.error("Ошибка загрузки профиля:", error);
+    Telegram.WebApp.showAlert("Профиль не найден");
   }
 };
 

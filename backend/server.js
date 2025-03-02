@@ -52,6 +52,28 @@ function validateTelegramData(initData) {
   }
 }
 
+app.get("/api/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
+    const reviews = JSON.parse(rawData || "{}");
+
+    const userReview = Object.values(reviews).find(
+      (review) => review.targetUserId === userId
+    );
+
+    const userData = {
+      id: userId,
+      firstName: userReview?.nick || "Пользователь",
+      photoUrl: "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp"
+    };
+
+    res.json(userData);
+  } catch (e) {
+    res.status(500).json({ error: "Ошибка загрузки данных пользователя" });
+  }
+});
+
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -99,7 +121,7 @@ app.get("/api/reviews", async (req, res) => {
     );
 
     res.json(filteredReviews);
-  } catch(e) {
+  } catch (e) {
     console.error("Reviews error:", e);
     res.status(500).json({ error: "Failed to load reviews" });
   }
@@ -115,7 +137,7 @@ app.get("/api/all-reviews", async (req, res) => {
     );
 
     res.json(allReviews);
-  } catch(e) {
+  } catch (e) {
     console.error("All reviews error:", e);
     res.status(500).json({ error: "Failed to load all reviews" });
   }
@@ -150,7 +172,7 @@ bot.on("message:successful_payment", async (ctx) => {
       console.log("Review published for user:", targetUserId);
       await ctx.reply("Отзыв опубликован! Спасибо!");
     }
-  } catch(e) {
+  } catch (e) {
     console.error("Payment processing error:", e);
   }
 });
