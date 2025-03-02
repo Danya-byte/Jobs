@@ -69,7 +69,7 @@ app.get("/api/user/:userId", async (req, res) => {
       return res.json({
         firstName: currentUser.first_name,
         username: currentUser.username,
-        photoUrl: currentUser.photo_url
+        photoUrl: currentUser.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
       });
     }
 
@@ -79,10 +79,12 @@ app.get("/api/user/:userId", async (req, res) => {
       username: member.user.username,
       photoUrl: member.user.photo?.small_file_id
         ? await getPhotoUrl(member.user.photo.small_file_id)
-        : `https://t.me/i/userpic/160/${member.user.username}.jpg`
+        : `https://t.me/i/userpic/160/${member.user.username || 'default'}.jpg`
     });
   } catch (e) {
-    res.status(404).json({ error: "Profile not found" });
+    res.json({
+      photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+    });
   }
 });
 
