@@ -55,7 +55,10 @@ app.post('/create-invoice', async (req, res) => {
         }
 
         const user = JSON.parse(decodeURIComponent(telegramData.user));
+        const orderId = `${user.id}_${Date.now()}`;
+
         const payload = {
+            order_id: orderId,
             user_id: user.id,
             timestamp: Date.now()
         };
@@ -70,6 +73,27 @@ app.post('/create-invoice', async (req, res) => {
         });
 
         res.json({ invoice_link: response.data.result });
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
+
+app.post('/webhook', async (req, res) => {
+    try {
+        const { message } = req.body;
+
+        if (message?.successful_payment) {
+            const payload = JSON.parse(
+                Buffer.from(message.successful_payment.invoice_payload, 'base64').toString()
+            );
+
+            const reviewsData = JSON.parse(await fs.readFile(REVIEWS_FILE));
+            if (!reviewsData[payload.user_id]) reviewsData[payload.user_id] = [];
+
+            await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData));
+        }
+
+        res.sendStatus(200);
     } catch (error) {
         res.status(500).send(error.message);
     }
@@ -108,13 +132,6 @@ app.get('/reviews', async (req, res) => {
     } catch (error) {
         res.status(500).send(error.message);
     }
-});
-
-app.post('/webhook', async (req, res) => {
-    if (req.body.message?.successful_payment) {
-        console.log('Успешный платеж:', req.body.message.successful_payment);
-    }
-    res.sendStatus(200);
 });
 
 initReviewsFile().then(() => {

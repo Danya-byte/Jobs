@@ -85,16 +85,11 @@ const initiatePayment = async () => {
       body: JSON.stringify({ user_id: Telegram.WebApp.initDataUnsafe.user?.id })
     });
 
-    if (response.status === 401) {
-      Telegram.WebApp.showAlert('Сессия устарела. Перезагрузите страницу');
-      return;
-    }
-
     if (!response.ok) throw new Error('Ошибка сервера');
-    const { invoice_link } = await response.json();
-    Telegram.WebApp.openInvoice(invoice_link);
 
-    Telegram.WebApp.onEvent('invoiceClosed', (status) => {
+    const { invoice_link } = await response.json();
+
+    Telegram.WebApp.openInvoice(invoice_link, (status) => {
       if (status === 'paid') {
         Telegram.WebApp.showPopup({
           title: 'Напишите отзыв',
@@ -102,14 +97,12 @@ const initiatePayment = async () => {
           buttons: [{ type: 'default', text: 'Отправить', id: 'submit' }]
         }, (buttonId) => {
           if (buttonId === 'submit') {
-            const reviewText = Telegram.WebApp.popupParams.value;
-            submitReview(reviewText);
+            submitReview(Telegram.WebApp.popupParams.value);
           }
         });
       }
     });
   } catch (error) {
-    console.error('Ошибка платежа:', error);
     Telegram.WebApp.showAlert(`Ошибка: ${error.message}`);
   }
 };
