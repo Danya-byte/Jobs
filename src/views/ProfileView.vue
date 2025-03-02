@@ -6,12 +6,12 @@
 
     <div class="profile-content">
       <img
-        :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
+        :src="profileData.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'"
         class="profile-avatar"
         @load="startAnimation"
         :class="{'avatar-visible': loaded}"
       >
-      <h1 class="profile-name">{{ userFirstName }}</h1>
+      <h1 class="profile-name">{{ profileData.firstName }}</h1>
     </div>
 
     <div class="reviews-section">
@@ -25,7 +25,7 @@
       <button
         class="leave-review-btn"
         @click="initiatePayment"
-        :disabled="!reviewText"
+        :disabled="!reviewText || isOwner"
       >
         Оплатить 1★ и отправить
       </button>
@@ -49,35 +49,39 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
 const userId = route.params.userId;
+const currentUser = Telegram.WebApp.initDataUnsafe.user;
 
 const loaded = ref(false);
-const userPhoto = ref('');
-const userFirstName = ref('');
+const profileData = ref({ firstName: '', photoUrl: '' });
 const allReviews = ref([]);
 const reviewText = ref('');
+
+const isOwner = computed(() => {
+  return currentUser?.id?.toString() === userId;
+});
 
 const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
 };
 
-const loadUserData = () => {
-  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-    const user = Telegram.WebApp.initDataUnsafe.user;
-    userPhoto.value = user.photo_url;
-    userFirstName.value = user.first_name || '';
+const loadProfileData = async () => {
+  try {
+    const response = await fetch(`https://your-server.com/api/user/${userId}`);
+    const data = await response.json();
+    profileData.value = data;
+  } catch (error) {
+    console.error("Ошибка загрузки профиля:", error);
   }
 };
 
-const startAnimation = () => loaded.value = true;
-
-const loadUserReviews = async () => {
+const loadReviews = async () => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?user_id=${userId}`);
+    const response = await fetch(`https://your-server.com/api/reviews?targetUserId=${userId}`);
     const data = await response.json();
     allReviews.value = data;
   } catch (error) {
@@ -87,13 +91,13 @@ const loadUserReviews = async () => {
 
 const initiatePayment = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
+    const response = await fetch('https://your-server.com/api/createInvoiceLink', {
       method: 'POST',
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ text: reviewText.value })
+      body: JSON.stringify({ text: reviewText.value, targetUserId: userId })
     });
 
     if (!response.ok) throw new Error('Ошибка создания платежа');
@@ -102,7 +106,7 @@ const initiatePayment = async () => {
 
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'paid') {
-        loadUserReviews();
+        loadReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }
@@ -116,8 +120,8 @@ onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
-    loadUserData();
-    loadUserReviews();
+    loadProfileData();
+    loadReviews();
   }
 });
 </script>

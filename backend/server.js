@@ -62,12 +62,12 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     const user = JSON.parse(params.get("user"));
     if (!user?.id) return res.status(400).json({ error: "Invalid user data" });
 
-    const { text } = req.body;
+    const { text, targetUserId } = req.body;
     const payload = `${user.id}_${Date.now()}`;
 
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     const reviewsData = JSON.parse(rawData || "{}");
-    reviewsData[payload] = { text, userId: user.id };
+    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, date: new Date().toISOString() };
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
@@ -88,17 +88,17 @@ app.post("/api/createInvoiceLink", async (req, res) => {
 
 app.get("/api/reviews", async (req, res) => {
   try {
-    const { user_id } = req.query;
-    if (!user_id) return res.status(400).json({ error: "Missing user_id" });
+    const { targetUserId } = req.query;
+    if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
 
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     const reviews = JSON.parse(rawData || "{}");
 
-    const userReviews = Object.values(reviews).filter(review =>
-      review.userId && review.userId.toString() === user_id
+    const filteredReviews = Object.values(reviews).filter(review =>
+      review.targetUserId === targetUserId
     );
 
-    res.json(userReviews);
+    res.json(filteredReviews);
   } catch(e) {
     console.error("Reviews error:", e);
     res.status(500).json({ error: "Failed to load reviews" });
@@ -111,7 +111,7 @@ app.get("/api/all-reviews", async (req, res) => {
     const reviews = JSON.parse(rawData || "{}");
 
     const allReviews = Object.values(reviews).filter(review =>
-      review.userId && review.text
+      review.authorUserId && review.targetUserId && review.text
     );
 
     res.json(allReviews);
@@ -134,19 +134,20 @@ bot.on("message:successful_payment", async (ctx) => {
     const reviewsData = JSON.parse(rawData);
 
     if (reviewsData[payload]) {
-      const { userId, text } = reviewsData[payload];
+      const { authorUserId, targetUserId, text } = reviewsData[payload];
 
-      const userKey = `user_${userId}`;
+      const userKey = `user_${targetUserId}`;
       reviewsData[userKey] = reviewsData[userKey] || [];
       reviewsData[userKey].push({
         text,
+        authorUserId,
         date: new Date().toISOString()
       });
 
       delete reviewsData[payload];
       await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
-      console.log("Review published for user:", userId);
+      console.log("Review published for user:", targetUserId);
       await ctx.reply("Отзыв опубликован! Спасибо!");
     }
   } catch(e) {
