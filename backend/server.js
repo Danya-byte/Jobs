@@ -10,7 +10,7 @@ const app = express();
 // Настройка CORS
 const corsOptions = {
     origin: (origin, callback) => {
-        const allowedOrigins = ['https://jobs-iota-one.vercel.app', 'http://localhost:5173']; // Добавьте свои домены
+        const allowedOrigins = ['https://jobs-iota-one.vercel.app', 'http://localhost:5173'];
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -43,10 +43,13 @@ function validateTelegramData(initData) {
         const receivedHash = params.get('hash');
         params.delete('hash'); // Удаляем hash для формирования checkString
 
-        if (!receivedHash || !params.get('auth_date') || !params.get('user')) {
+        if (!receivedHash || !params.get('auth_date')) {
             console.error("⚠️ Отсутствуют обязательные параметры");
             return false;
         }
+
+        // Исключаем signature, если он есть, так как он не используется в WebApp initData
+        params.delete('signature');
 
         const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest();
         const checkString = Array.from(params.entries())
