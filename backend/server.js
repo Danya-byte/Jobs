@@ -15,16 +15,16 @@ const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
 
-app.use(express.json());
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "X-Telegram-Data", "Authorization"],
-  exposedHeaders: ["Content-Length", "X-Request-Id"],
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'X-Telegram-Data', 'Authorization'],
   credentials: true
-}));
+};
 
-app.options("*", cors());
+app.use(express.json());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 async function initReviewsFile() {
   try {
@@ -56,10 +56,15 @@ function validateTelegramData(initData) {
   }
 }
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    if (!userId.match(/^\d+$/)) {
+    if (!userId.match(/^[\d_]+$/)) {
       return res.status(400).json({ error: "Invalid user ID format" });
     }
 
@@ -118,12 +123,19 @@ app.get("/api/reviews", async (req, res) => {
     const { targetUserId } = req.query;
     if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
 
-    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
-    const reviews = JSON.parse(rawData || "{}");
+    const rawData = await fs.readFile(REVIEWS_FILE, 'utf8').catch(() => "{}");
+    const reviews = JSON.parse(rawData);
 
-    const filteredReviews = Object.values(reviews).filter(review =>
-      review.targetUserId === targetUserId
-    );
+    const filteredReviews = Object.entries(reviews).reduce((acc, [key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach(item => {
+          if (item.targetUserId === targetUserId) acc.push(item);
+        });
+      } else if (value?.targetUserId === targetUserId) {
+        acc.push(value);
+      }
+      return acc;
+    }, []);
 
     res.json(filteredReviews);
   } catch (e) {
