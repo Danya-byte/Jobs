@@ -79,7 +79,7 @@ const handleAvatarError = (e) => {
   if (e.target.src.includes('userpic')) {
     e.target.src = fallbackAvatar;
   } else {
-    e.target.src = `https://t.me/i/userpic/160/${username}.jpg`;
+    e.target.src = `https://cdn4.cdn-telegram.org/file/P9aIqQIluQO06sE68gUUpGpbTdkFKZBJvroAC3eXUepnbjX8PPgprNDmGsNkiLq2BKHtdMDhY_TFbY0vo84ehUM2hiNID8JpeIBbXfmCNdowud3Pa7Y0RKzY4dhigQdTEkt2jwjBh_uB0FQaknPKjktocnR_xlGfL5jOEUF8OwNKaEiAOMUU6WlgMmTaDtMzTDI_nJ_UUhv7lcTdjxPnXzH-KOJlcEMRz6wv3mHa8iYPdruJ-gm2RrFvOKC4pi8XNFnJ_o8txm4huZ5De0_8G2xUTSmxiVyxBhkS-9aapdmfeycOxayJWxt3jp52WJApE0ndE2k5JvZar6GB_NqE-w.jpg`;
     setTimeout(() => {
       if (e.target.naturalWidth === 0) {
         e.target.src = fallbackAvatar;
