@@ -12,7 +12,6 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 
-// Track paid users
 const paidUsers = new Map();
 
 app.use(express.json());
@@ -22,7 +21,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "X-Telegram-Data"],
 }));
 
-// Initialize reviews file
 async function initReviewsFile() {
   try {
     await fs.access(REVIEWS_FILE);
@@ -31,7 +29,6 @@ async function initReviewsFile() {
   }
 }
 
-// Validate Telegram data
 function validateTelegramData(initData) {
   const params = new URLSearchParams(initData);
   const receivedHash = params.get("hash");
@@ -50,7 +47,6 @@ function validateTelegramData(initData) {
   return calculatedHash === receivedHash;
 }
 
-// Create invoice
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -66,7 +62,7 @@ app.post("/api/createInvoiceLink", async (req, res) => {
       "Submit a Review",
       "Pay 1 Telegram Star to submit a review",
       payload,
-      "", // No provider_token for XTR
+      "",
       "XTR",
       [{ label: "Review Submission", amount: 1 }]
     );
@@ -103,14 +99,13 @@ app.post("/api/submit-review", async (req, res) => {
     reviews[user.id].push({ text, date: new Date().toISOString() });
 
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
-    paidUsers.delete(user.id); // Clear payment status after submission
+    paidUsers.delete(user.id);
     res.sendStatus(200);
   } catch (error) {
     res.status(500).json({ error: "Failed to submit review" });
   }
 });
 
-// Get reviews
 app.get("/api/reviews", async (req, res) => {
   try {
     const { user_id } = req.query;
@@ -127,7 +122,6 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
-// Handle successful payments
 bot.on("message", (msg) => {
   if (msg.successful_payment) {
     const userId = msg.from.id;
