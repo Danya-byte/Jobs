@@ -57,22 +57,28 @@ const initiatePayment = async () => {
         const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/create-invoice', {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'X-Telegram-Data': Telegram.WebApp.initData
-            }
+            },
+            body: JSON.stringify({ user_id: Telegram.WebApp.initDataUnsafe.user?.id })
         });
+
+        if (!response.ok) throw new Error('Ошибка сервера');
         const { invoice_link } = await response.json();
         Telegram.WebApp.openInvoice(invoice_link);
+
     } catch (error) {
-        console.error(error);
+        console.error('Ошибка платежа:', error);
+        Telegram.WebApp.showAlert('Ошибка при создании платежа');
     }
 };
 
 const loadReviews = async () => {
     try {
-        const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/reviews');
+        const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/');
         reviews.value = await response.json();
     } catch (error) {
-        console.error(error);
+        console.error('Ошибка загрузки отзывов:', error);
     }
 };
 </script>
