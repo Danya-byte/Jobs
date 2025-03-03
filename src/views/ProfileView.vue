@@ -351,6 +351,7 @@ onMounted(async () => {
   cursor: pointer;
   padding: 2px 5px;
   font-size: 1.2em;
+}
 
 .delete-btn:hover {
   opacity: 0.8;
