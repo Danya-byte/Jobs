@@ -50,16 +50,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
 const currentUser = ref(null);
 const userId = ref('');
-
 const loaded = ref(false);
-const profileData = ref({ firstName: '', photoUrl: '', username: '' });
+const profileData = reactive({
+  photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp',
+  firstName: '',
+  username: ''
+});
 const allReviews = ref([]);
 const reviewText = ref('');
 
@@ -72,40 +75,29 @@ const handleClickOutside = () => {
 };
 
 const handleAvatarError = (e) => {
-  const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  e.target.src = fallbackAvatar;
+  e.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  e.target.onerror = null;
 };
 
 const loadProfileData = async () => {
-  const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
     const data = await response.json();
 
     if (data.photoUrl) {
-      // Предварительная загрузка изображения
       const img = new Image();
       img.src = data.photoUrl;
-      img.onerror = () => {
-        profileData.value.photoUrl = fallbackAvatar;
-      };
       img.onload = () => {
-        profileData.value.photoUrl = data.photoUrl;
+        profileData.photoUrl = data.photoUrl;
       };
-    } else {
-      profileData.value.photoUrl = fallbackAvatar;
     }
 
-    profileData.value.firstName = data.firstName || currentUser.value?.first_name;
-    profileData.value.username = data.username;
+    profileData.firstName = data.firstName || currentUser.value?.first_name;
+    profileData.username = data.username || currentUser.value?.username;
 
   } catch (error) {
-    profileData.value = {
-      firstName: currentUser.value?.first_name,
-      photoUrl: fallbackAvatar,
-      username: currentUser.value?.username
-    };
+    profileData.firstName = currentUser.value?.first_name;
+    profileData.username = currentUser.value?.username;
   }
 };
 
