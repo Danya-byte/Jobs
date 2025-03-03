@@ -1,5 +1,5 @@
 <template>
-<div class="container">
+<div class="container" @click="handleClickOutside">
     <nav class="nav-bar">
         <RouterLink
             :to="{
@@ -34,6 +34,7 @@
                 type="text"
                 placeholder="Search by position..."
                 class="search-input"
+                ref="searchInput"
             >
         </div>
 
@@ -130,6 +131,7 @@ const currentUserId = ref('');
 const currentUsername = ref('');
 const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const searchQuery = ref('');
+const searchInput = ref(null);
 
 const jobs = ref([
     {
@@ -177,6 +179,12 @@ const filteredJobs = computed(() => {
 const showJobDetails = (job) => {
     selectedJob.value = job;
     open.value = true;
+};
+
+const handleClickOutside = (event) => {
+    if (searchInput.value && !searchInput.value.contains(event.target)) {
+        searchInput.value.blur(); // Скрываем клавиатуру
+    }
 };
 
 onMounted(() => {
