@@ -86,12 +86,16 @@ const loadProfileData = async () => {
       }
     });
 
+    if (!response.ok) throw new Error('Failed to fetch profile data');
     const data = await response.json();
-    avatarSrc.value = data.photoUrl;
-    profileData.firstName = data.firstName;
+
+    profileData.firstName = data.firstName || 'Unknown';
+    profileData.username = data.username || '';
+    avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 
   } catch (error) {
     avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    profileData.firstName = 'Unknown';
   }
   loaded.value = true;
 };
@@ -102,7 +106,6 @@ const loadReviews = async () => {
     const data = await response.json();
     allReviews.value = data;
   } catch (error) {
-    console.error("Ошибка загрузки отзывов:", error);
   }
 };
 

@@ -66,35 +66,48 @@ async function getPhotoUrl(fileId) {
     const file = await bot.api.getFile(fileId);
     return `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
   } catch (e) {
-    console.error("Ошибка получения фото:", e);
     return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
   }
 }
 
 app.get("/api/user/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const member = await bot.api.getChatMember(userId, userId);
+    try {
+        const { userId } = req.params;
+        const { username } = req.query;
+        const telegramData = req.headers["x-telegram-data"];
 
-    let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+        if (!telegramData || !validateTelegramData(telegramData)) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
 
-    if (member.user.photo?.small_file_id) {
-      photoUrl = await getPhotoUrl(member.user.photo.small_file_id);
+        const params = new URLSearchParams(telegramData);
+        const currentUser = JSON.parse(params.get("user"));
+
+        let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+        let firstName = 'Unknown';
+        let finalUsername = username || null;
+
+        if (currentUser.id.toString() === userId) {
+            firstName = currentUser.first_name || 'Unknown';
+            finalUsername = currentUser.username || null;
+            photoUrl = currentUser.photo_url || (finalUsername ? `https://t.me/i/userpic/160/${finalUsername}.jpg` : photoUrl);
+        } else if (finalUsername) {
+            firstName = 'Unknown';
+            photoUrl = `https://t.me/i/userpic/160/${finalUsername}.jpg`;
+        }
+
+        res.json({
+            firstName,
+            username: finalUsername,
+            photoUrl
+        });
+    } catch (e) {
+        res.json({
+            firstName: 'Unknown',
+            username: null,
+            photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+        });
     }
-
-    res.json({
-      firstName: member.user.first_name || 'Unknown',
-      username: member.user.username || null,
-      photoUrl: photoUrl
-    });
-
-  } catch (e) {
-    res.json({
-      firstName: 'Unknown',
-      username: null,
-      photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
-    });
-  }
 });
 
 app.post("/api/createInvoiceLink", async (req, res) => {
@@ -166,7 +179,6 @@ bot.on("message:successful_payment", async (ctx) => {
   const payload = ctx.message.successful_payment.invoice_payload;
 
   if (!payload) {
-    console.error("Payload is undefined, check message structure:", JSON.stringify(ctx.message));
     await ctx.reply("Ошибка: не удалось обработать платеж. Обратитесь в поддержку.");
     return;
   }
@@ -192,7 +204,6 @@ bot.on("message:successful_payment", async (ctx) => {
       await ctx.reply("Отзыв опубликован! Спасибо!");
     }
   } catch (e) {
-    console.error("Payment error:", e);
     await ctx.reply("Произошла ошибка при обработке отзыва.");
   }
 });
@@ -215,7 +226,6 @@ setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 
 initReviewsFile().then(() => {
   app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
     bot.start();
   });
 });
