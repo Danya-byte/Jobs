@@ -47,7 +47,7 @@
               @click.stop="deleteReview(review.id)"
               class="delete-btn"
             >
-              ❌
+              🗑️
             </button>
           </div>
         </div>
@@ -350,9 +350,11 @@ onMounted(async () => {
   margin-left: 10px;
   cursor: pointer;
   padding: 2px 5px;
-}
+  font-size: 1.2em;
 
 .delete-btn:hover {
   opacity: 0.8;
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
 }
 </style>
