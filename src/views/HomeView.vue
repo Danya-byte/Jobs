@@ -37,7 +37,7 @@
                     :key="index"
                 >
                     <div class="card-header">
-                        <img class="job-icon" src="https://t.me/i/userpic/160/${user.username}.jpg">
+                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
                             <p class="work">{{ job.position }}</p>
@@ -119,7 +119,7 @@ const userFirstName = ref('');
 const userLastName = ref('');
 const currentUserId = ref('');
 const currentUsername = ref('');
-const jobIcon = 'https://t.me/i/userpic/160/${user.username}.jpg';
+const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 
 const jobs = ref([
     {
