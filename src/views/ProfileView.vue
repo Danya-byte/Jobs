@@ -71,28 +71,10 @@ const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  const avatarImage = document.querySelector('img');
-
-  if (avatarImage) {
-    avatarImage.addEventListener('error', handleAvatarError);
-  }
-});
 const handleAvatarError = (e) => {
   const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  const urlParams = new URLSearchParams(window.location.search);
-  const username = urlParams.get('username');
-
-
-  if (e.target.naturalWidth === 0) {
-    e.target.src = fallbackAvatar;
-  } else {
-
-    e.target.src = `https://t.me/i/userpic/160/${username}.jpg`;
-  }
+  e.target.src = fallbackAvatar;
 };
-
-
 
 const loadProfileData = async () => {
   const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
@@ -101,17 +83,22 @@ const loadProfileData = async () => {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
     const data = await response.json();
 
-    const checkAvatar = new Image();
-    checkAvatar.src = data.photoUrl;
-    checkAvatar.onerror = () => {
+    if (data.photoUrl) {
+      // Предварительная загрузка изображения
+      const img = new Image();
+      img.src = data.photoUrl;
+      img.onerror = () => {
+        profileData.value.photoUrl = fallbackAvatar;
+      };
+      img.onload = () => {
+        profileData.value.photoUrl = data.photoUrl;
+      };
+    } else {
       profileData.value.photoUrl = fallbackAvatar;
-    };
+    }
 
-    profileData.value = {
-      firstName: data.firstName || currentUser.value?.first_name,
-      photoUrl: data.photoUrl || fallbackAvatar,
-      username: data.username
-    };
+    profileData.value.firstName = data.firstName || currentUser.value?.first_name;
+    profileData.value.username = data.username;
 
   } catch (error) {
     profileData.value = {
