@@ -200,7 +200,7 @@ onMounted(async () => {
   border-radius: 50%;
   border: 3px solid transparent;
   box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
-  opacity: 0;
+  opacity: 1;
   transform: translateY(20px);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   animation: border-rotate 3s infinite linear;
