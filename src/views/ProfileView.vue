@@ -7,7 +7,6 @@
     <div class="profile-content">
       <img
         :src="avatarSrc"
-        @error="handleAvatarError"
         class="profile-avatar"
         @load="startAnimation"
         :class="{'avatar-visible': loaded}"
@@ -74,11 +73,6 @@ const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
 };
 
-const handleAvatarError = (e) => {
-  e.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  e.target.onerror = null;
-};
-
 const loadProfileData = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
@@ -87,19 +81,13 @@ const loadProfileData = async () => {
     profileData.firstName = data.firstName || currentUser.value?.first_name;
     profileData.username = data.username || currentUser.value?.username;
 
-    if (data.photoUrl) {
-      const img = new Image();
-      img.src = data.photoUrl;
-      img.onload = () => {
-        avatarSrc.value = data.photoUrl;
-      };
-      img.onerror = () => {
-        avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-      };
-    }
+    avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    loaded.value = true;
   } catch (error) {
     profileData.firstName = currentUser.value?.first_name;
     profileData.username = currentUser.value?.username;
+    avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    loaded.value = true;
   }
 };
 
