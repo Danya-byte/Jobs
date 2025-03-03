@@ -32,6 +32,10 @@ app.options('*', cors(corsOptions));
 async function initReviewsFile() {
   try {
     await fs.access(REVIEWS_FILE);
+    const data = await fs.readFile(REVIEWS_FILE, 'utf8');
+    if (!data.trim()) {
+      await fs.writeFile(REVIEWS_FILE, "{}");
+    }
   } catch {
     await fs.writeFile(REVIEWS_FILE, "{}");
   }
@@ -40,12 +44,44 @@ async function initReviewsFile() {
 async function initJobsFile() {
   try {
     await fs.access(JOBS_FILE);
+    const data = await fs.readFile(JOBS_FILE, 'utf8');
+    if (!data.trim()) {
+      const initialJobs = [
+        {
+          id: Date.now() + "_1",
+          nick: "Matvey",
+          userId: "1029594875",
+          username: "whsxg",
+          position: "Frontend Developer",
+          profileLink: '/profile/1029594875',
+          experience: "5 years experience",
+          description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
+          requirements: ["Опыт работы с Vue.js", "Знание HTML, CSS, JavaScript", "Интеграция с Telegram API"],
+          tags: ["JavaScript", "Vue 3", "Telegram API"],
+          contact: "https://t.me/workiks_admin"
+        },
+        {
+          id: Date.now() + "_2",
+          nick: "Danone",
+          userId: "7079899705",
+          username: "Danoneee777",
+          position: "Moderator",
+          profileLink: '/profile/7079899705',
+          experience: "3 years experience",
+          description: "Модерация сообществ и управление контентом.",
+          requirements: ["Опыт работы с социальными сетями", "Коммуникативные навыки", "Знание основ модерации"],
+          tags: ["Модерация", "Социальные сети"],
+          contact: "https://t.me/Danoneee777"
+        }
+      ];
+      await fs.writeFile(JOBS_FILE, JSON.stringify(initialJobs, null, 2));
+    }
   } catch {
     const initialJobs = [
       {
         id: Date.now() + "_1",
         nick: "Matvey",
-        userId: 1029594875,
+        userId: "1029594875",
         username: "whsxg",
         position: "Frontend Developer",
         profileLink: '/profile/1029594875',
@@ -58,7 +94,7 @@ async function initJobsFile() {
       {
         id: Date.now() + "_2",
         nick: "Danone",
-        userId: 7079899705,
+        userId: "7079899705",
         username: "Danoneee777",
         position: "Moderator",
         profileLink: '/profile/7079899705',
@@ -85,15 +121,8 @@ function validateTelegramData(initData) {
       .map(([key, val]) => `${key}=${val}`)
       .join("\n");
 
-    const secretKey = crypto
-      .createHmac("sha256", "WebAppData")
-      .update(BOT_TOKEN)
-      .digest();
-
-    return crypto
-      .createHmac("sha256", secretKey)
-      .update(dataCheckString)
-      .digest("hex") === receivedHash;
+    const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    return crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex") === receivedHash;
   } catch (e) {
     console.error("Error in validateTelegramData:", e);
     return false;
@@ -103,6 +132,9 @@ function validateTelegramData(initData) {
 app.get("/api/jobs", async (req, res) => {
   try {
     const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    if (!rawData.trim()) {
+      return res.json([]);
+    }
     const jobsData = JSON.parse(rawData);
     res.json(jobsData);
   } catch (e) {
@@ -126,14 +158,21 @@ app.post("/api/jobs", async (req, res) => {
     }
 
     const rawData = await fs.readFile(JOBS_FILE, 'utf8');
-    let jobsData = JSON.parse(rawData);
+    let jobsData = rawData.trim() ? JSON.parse(rawData) : [];
 
     const newJob = {
       id: `${Date.now()}_${user.id}`,
-      ...req.body,
-      userId: user.id,
-      username: user.username || "unknown",
-      profileLink: `/profile/${user.id}`
+      adminId: user.id, // ID администратора, который создал вакансию
+      userId: req.body.userId, // ID пользователя, указанный админом
+      username: req.body.username || "unknown",
+      nick: req.body.nick,
+      position: req.body.position,
+      profileLink: `/profile/${req.body.userId}`, // Формируем profileLink на основе userId
+      experience: req.body.experience,
+      description: req.body.description,
+      requirements: req.body.requirements,
+      tags: req.body.tags,
+      contact: req.body.contact
     };
 
     jobsData.push(newJob);
@@ -163,7 +202,7 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
     }
 
     const rawData = await fs.readFile(JOBS_FILE, 'utf8');
-    let jobsData = JSON.parse(rawData);
+    let jobsData = rawData.trim() ? JSON.parse(rawData) : [];
 
     const jobIndex = jobsData.findIndex(job => job.id === jobId);
     if (jobIndex === -1) {

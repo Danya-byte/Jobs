@@ -48,7 +48,9 @@
                     <button class="close-btn" @click="showAddModal = false">×</button>
                 </div>
                 <div class="job-details">
+                    <input v-model="newJob.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number">
                     <input v-model="newJob.nick" placeholder="Nick" class="search-input">
+                    <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
                     <input v-model="newJob.position" placeholder="Position" class="search-input">
                     <input v-model="newJob.experience" placeholder="Experience" class="search-input">
                     <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
@@ -132,7 +134,9 @@ const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
 const newJob = ref({
+    userId: '',
     nick: '',
+    username: '',
     position: '',
     experience: '',
     description: '',
@@ -164,7 +168,17 @@ const showJobDetails = (job) => {
 };
 
 const showAddJobModal = () => {
-    newJob.value = { nick: '', position: '', experience: '', description: '', requirements: [], tags: [], contact: '' };
+    newJob.value = {
+        userId: '',
+        nick: '',
+        username: '',
+        position: '',
+        experience: '',
+        description: '',
+        requirements: [],
+        tags: [],
+        contact: ''
+    };
     showAddModal.value = true;
 };
 
@@ -183,6 +197,10 @@ const addTag = () => {
 };
 
 const submitJob = async () => {
+    if (!newJob.value.userId) {
+        alert("Please enter a User ID");
+        return;
+    }
     try {
         const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
             headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
