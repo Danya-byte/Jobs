@@ -11,6 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
+const JOBS_FILE = path.join(__dirname, "jobs.json");
 const ADMIN_IDS = ["1940359844", "1871247390"];
 
 const bot = new Bot(BOT_TOKEN);
@@ -33,6 +34,50 @@ async function initReviewsFile() {
     await fs.access(REVIEWS_FILE);
   } catch {
     await fs.writeFile(REVIEWS_FILE, "{}");
+  }
+}
+
+async function initJobsFile() {
+  try {
+    await fs.access(JOBS_FILE);
+  } catch {
+    const initialJobs = [
+      {
+        id: Date.now() + "_1",
+        nick: "Matvey",
+        userId: 1029594875,
+        username: "whsxg",
+        position: "Frontend Developer",
+        profileLink: '/profile/1029594875',
+        experience: "5 years experience",
+        description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
+        requirements: [
+          "Опыт работы с Vue.js",
+          "Знание HTML, CSS, JavaScript",
+          "Интеграция с Telegram API"
+        ],
+        tags: ["JavaScript", "Vue 3", "Telegram API"],
+        contact: "https://t.me/workiks_admin"
+      },
+      {
+        id: Date.now() + "_2",
+        nick: "Danone",
+        userId: 7079899705,
+        username: "Danoneee777",
+        position: "Moderator",
+        profileLink: '/profile/7079899705',
+        experience: "3 years experience",
+        description: "Модерация сообществ и управление контентом.",
+        requirements: [
+          "Опыт работы с социальными сетями",
+          "Коммуникативные навыки",
+          "Знание основ модерации"
+        ],
+        tags: ["Модерация", "Социальные сети"],
+        contact: "https://t.me/Danoneee777"
+      }
+    ];
+    await fs.writeFile(JOBS_FILE, JSON.stringify(initialJobs, null, 2));
   }
 }
 
@@ -193,6 +238,83 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
   }
 });
 
+app.get("/api/jobs", async (req, res) => {
+  try {
+    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    const jobsData = JSON.parse(rawData);
+    res.json(jobsData);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to load jobs" });
+  }
+});
+
+app.post("/api/jobs", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+
+    if (!ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    let jobsData = JSON.parse(rawData);
+
+    const newJob = {
+      id: `${Date.now()}_${user.id}`,
+      ...req.body,
+      userId: user.id,
+      username: user.username,
+      profileLink: `/profile/${user.id}`
+    };
+
+    jobsData.push(newJob);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    res.json({ success: true, job: newJob });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/jobs/:jobId", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+
+    if (!ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    let jobsData = JSON.parse(rawData);
+
+    const jobIndex = jobsData.findIndex(job => job.id === jobId);
+    if (jobIndex === -1) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    jobsData.splice(jobIndex, 1);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 bot.on("pre_checkout_query", async (ctx) => {
   await ctx.answerPreCheckoutQuery(true);
 });
@@ -246,9 +368,10 @@ async function cleanOldTempReviews() {
 
 setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 
-initReviewsFile().then(() => {
+Promise.all([initReviewsFile(), initJobsFile()]).then(() => {
   app.listen(port, () => {
     bot.start();
+    console.log(`Server running on port ${port}`);
   });
 });
 

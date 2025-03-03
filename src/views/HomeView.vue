@@ -15,7 +15,10 @@
                 <span class="first-name">{{ userFirstName }}</span>
             </div>
         </RouterLink>
-        <a href="https://t.me/workiks_admin" class="add-button">
+        <button v-if="isAdmin" @click="showAddJobModal" class="add-button">
+            <span></span> Add Jobs
+        </button>
+        <a v-else href="https://t.me/workiks_admin" class="add-button">
             <span></span> Add Jobs
         </a>
     </nav>
@@ -43,8 +46,8 @@
                 <button
                     @click="showJobDetails(job)"
                     class="job-card"
-                    v-for="(job, index) in filteredJobs"
-                    :key="index"
+                    v-for="job in filteredJobs"
+                    :key="job.id"
                 >
                     <div class="card-header">
                         <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
@@ -63,11 +66,44 @@
     </div>
 
     <transition name="slide-up">
+        <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Add New Job</h2>
+                    <button class="close-btn" @click="showAddModal = false">×</button>
+                </div>
+                <div class="job-details">
+                    <input v-model="newJob.nick" placeholder="Nick" class="search-input">
+                    <input v-model="newJob.position" placeholder="Position" class="search-input">
+                    <input v-model="newJob.experience" placeholder="Experience" class="search-input">
+                    <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
+                    <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
+                    <ul class="requirements">
+                        <li v-for="(req, i) in newJob.requirements" :key="i">
+                            {{ req }}
+                            <button @click="newJob.requirements.splice(i, 1)" class="delete-req">×</button>
+                        </li>
+                    </ul>
+                    <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
+                    <div class="tags">
+                        <span v-for="(tag, i) in newJob.tags" :key="i" class="tag">
+                            {{ tag }}
+                            <button @click="newJob.tags.splice(i, 1)" class="delete-tag">×</button>
+                        </span>
+                    </div>
+                    <input v-model="newJob.contact" placeholder="Contact link" class="search-input">
+                    <button @click="submitJob" class="contact-btn">Submit Job</button>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+    <transition name="slide-up">
         <div v-if="open" class="modal-overlay" @click.self="open = false">
             <div class="modal">
                 <div class="modal-header">
                     <h2>{{ selectedJob.position }}</h2>
-                    <button class="close-btn" @click="open = false">&times;</button>
+                    <button class="close-btn" @click="open = false">×</button>
                 </div>
 
                 <div class="job-details">
@@ -111,6 +147,9 @@
                     >
                         Contact via Telegram
                     </a>
+                    <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">
+                        Delete Job
+                    </button>
                 </div>
             </div>
         </div>
@@ -120,53 +159,33 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router'
+import { useRouter } from 'vue-router';
+import axios from 'axios';
 
 const open = ref(false);
+const showAddModal = ref(false);
 const selectedJob = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
 const currentUserId = ref('');
 const currentUsername = ref('');
+const isAdmin = ref(false);
 const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const searchQuery = ref('');
 const searchInput = ref(null);
-
-const jobs = ref([
-    {
-        nick: "Matvey",
-        userId: 1029594875,
-        username: "whsxg",
-        position: "Frontend Developer",
-        profileLink: '/profile/1029594875',
-        experience: "5 years experience",
-        description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
-        requirements: [
-            "Опыт работы с Vue.js",
-            "Знание HTML, CSS, JavaScript",
-            "Интеграция с Telegram API"
-        ],
-        tags: ["JavaScript", "Vue 3", "Telegram API"],
-        contact: "https://t.me/workiks_admin"
-    },
-    {
-        nick: "Danone",
-        userId: 7079899705,
-        username: "Danoneee777",
-        position: "Moderator",
-        profileLink: '/profile/7079899705',
-        experience: "3 years experience",
-        description: "Модерация сообществ и управление контентом.",
-        requirements: [
-            "Опыт работы с социальными сетями",
-            "Коммуникативные навыки",
-            "Знание основ модерации"
-        ],
-        tags: ["Модерация", "Социальные сети"],
-        contact: "https://t.me/Danoneee777"
-    }
-]);
+const jobs = ref([]);
+const newJob = ref({
+    nick: '',
+    position: '',
+    experience: '',
+    description: '',
+    requirements: [],
+    tags: [],
+    contact: ''
+});
+const requirementsInput = ref('');
+const tagsInput = ref('');
 
 const filteredJobs = computed(() => {
     if (!searchQuery.value) return jobs.value;
@@ -176,14 +195,74 @@ const filteredJobs = computed(() => {
     );
 });
 
+const fetchJobs = async () => {
+    try {
+        const response = await axios.get('/api/jobs');
+        jobs.value = response.data;
+    } catch (error) {
+        console.error('Error fetching jobs:', error);
+    }
+};
+
 const showJobDetails = (job) => {
     selectedJob.value = job;
     open.value = true;
 };
 
+const showAddJobModal = () => {
+    newJob.value = {
+        nick: '',
+        position: '',
+        experience: '',
+        description: '',
+        requirements: [],
+        tags: [],
+        contact: ''
+    };
+    showAddModal.value = true;
+};
+
+const addRequirement = () => {
+    if (requirementsInput.value.trim()) {
+        newJob.value.requirements.push(requirementsInput.value.trim());
+        requirementsInput.value = '';
+    }
+};
+
+const addTag = () => {
+    if (tagsInput.value.trim()) {
+        newJob.value.tags.push(tagsInput.value.trim());
+        tagsInput.value = '';
+    }
+};
+
+const submitJob = async () => {
+    try {
+        const response = await axios.post('/api/jobs', newJob.value, {
+            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        });
+        jobs.value.push(response.data.job);
+        showAddModal.value = false;
+    } catch (error) {
+        console.error('Error submitting job:', error);
+    }
+};
+
+const deleteJob = async (jobId) => {
+    try {
+        await axios.delete(`/api/jobs/${jobId}`, {
+            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        });
+        jobs.value = jobs.value.filter(job => job.id !== jobId);
+        open.value = false;
+    } catch (error) {
+        console.error('Error deleting job:', error);
+    }
+};
+
 const handleClickOutside = (event) => {
     if (searchInput.value && !searchInput.value.contains(event.target)) {
-        searchInput.value.blur(); // Скрываем клавиатуру
+        searchInput.value.blur();
     }
 };
 
@@ -192,16 +271,18 @@ onMounted(() => {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.disableVerticalSwipes();
-    }
 
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-        const user = Telegram.WebApp.initDataUnsafe.user;
-        userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
-        userFirstName.value = user.first_name || '';
-        userLastName.value = user.last_name || '';
-        currentUserId.value = user.id;
-        currentUsername.value = user.username;
+        if (window.Telegram.WebApp.initDataUnsafe?.user) {
+            const user = Telegram.WebApp.initDataUnsafe.user;
+            userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
+            userFirstName.value = user.first_name || '';
+            userLastName.value = user.last_name || '';
+            currentUserId.value = user.id;
+            currentUsername.value = user.username;
+            isAdmin.value = ['1940359844', '1871247390'].includes(user.id.toString());
+        }
     }
+    fetchJobs();
 });
 </script>
 
@@ -535,6 +616,37 @@ onMounted(() => {
 
 .contact-btn:hover {
     transform: translateY(-2px);
+}
+
+.delete-btn {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+    color: #fff;
+    text-align: center;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    margin-top: 20px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.delete-btn:hover {
+    transform: translateY(-2px);
+}
+
+.delete-req, .delete-tag {
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    margin-left: 5px;
+    font-size: 16px;
+}
+
+textarea.search-input {
+    min-height: 100px;
+    resize: vertical;
 }
 
 .slide-up-enter-active,
