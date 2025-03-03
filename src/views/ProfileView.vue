@@ -141,6 +141,10 @@ const initiatePayment = async () => {
     const { invoiceLink } = await response.json();
 
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
+      if (status === 'cancelled') {
+        reviewText.value = '';
+        Telegram.WebApp.showAlert('Вы не подтвердили платеж!');
+      }
       if (status === 'paid') {
         loadReviews();
         reviewText.value = '';
