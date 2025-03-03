@@ -230,6 +230,12 @@ onMounted(() => {
     animation: fade-in 0.5s ease-in-out, color-change 5s infinite;
 }
 
+@keyframes color-change {
+    0% { color: #97f492; }
+    50% { color: #6de06a; }
+    100% { color: #97f492; }
+}
+
 .add-button {
     background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
     padding: 8px 20px;

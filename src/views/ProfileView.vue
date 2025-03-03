@@ -222,16 +222,21 @@ onMounted(async () => {
 }
 
 .review-input {
-  width: 100%;
-  height: 70px;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid #97f492;
-  border-radius: 12px;
-  color: white;
-  resize: none;
-  overflow: hidden;
+    width: 100%;
+    height: 70px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid #97f492;
+    border-radius: 12px;
+    color: white;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.5;
+}
+
+.review-input::placeholder {
+    line-height: 1.5;
 }
 
 .leave-review-btn {
