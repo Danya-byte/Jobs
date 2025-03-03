@@ -36,12 +36,19 @@
       </div>
 
       <div v-else class="reviews-list">
-        <div v-for="(review, index) in allReviews.slice().reverse()" :key="index" class="review-message">
+        <div v-for="review in allReviews" :key="review.id" class="review-message">
           <div class="message-content">
             {{ review.text }}
           </div>
           <div class="message-date">
             {{ new Date(review.date).toLocaleString() }}
+            <button
+              v-if="isAdmin"
+              @click.stop="deleteReview(review.id)"
+              class="delete-btn"
+            >
+              ❌
+            </button>
           </div>
         </div>
       </div>
@@ -65,9 +72,14 @@ const profileData = reactive({
 const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
+const ADMIN_IDS = ["1940359844"];
 
 const isOwner = computed(() => {
   return currentUser.value?.id?.toString() === userId.value?.toString();
+});
+
+const isAdmin = computed(() => {
+  return ADMIN_IDS.includes(currentUser.value?.id?.toString());
 });
 
 const handleClickOutside = () => {
@@ -110,6 +122,23 @@ const loadReviews = async () => {
     const data = await response.json();
     allReviews.value = data;
   } catch (error) {
+  }
+};
+
+const deleteReview = async (reviewId) => {
+  try {
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/${reviewId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
+      }
+    });
+
+    if (!response.ok) throw new Error('Ошибка удаления');
+    await loadReviews();
+    Telegram.WebApp.showAlert('Отзыв удалён!');
+  } catch (error) {
+    Telegram.WebApp.showAlert(error.message);
   }
 };
 
@@ -312,5 +341,18 @@ onMounted(async () => {
   font-size: 0.8em;
   text-align: right;
   margin-top: 8px;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #ff4444;
+  margin-left: 10px;
+  cursor: pointer;
+  padding: 2px 5px;
+}
+
+.delete-btn:hover {
+  opacity: 0.8;
 }
 </style>

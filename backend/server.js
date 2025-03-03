@@ -11,6 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
+const ADMIN_IDS = ["1940359844"];
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -54,19 +55,6 @@ function validateTelegramData(initData) {
       .digest("hex") === receivedHash;
   } catch {
     return false;
-  }
-}
-
-async function getPhotoUrl(fileId) {
-  if (!fileId) {
-    return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  }
-
-  try {
-    const file = await bot.api.getFile(fileId);
-    return `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
-  } catch (e) {
-    return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
   }
 }
 
@@ -159,18 +147,49 @@ app.post("/api/createInvoiceLink", async (req, res) => {
 app.get("/api/reviews", async (req, res) => {
   try {
     const { targetUserId } = req.query;
-    if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
-
-    const rawData = await fs.readFile(REVIEWS_FILE, 'utf8').catch(() => "{}");
+    const rawData = await fs.readFile(REVIEWS_FILE, 'utf8');
     const reviewsData = JSON.parse(rawData);
 
-    const reviews = Object.values(reviewsData).filter(
-      (review) => review.targetUserId === targetUserId && review.date
-    );
+    const reviews = Object.entries(reviewsData).map(([id, data]) => ({
+      id,
+      ...data
+    })).filter(review => review.targetUserId === targetUserId);
 
     res.json(reviews);
   } catch (e) {
     res.status(500).json({ error: "Failed to load reviews" });
+  }
+});
+
+app.delete("/api/reviews/:reviewId", async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+
+    if (!ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const rawData = await fs.readFile(REVIEWS_FILE, 'utf8');
+    const reviewsData = JSON.parse(rawData);
+
+    if (!reviewsData[reviewId]) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    delete reviewsData[reviewId];
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
