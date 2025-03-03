@@ -119,7 +119,7 @@ const userFirstName = ref('');
 const userLastName = ref('');
 const currentUserId = ref('');
 const currentUsername = ref('');
-const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+const jobIcon = 'https://t.me/i/userpic/160/${user.username}';
 
 const jobs = ref([
     {
