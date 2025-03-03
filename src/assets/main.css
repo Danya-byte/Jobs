@@ -32,3 +32,7 @@ body {
     animation: gradient-shift 15s ease infinite;
     background-size: 200% 200%;
 }
+
+button, a, input, textarea, select {
+    -webkit-tap-highlight-color: transparent;
+}
