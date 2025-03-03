@@ -37,7 +37,7 @@
                     :key="index"
                 >
                     <div class="card-header">
-                        <img :src="job.photoUrl || jobIcon" class="job-icon">
+                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
                             <p class="work">{{ job.position }}</p>
@@ -68,7 +68,7 @@
                             username: selectedJob.username
                         }
                     })">
-                        <img :src="selectedJob.photoUrl || jobIcon" class="job-icon">
+                        <img :src="jobIcon" class="job-icon">
                         <div>
                             <p class="nickname">{{ selectedJob.nick }}</p>
                             <p class="experience">{{ selectedJob.experience }}</p>
@@ -136,8 +136,7 @@ const jobs = ref([
             "Интеграция с Telegram API"
         ],
         tags: ["JavaScript", "Vue 3", "Telegram API"],
-        contact: "https://t.me/workiks_admin",
-        photoUrl: ''
+        contact: "https://t.me/workiks_admin"
     },
     {
         nick: "Danone",
@@ -153,35 +152,16 @@ const jobs = ref([
             "Знание основ модерации"
         ],
         tags: ["Модерация", "Социальные сети"],
-        contact: "https://t.me/Danoneee777",
-        photoUrl: ''
+        contact: "https://t.me/Danoneee777"
     }
 ]);
-
-const router = useRouter();
 
 const showJobDetails = (job) => {
     selectedJob.value = job;
     open.value = true;
 };
 
-const loadJobPhotos = async () => {
-    for (const job of jobs.value) {
-        try {
-            const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${job.userId}?username=${job.username}`, {
-                headers: {
-                    'X-Telegram-Data': Telegram.WebApp.initData
-                }
-            });
-            const data = await response.json();
-            job.photoUrl = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-        } catch (error) {
-            job.photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-        }
-    }
-};
-
-onMounted(async () => {
+onMounted(() => {
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
@@ -196,8 +176,6 @@ onMounted(async () => {
         currentUserId.value = user.id;
         currentUsername.value = user.username;
     }
-
-    await loadJobPhotos();
 });
 </script>
 
