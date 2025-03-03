@@ -81,15 +81,15 @@ const handleAvatarError = () => {
 const loadProfileData = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
+    if (!response.ok) throw new Error('Ошибка загрузки профиля');
     const data = await response.json();
 
-    profileData.firstName = data.firstName || currentUser.value?.first_name;
+    profileData.firstName = data.firstName || currentUser.value?.first_name || 'Unknown';
     profileData.username = data.username || currentUser.value?.username;
-
     avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     loaded.value = true;
   } catch (error) {
-    profileData.firstName = currentUser.value?.first_name;
+    profileData.firstName = currentUser.value?.first_name || 'Unknown';
     profileData.username = currentUser.value?.username;
     avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     loaded.value = true;

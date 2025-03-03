@@ -58,10 +58,15 @@ function validateTelegramData(initData) {
 }
 
 async function getPhotoUrl(fileId) {
+  if (!fileId) {
+    return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  }
+
   try {
     const file = await bot.api.getFile(fileId);
     return `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
   } catch (e) {
+    console.error("Ошибка получения фото:", e);
     return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
   }
 }
@@ -83,14 +88,21 @@ app.get("/api/user/:userId", async (req, res) => {
     }
 
     const member = await bot.api.getChatMember(userId, userId);
-    const photoUrl = await getPhotoUrl(member.user.photo?.small_file_id);
+    let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+
+    if (member.user.photo?.small_file_id) {
+      photoUrl = await getPhotoUrl(member.user.photo.small_file_id);
+    }
+
     res.json({
       firstName: member.user.first_name,
       username: member.user.username,
-      photoUrl: photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+      photoUrl: photoUrl
     });
   } catch (e) {
     res.json({
+      firstName: 'Unknown',
+      username: null,
       photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
     });
   }
