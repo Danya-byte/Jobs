@@ -21,6 +21,15 @@
     </nav>
 
     <div class="content">
+        <div class="search-container">
+            <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search by position..."
+                class="search-input"
+            >
+        </div>
+
         <div class="categories">
             <button class="category-btn active">Jobs</button>
             <RouterLink to="#">
@@ -33,7 +42,7 @@
                 <button
                     @click="showJobDetails(job)"
                     class="job-card"
-                    v-for="(job, index) in jobs"
+                    v-for="(job, index) in filteredJobs"
                     :key="index"
                 >
                     <div class="card-header">
@@ -109,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router'
 
 const open = ref(false);
@@ -120,6 +129,7 @@ const userLastName = ref('');
 const currentUserId = ref('');
 const currentUsername = ref('');
 const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+const searchQuery = ref('');
 
 const jobs = ref([
     {
@@ -155,6 +165,14 @@ const jobs = ref([
         contact: "https://t.me/Danoneee777"
     }
 ]);
+
+const filteredJobs = computed(() => {
+    if (!searchQuery.value) return jobs.value;
+    const query = searchQuery.value.toLowerCase();
+    return jobs.value.filter(job =>
+        job.position.toLowerCase().includes(query)
+    );
+});
 
 const showJobDetails = (job) => {
     selectedJob.value = job;
@@ -251,6 +269,30 @@ onMounted(() => {
 
 .add-button:hover {
     transform: translateY(-2px);
+}
+
+.search-container {
+    margin-bottom: 20px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: none;
+    background: #272e38;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.search-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #97f492;
+}
+
+.search-input::placeholder {
+    color: #6b7280;
 }
 
 .categories {
