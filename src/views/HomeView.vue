@@ -125,7 +125,7 @@ const jobs = ref([
     {
         nick: "Matvey",
         userId: 1029594875,
-        username: "whsxg",
+        username: "rollpit",
         position: "Frontend Developer",
         profileLink: '/profile/1029594875',
         experience: "5 years experience",
