@@ -197,7 +197,7 @@ const filteredJobs = computed(() => {
 
 const fetchJobs = async () => {
     try {
-        const response = await axios.get('/api/jobs');
+        const response = await axios.get('https://impotently-dutiful-hare.cloudpub.ru/api/jobs');
         jobs.value = response.data;
     } catch (error) {
         console.error('Error fetching jobs:', error);
@@ -238,7 +238,7 @@ const addTag = () => {
 
 const submitJob = async () => {
     try {
-        const response = await axios.post('/api/jobs', newJob.value, {
+        const response = await axios.post('https://impotently-dutiful-hare.cloudpub.ru/api/jobs', newJob.value, {
             headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
         });
         jobs.value.push(response.data.job);
@@ -250,7 +250,7 @@ const submitJob = async () => {
 
 const deleteJob = async (jobId) => {
     try {
-        await axios.delete(`/api/jobs/${jobId}`, {
+        await axios.delete(`https://impotently-dutiful-hare.cloudpub.ru/api/jobs/${jobId}`, {
             headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
         });
         jobs.value = jobs.value.filter(job => job.id !== jobId);
