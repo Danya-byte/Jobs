@@ -21,6 +21,13 @@
     </nav>
 
     <div class="content">
+        <div class="categories">
+            <button class="category-btn active">Jobs</button>
+            <RouterLink to="#">
+                <button class="category-btn">Gift</button>
+            </RouterLink>
+        </div>
+
         <div class="search-container">
             <input
                 v-model="searchQuery"
@@ -28,13 +35,6 @@
                 placeholder="Search by position..."
                 class="search-input"
             >
-        </div>
-
-        <div class="categories">
-            <button class="category-btn active">Jobs</button>
-            <RouterLink to="#">
-                <button class="category-btn">Gift</button>
-            </RouterLink>
         </div>
 
         <div class="jobs-scroll-container">
@@ -271,30 +271,6 @@ onMounted(() => {
     transform: translateY(-2px);
 }
 
-.search-container {
-    margin-bottom: 20px;
-}
-
-.search-input {
-    width: 100%;
-    padding: 12px 20px;
-    border-radius: 12px;
-    border: none;
-    background: #272e38;
-    color: #fff;
-    font-size: 14px;
-    transition: all 0.3s;
-}
-
-.search-input:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px #97f492;
-}
-
-.search-input::placeholder {
-    color: #6b7280;
-}
-
 .categories {
     display: flex;
     gap: 15px;
@@ -318,6 +294,30 @@ onMounted(() => {
     background: #97f492;
     color: #000;
     animation: pulse 2s infinite;
+}
+
+.search-container {
+    margin-bottom: 20px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: none;
+    background: #272e38;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.search-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #97f492;
+}
+
+.search-input::placeholder {
+    color: #6b7280;
 }
 
 .content {
