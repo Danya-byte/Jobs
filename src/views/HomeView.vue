@@ -29,6 +29,7 @@
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
                             <p class="work">{{ job.position }}</p>
+                            <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
                         </div>
                     </div>
                     <p class="job-description">{{ job.description }}</p>
@@ -52,7 +53,7 @@
                     <input v-model="newJob.nick" placeholder="Nick" class="search-input">
                     <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
                     <input v-model="newJob.position" placeholder="Position" class="search-input">
-                    <input v-model="newJob.experience" placeholder="Experience" class="search-input">
+                    <input v-model.number="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
                     <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
                     <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
                     <ul class="requirements">
@@ -85,7 +86,7 @@
                         <img :src="jobIcon" class="job-icon">
                         <div>
                             <p class="nickname">{{ selectedJob.nick }}</p>
-                            <p class="experience">{{ selectedJob.experience }}</p>
+                            <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
                         </div>
                     </div>
                     <div class="section">
@@ -138,7 +139,7 @@ const newJob = ref({
     nick: '',
     username: '',
     position: '',
-    experience: '',
+    experience: null,
     description: '',
     requirements: [],
     tags: [],
@@ -155,10 +156,16 @@ const filteredJobs = computed(() => {
 
 const fetchJobs = async () => {
     try {
-        const response = await axios.get(`${BASE_URL}/api/jobs`);
+        const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
         jobs.value = response.data;
     } catch (error) {
-        console.error('Error fetching jobs:', error.response?.data || error.message);
+        if (error.response) {
+            console.error('Server responded with error:', error.response.data);
+        } else if (error.request) {
+            console.error('No response from server (CORS or network issue):', error.message);
+        } else {
+            console.error('Error setting up request:', error.message);
+        }
     }
 };
 
@@ -173,7 +180,7 @@ const showAddJobModal = () => {
         nick: '',
         username: '',
         position: '',
-        experience: '',
+        experience: null,
         description: '',
         requirements: [],
         tags: [],

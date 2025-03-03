@@ -39,5 +39,25 @@
       "Социальные сети"
     ],
     "contact": "https://t.me/Danoneee777"
+  },
+  {
+    "id": "1741043551371_1940359844",
+    "adminId": 1940359844,
+    "userId": 6568279325,
+    "username": "@GW_NEON",
+    "nick": "NEON",
+    "position": "Web dev",
+    "profileLink": "/profile/6568279325",
+    "experience": "10 ",
+    "description": "test",
+    "requirements": [
+      "React",
+      "Web dev"
+    ],
+    "tags": [
+      "react",
+      "web dev"
+    ],
+    "contact": "@workiks_admin"
   }
 ]
