@@ -74,20 +74,8 @@ async function getPhotoUrl(fileId) {
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const initData = req.headers['x-telegram-data'];
-
-    const params = new URLSearchParams(initData);
-    const currentUser = JSON.parse(params.get("user"));
-
-    if (currentUser?.id?.toString() === userId) {
-      return res.json({
-        firstName: currentUser.first_name,
-        username: currentUser.username,
-        photoUrl: currentUser.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
-      });
-    }
-
     const member = await bot.api.getChatMember(userId, userId);
+
     let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 
     if (member.user.photo?.small_file_id) {
@@ -95,10 +83,11 @@ app.get("/api/user/:userId", async (req, res) => {
     }
 
     res.json({
-      firstName: member.user.first_name,
-      username: member.user.username,
+      firstName: member.user.first_name || 'Unknown',
+      username: member.user.username || null,
       photoUrl: photoUrl
     });
+
   } catch (e) {
     res.json({
       firstName: 'Unknown',

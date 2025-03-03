@@ -62,7 +62,7 @@ const profileData = reactive({
   firstName: '',
   username: ''
 });
-const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'); // Дефолтная аватарка
+const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
 
@@ -75,37 +75,25 @@ const handleClickOutside = () => {
 };
 
 const handleAvatarError = () => {
-  avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'; // Устанавливаем дефолт при ошибке
+  avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 };
 
 const loadProfileData = async () => {
   try {
-    if (currentUser.value?.id?.toString() === userId.value) {
-      profileData.firstName = currentUser.value.first_name || 'Unknown';
-      profileData.username = currentUser.value.username || null;
-      avatarSrc.value = currentUser.value.photo_url || `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    } else {
-      // Запрашиваем данные профиля через API для другого пользователя
-      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
-        headers: {
-          'X-Telegram-Data': Telegram.WebApp.initData // Передаем данные авторизации
-        }
-      });
-      if (!response.ok) throw new Error('Ошибка загрузки профиля');
-      const data = await response.json();
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
+      }
+    });
 
-      profileData.firstName = data.firstName || 'Unknown';
-      profileData.username = data.username || null;
-      avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    }
-    loaded.value = true;
+    const data = await response.json();
+    avatarSrc.value = data.photoUrl;
+    profileData.firstName = data.firstName;
+
   } catch (error) {
-    console.error('Ошибка загрузки профиля:', error);
-    profileData.firstName = currentUser.value?.first_name || 'Unknown';
-    profileData.username = currentUser.value?.username || null;
-    avatarSrc.value = currentUser.value?.photo_url || `https://t.me/i/userpic/160/${currentUser.value?.username}.jpg` || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    loaded.value = true;
+    avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
   }
+  loaded.value = true;
 };
 
 const loadReviews = async () => {
