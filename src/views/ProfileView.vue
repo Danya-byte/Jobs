@@ -8,6 +8,7 @@
       <img
         :src="avatarSrc"
         class="profile-avatar"
+        @error="handleAvatarError"
         @load="startAnimation"
         :class="{'avatar-visible': loaded}"
       >
@@ -71,6 +72,10 @@ const isOwner = computed(() => {
 
 const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
+};
+
+const handleAvatarError = () => {
+  avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 };
 
 const loadProfileData = async () => {
