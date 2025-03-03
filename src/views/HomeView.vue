@@ -124,10 +124,10 @@ const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.
 const jobs = ref([
     {
         nick: "Matvey",
-        userId: 1029594875,
-        username: "rollpit",
+        userId: 1940359844,
+        username: "whsxg",
         position: "Frontend Developer",
-        profileLink: '/profile/1029594875',
+        profileLink: '/profile/1940359844',
         experience: "5 years experience",
         description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
         requirements: [
