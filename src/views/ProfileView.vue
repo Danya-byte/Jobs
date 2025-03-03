@@ -76,17 +76,16 @@ const handleAvatarError = (e) => {
   const urlParams = new URLSearchParams(window.location.search);
   const username = urlParams.get('username');
 
-  if (e.target.src.includes('userpic')) {
+  if (e.target.naturalWidth === 0) {
     e.target.src = fallbackAvatar;
   } else {
+
     e.target.src = `https://t.me/i/userpic/160/${username}.jpg`;
-    setTimeout(() => {
-      if (e.target.naturalWidth === 0) {
-        e.target.src = fallbackAvatar;
-      }
-    }, 500);
   }
 };
+
+document.querySelector('img').addEventListener('error', handleAvatarError);
+
 
 const loadProfileData = async () => {
   const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
