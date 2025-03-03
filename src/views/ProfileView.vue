@@ -71,10 +71,18 @@ const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
 };
 
+document.addEventListener('DOMContentLoaded', () => {
+  const avatarImage = document.querySelector('img');
+
+  if (avatarImage) {
+    avatarImage.addEventListener('error', handleAvatarError);
+  }
+});
 const handleAvatarError = (e) => {
   const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
   const urlParams = new URLSearchParams(window.location.search);
   const username = urlParams.get('username');
+
 
   if (e.target.naturalWidth === 0) {
     e.target.src = fallbackAvatar;
@@ -84,7 +92,6 @@ const handleAvatarError = (e) => {
   }
 };
 
-document.querySelector('img').addEventListener('error', handleAvatarError);
 
 
 const loadProfileData = async () => {
