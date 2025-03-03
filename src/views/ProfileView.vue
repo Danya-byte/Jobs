@@ -52,7 +52,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import axios from 'axios';
 
 const route = useRoute();
 const router = useRouter();
@@ -74,59 +73,98 @@ const handleClickOutside = () => {
 
 const handleAvatarError = (e) => {
   const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  e.target.src = fallbackAvatar;
+  const urlParams = new URLSearchParams(window.location.search);
+  const username = urlParams.get('username');
+
+  if (e.target.src.includes('userpic')) {
+    e.target.src = fallbackAvatar;
+  } else {
+    e.target.src = `https://t.me/i/userpic/160/${username}.jpg`;
+    setTimeout(() => {
+      if (e.target.naturalWidth === 0) {
+        e.target.src = fallbackAvatar;
+      }
+    }, 500);
+  }
 };
 
 const loadProfileData = async () => {
+  const fallbackAvatar = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+
   try {
-    const response = await axios.get(`/api/user/${userId.value}`);
-    profileData.value = response.data;
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
+    const data = await response.json();
+
+    const checkAvatar = new Image();
+    checkAvatar.src = data.photoUrl;
+    checkAvatar.onerror = () => {
+      profileData.value.photoUrl = fallbackAvatar;
+    };
+
+    profileData.value = {
+      firstName: data.firstName || currentUser.value?.first_name,
+      photoUrl: data.photoUrl || fallbackAvatar,
+      username: data.username
+    };
+
   } catch (error) {
-    console.error("Ошибка загрузки профиля", error);
+    profileData.value = {
+      firstName: currentUser.value?.first_name,
+      photoUrl: fallbackAvatar,
+      username: currentUser.value?.username
+    };
   }
 };
 
 const loadReviews = async () => {
   try {
-    const response = await axios.get(`/api/reviews?targetUserId=${userId.value}`);
-    allReviews.value = response.data;
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
+    const data = await response.json();
+    allReviews.value = data;
   } catch (error) {
-    console.error("Ошибка загрузки отзывов", error);
+    console.error("Ошибка загрузки отзывов:", error);
   }
 };
 
 const initiatePayment = async () => {
   try {
-    const response = await axios.post('/api/createInvoiceLink', {
-      text: reviewText.value,
-      targetUserId: userId.value
-    }, {
-      headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
+      method: 'POST',
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ text: reviewText.value, targetUserId: userId.value })
     });
 
-    const { invoiceLink } = response.data;
-    Telegram.WebApp.openInvoice(invoiceLink, async (status) => {
+    if (!response.ok) throw new Error('Ошибка создания платежа');
+    const { invoiceLink } = await response.json();
+
+    Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'cancelled') {
+        reviewText.value = '';
         Telegram.WebApp.showAlert('Вы не подтвердили платеж!');
       }
       if (status === 'paid') {
-        await loadReviews();
+        loadReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }
     });
   } catch (error) {
-    Telegram.WebApp.showAlert('Ошибка при создании платежа');
+    Telegram.WebApp.showAlert(error.message);
   }
 };
 
 onMounted(async () => {
   currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
   userId.value = route.params.userId || currentUser.value?.id;
+
   if (!userId.value) {
     router.push('/');
     return;
   }
+
   await loadProfileData();
   await loadReviews();
 });
@@ -161,11 +199,115 @@ onMounted(async () => {
   height: 90px;
   border-radius: 50%;
   border: 3px solid transparent;
+  box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: border-rotate 3s infinite linear;
+  z-index: 1000;
+}
+
+@keyframes border-rotate {
+  0% { border-color: #97f492; filter: hue-rotate(0deg); }
+  100% { border-color: #97f492; filter: hue-rotate(360deg); }
+}
+
+.avatar-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .profile-name {
   color: #fff;
   font-size: 25px;
   margin-top: 15px;
+  text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
+}
+
+.reviews-section {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 12px;
+  height: calc(100vh - 260px);
+  display: flex;
+  flex-direction: column;
+}
+
+.review-input {
+  width: 100%;
+  height: 70px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #97f492;
+  border-radius: 12px;
+  color: white;
+  resize: none;
+  overflow: hidden;
+}
+
+.leave-review-btn {
+  background: linear-gradient(45deg, #97f492, #6adf66);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  color: #182038;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+  margin-bottom: 20px;
+}
+
+.leave-review-btn:hover {
+  transform: scale(1.05);
+}
+
+.leave-review-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.no-reviews {
+  color: #97f492;
+  text-align: center;
+  padding: 20px;
+  opacity: 0.7;
+}
+
+.reviews-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 12px;
+}
+
+.reviews-list::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+.reviews-list {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.review-message {
+  background: rgba(255,255,255,0.05);
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 15px;
+}
+
+.message-content {
+  color: #fff;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.message-date {
+  color: #97f492;
+  font-size: 0.8em;
+  text-align: right;
+  margin-top: 8px;
 }
 </style>
