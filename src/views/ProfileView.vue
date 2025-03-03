@@ -6,7 +6,7 @@
 
     <div class="profile-content">
       <img
-        :src="profileData.photoUrl"
+        :src="avatarSrc"
         @error="handleAvatarError"
         class="profile-avatar"
         @load="startAnimation"
@@ -59,10 +59,10 @@ const currentUser = ref(null);
 const userId = ref('');
 const loaded = ref(false);
 const profileData = reactive({
-  photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp',
   firstName: '',
   username: ''
 });
+const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
 
@@ -84,17 +84,19 @@ const loadProfileData = async () => {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`);
     const data = await response.json();
 
+    profileData.firstName = data.firstName || currentUser.value?.first_name;
+    profileData.username = data.username || currentUser.value?.username;
+
     if (data.photoUrl) {
       const img = new Image();
       img.src = data.photoUrl;
       img.onload = () => {
-        profileData.photoUrl = data.photoUrl;
+        avatarSrc.value = data.photoUrl;
+      };
+      img.onerror = () => {
+        avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
       };
     }
-
-    profileData.firstName = data.firstName || currentUser.value?.first_name;
-    profileData.username = data.username || currentUser.value?.username;
-
   } catch (error) {
     profileData.firstName = currentUser.value?.first_name;
     profileData.username = currentUser.value?.username;
