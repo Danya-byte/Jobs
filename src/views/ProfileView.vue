@@ -236,7 +236,7 @@ onMounted(async () => {
 }
 
 .review-input::placeholder {
-    line-height: 2;
+    line-height: 0.5;
 }
 
 .leave-review-btn {
