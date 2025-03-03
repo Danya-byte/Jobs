@@ -222,24 +222,32 @@ onMounted(async () => {
 }
 
 .review-input {
-    width: 100%;
-    height: 70px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid #97f492;
-    border-radius: 12px;
-    color: white;
-    resize: none;
-    overflow: hidden;
-    line-height: 1.0;
-    font-family: 'Roboto', sans-serif;
-    font-size: 18px;
-    font-weight: 400;
+  width: 100%;
+  height: 70px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #272e38;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: white;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.0;
+  font-family: 'Roboto', sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  transition: all 0.3s;
+}
+
+.review-input:focus {
+  outline: none;
+  border-color: #97f492;
+  box-shadow: 0 0 0 2px rgba(151, 244, 146, 0.3);
 }
 
 .review-input::placeholder {
-    line-height: 0.5;
+  color: #6b7280;
+  line-height: 0.5;
 }
 
 .leave-review-btn {
