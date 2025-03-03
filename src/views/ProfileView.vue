@@ -232,7 +232,10 @@ onMounted(async () => {
     color: white;
     resize: none;
     overflow: hidden;
-    line-height: 0.5;
+    line-height: 1.5;
+    font-family: 'Roboto', sans-serif;
+    font-size: 18px;
+    font-weight: 400;
 }
 
 .review-input::placeholder {
