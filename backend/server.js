@@ -1,4 +1,4 @@
-const { Bot, Keyboard } = require("grammy");
+const { Bot } = require("grammy");
 const { hydrateFiles } = require("@grammyjs/files");
 const express = require("express");
 const cors = require("cors");
@@ -51,11 +51,7 @@ async function initJobsFile() {
         profileLink: '/profile/1029594875',
         experience: "5 years experience",
         description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
-        requirements: [
-          "Опыт работы с Vue.js",
-          "Знание HTML, CSS, JavaScript",
-          "Интеграция с Telegram API"
-        ],
+        requirements: ["Опыт работы с Vue.js", "Знание HTML, CSS, JavaScript", "Интеграция с Telegram API"],
         tags: ["JavaScript", "Vue 3", "Telegram API"],
         contact: "https://t.me/workiks_admin"
       },
@@ -68,11 +64,7 @@ async function initJobsFile() {
         profileLink: '/profile/7079899705',
         experience: "3 years experience",
         description: "Модерация сообществ и управление контентом.",
-        requirements: [
-          "Опыт работы с социальными сетями",
-          "Коммуникативные навыки",
-          "Знание основ модерации"
-        ],
+        requirements: ["Опыт работы с социальными сетями", "Коммуникативные навыки", "Знание основ модерации"],
         tags: ["Модерация", "Социальные сети"],
         contact: "https://t.me/Danoneee777"
       }
@@ -85,23 +77,108 @@ function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
     const receivedHash = params.get("hash");
+    if (!receivedHash) return false;
+
     const dataCheckString = Array.from(params.entries())
       .filter(([key]) => key !== "hash")
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, val]) => `${key}=${val}`)
       .join("\n");
 
-    const secretKey = crypto.createHmac("sha256", "WebAppData")
+    const secretKey = crypto
+      .createHmac("sha256", "WebAppData")
       .update(BOT_TOKEN)
       .digest();
 
-    return crypto.createHmac("sha256", secretKey)
+    return crypto
+      .createHmac("sha256", secretKey)
       .update(dataCheckString)
       .digest("hex") === receivedHash;
-  } catch {
+  } catch (e) {
+    console.error("Error in validateTelegramData:", e);
     return false;
   }
 }
+
+app.get("/api/jobs", async (req, res) => {
+  try {
+    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    const jobsData = JSON.parse(rawData);
+    res.json(jobsData);
+  } catch (e) {
+    console.error("Error in GET /api/jobs:", e);
+    res.status(500).json({ error: "Failed to load jobs", details: e.message });
+  }
+});
+
+app.post("/api/jobs", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    let jobsData = JSON.parse(rawData);
+
+    const newJob = {
+      id: `${Date.now()}_${user.id}`,
+      ...req.body,
+      userId: user.id,
+      username: user.username || "unknown",
+      profileLink: `/profile/${user.id}`
+    };
+
+    jobsData.push(newJob);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    res.json({ success: true, job: newJob });
+  } catch (e) {
+    console.error("Error in POST /api/jobs:", e);
+    res.status(500).json({ error: "Failed to create job", details: e.message });
+  }
+});
+
+app.delete("/api/jobs/:jobId", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
+    let jobsData = JSON.parse(rawData);
+
+    const jobIndex = jobsData.findIndex(job => job.id === jobId);
+    if (jobIndex === -1) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    jobsData.splice(jobIndex, 1);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Error in DELETE /api/jobs:", e);
+    res.status(500).json({ error: "Failed to delete job", details: e.message });
+  }
+});
 
 app.get("/api/user/:userId", async (req, res) => {
   try {
@@ -132,12 +209,9 @@ app.get("/api/user/:userId", async (req, res) => {
       }
     }
 
-    res.json({
-      firstName,
-      username,
-      photoUrl
-    });
+    res.json({ firstName, username, photoUrl });
   } catch (e) {
+    console.error("Error in GET /api/user:", e);
     res.json({
       firstName: 'Unknown',
       username: null,
@@ -162,16 +236,10 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     }
 
     const payload = `${user.id}_${Date.now()}`;
-
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8").catch(() => "{}");
     const reviewsData = JSON.parse(rawData);
 
-    reviewsData[payload] = {
-      text,
-      authorUserId: user.id,
-      targetUserId
-    };
-
+    reviewsData[payload] = { text, authorUserId: user.id, targetUserId };
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
@@ -184,8 +252,9 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     );
 
     res.json({ success: true, invoiceLink });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (e) {
+    console.error("Error in POST /api/createInvoiceLink:", e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -195,13 +264,13 @@ app.get("/api/reviews", async (req, res) => {
     const rawData = await fs.readFile(REVIEWS_FILE, 'utf8');
     const reviewsData = JSON.parse(rawData);
 
-    const reviews = Object.entries(reviewsData).map(([id, data]) => ({
-      id,
-      ...data
-    })).filter(review => review.targetUserId === targetUserId);
+    const reviews = Object.entries(reviewsData)
+      .map(([id, data]) => ({ id, ...data }))
+      .filter(review => review.targetUserId === targetUserId);
 
     res.json(reviews);
   } catch (e) {
+    console.error("Error in GET /api/reviews:", e);
     res.status(500).json({ error: "Failed to load reviews" });
   }
 });
@@ -233,85 +302,9 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/jobs", async (req, res) => {
-  try {
-    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
-    const jobsData = JSON.parse(rawData);
-    res.json(jobsData);
   } catch (e) {
-    res.status(500).json({ error: "Failed to load jobs" });
-  }
-});
-
-app.post("/api/jobs", async (req, res) => {
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-
-    if (!ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
-    let jobsData = JSON.parse(rawData);
-
-    const newJob = {
-      id: `${Date.now()}_${user.id}`,
-      ...req.body,
-      userId: user.id,
-      username: user.username,
-      profileLink: `/profile/${user.id}`
-    };
-
-    jobsData.push(newJob);
-    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-
-    res.json({ success: true, job: newJob });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete("/api/jobs/:jobId", async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-
-    if (!ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    const rawData = await fs.readFile(JOBS_FILE, 'utf8');
-    let jobsData = JSON.parse(rawData);
-
-    const jobIndex = jobsData.findIndex(job => job.id === jobId);
-    if (jobIndex === -1) {
-      return res.status(404).json({ error: "Job not found" });
-    }
-
-    jobsData.splice(jobIndex, 1);
-    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error in DELETE /api/reviews:", e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -333,21 +326,14 @@ bot.on("message:successful_payment", async (ctx) => {
 
     if (reviewsData[payload]) {
       const { authorUserId, targetUserId, text } = reviewsData[payload];
-
       const reviewKey = `${authorUserId}_${Date.now()}`;
-      reviewsData[reviewKey] = {
-        text,
-        authorUserId,
-        targetUserId,
-        date: new Date().toISOString()
-      };
-
+      reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString() };
       delete reviewsData[payload];
       await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
       await ctx.reply("Отзыв опубликован! Спасибо!");
     }
   } catch (e) {
+    console.error("Error in payment handler:", e);
     await ctx.reply("Произошла ошибка при обработке отзыва.");
   }
 });
