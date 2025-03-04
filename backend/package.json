@@ -11,6 +11,7 @@
     "express": "^4.21.2",
     "fs": "^0.0.1-security",
     "grammy": "^1.35.0",
+    "node-fetch": "^3.3.2",
     "node-telegram-bot-api": "^0.66.0",
     "path": "^0.12.7",
     "winston": "^3.17.0",

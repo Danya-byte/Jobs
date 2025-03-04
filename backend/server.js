@@ -3,6 +3,7 @@ const { hydrateFiles } = require("@grammyjs/files");
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const fetch = require("node-fetch");
 const fs = require("fs").promises;
 const path = require("path");
 const { Mutex } = require("async-mutex");
@@ -254,30 +255,51 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { username } = req.query;
     const telegramData = req.headers["x-telegram-data"];
 
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const params = new URLSearchParams(telegramData);
-    const currentUser = JSON.parse(params.get("user") || "{}");
-
+    const userJob = jobsData.find(job => job.userId.toString() === userId);
     let firstName = "Unknown";
     let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
     let responseUsername = null;
 
-    if (currentUser.id && currentUser.id.toString() === userId) {
-      firstName = currentUser.first_name || "Unknown";
-      responseUsername = currentUser.username || null;
-      if (currentUser.username) {
-        photoUrl = `https://t.me/i/userpic/160/${currentUser.username}.jpg`;
+    if (userJob) {
+      try {
+        const userData = await bot.api.getChat(userJob.userId);
+        firstName = userData.first_name || "Workers";
+        responseUsername = userData.username || null;
+
+        if (responseUsername) {
+          const avatarUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
+          const response = await fetch(avatarUrl, { method: "HEAD" });
+          if (response.ok) {
+            photoUrl = avatarUrl;
+          } else {
+            logger.warn(`Avatar not found for ${responseUsername}, using default`);
+          }
+        }
+      } catch (telegramError) {
+        logger.error(`Failed to fetch Telegram data for user ${userJob.userId}: ${telegramError.message}`);
+        firstName = userJob.nick || "Unknown";
+        responseUsername = userJob.username || null;
+
+        if (responseUsername) {
+          const avatarUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
+          try {
+            const response = await fetch(avatarUrl, { method: "HEAD" });
+            if (response.ok) {
+              photoUrl = avatarUrl;
+            } else {
+              logger.warn(`Avatar not found for ${responseUsername}, using default`);
+            }
+          } catch (fetchError) {
+            logger.error(`Failed to check avatar for ${responseUsername}: ${fetchError.message}`);
+          }
+        }
       }
-    } else if (username) {
-      firstName = "User"; // Можно изменить на другое значение по умолчанию
-      responseUsername = username;
-      photoUrl = `https://t.me/i/userpic/160/${username}.jpg`;
     }
 
     res.json({ firstName, username: responseUsername, photoUrl });
