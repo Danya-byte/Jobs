@@ -12,7 +12,7 @@ const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
-const ADMIN_IDS = ["1029594875", "1871247390"];
+const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298"];
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));

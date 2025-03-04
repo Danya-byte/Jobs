@@ -59,5 +59,23 @@
       "web dev"
     ],
     "contact": "@workiks_admin"
+  },
+  {
+    "id": "1741095140107_1940359844",
+    "adminId": 1940359844,
+    "userId": 1940359844,
+    "username": "rollpit",
+    "nick": "Danya",
+    "position": "Backend dev",
+    "profileLink": "/profile/1940359844",
+    "experience": 100,
+    "description": "Test",
+    "requirements": [
+      "Xyu"
+    ],
+    "tags": [
+      "Xyu"
+    ],
+    "contact": "https://t.me/TESTJobs_robot"
   }
 ]
