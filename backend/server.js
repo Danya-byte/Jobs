@@ -275,7 +275,7 @@ app.get("/api/user/:userId", async (req, res) => {
         photoUrl = `https://t.me/i/userpic/160/${currentUser.username}.jpg`;
       }
     } else if (username) {
-      firstName = "User";
+      firstName = "User"; // Можно изменить на другое значение по умолчанию
       responseUsername = username;
       photoUrl = `https://t.me/i/userpic/160/${username}.jpg`;
     }
