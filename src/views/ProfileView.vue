@@ -87,10 +87,12 @@ const handleAvatarError = () => {
 };
 
 const loadProfileData = async () => {
-  if (userId.value === currentUser.value?.id) {
-    profileData.firstName = currentUser.value.first_name || 'Unknown';
+  console.log('Current user:', currentUser.value);
+  console.log('User ID:', userId.value);
+  if (userId.value === currentUser.value?.id?.toString()) {
+    profileData.firstName = currentUser.value.first_name || 'Без имени';
     profileData.username = currentUser.value.username || '';
-    avatarSrc.value = currentUser.value.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    avatarSrc.value = currentUser.value.photo_url || (currentUser.value.username ? `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
   } else {
     try {
       const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
@@ -99,12 +101,13 @@ const loadProfileData = async () => {
         }
       });
       const data = await response.json();
-      profileData.firstName = data.firstName || 'Unknown';
+      profileData.firstName = data.firstName || 'Без имени';
       profileData.username = data.username || '';
-      avatarSrc.value = data.photoUrl;
+      avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     } catch (error) {
+      console.error('Ошибка загрузки профиля:', error);
       avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-      profileData.firstName = 'Unknown';
+      profileData.firstName = 'Без имени';
     }
   }
   loaded.value = true;
@@ -184,7 +187,7 @@ const checkAdminStatus = async () => {
 
 onMounted(async () => {
   currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
-  userId.value = route.params.userId || currentUser.value?.id;
+  userId.value = route.params.userId || currentUser.value?.id?.toString();
   if (!userId.value) {
     router.push('/');
     return;
