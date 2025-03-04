@@ -86,13 +86,6 @@ const handleAvatarError = () => {
   avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 };
 
-const getAvatarUrl = (username) => {
-  if (username && username !== 'undefined') {
-    return `https://t.me/i/userpic/160/${username}.jpg`;
-  }
-  return 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-};
-
 const loadProfileData = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
@@ -104,7 +97,8 @@ const loadProfileData = async () => {
     const data = await response.json();
     profileData.firstName = data.firstName || 'Unknown';
     profileData.username = data.username || '';
-    avatarSrc.value = getAvatarUrl(data.username);
+    // Используем photoUrl напрямую из ответа сервера
+    avatarSrc.value = data.photoUrl;
   } catch (error) {
     avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     profileData.firstName = 'Unknown';
