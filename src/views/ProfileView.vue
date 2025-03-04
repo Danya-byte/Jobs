@@ -87,21 +87,25 @@ const handleAvatarError = () => {
 };
 
 const loadProfileData = async () => {
-  try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
-      headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData
-      }
-    });
-
-    const data = await response.json();
-    profileData.firstName = data.firstName || 'Unknown';
-    profileData.username = data.username || '';
-    // Используем photoUrl напрямую из ответа сервера
-    avatarSrc.value = data.photoUrl;
-  } catch (error) {
-    avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    profileData.firstName = 'Unknown';
+  if (userId.value === currentUser.value?.id) {
+    profileData.firstName = currentUser.value.first_name || 'Unknown';
+    profileData.username = currentUser.value.username || '';
+    avatarSrc.value = currentUser.value.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  } else {
+    try {
+      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
+        headers: {
+          'X-Telegram-Data': Telegram.WebApp.initData
+        }
+      });
+      const data = await response.json();
+      profileData.firstName = data.firstName || 'Unknown';
+      profileData.username = data.username || '';
+      avatarSrc.value = data.photoUrl;
+    } catch (error) {
+      avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      profileData.firstName = 'Unknown';
+    }
   }
   loaded.value = true;
 };
@@ -127,7 +131,6 @@ const deleteReview = async (reviewId) => {
         'X-Telegram-Data': Telegram.WebApp.initData
       }
     });
-
     if (!response.ok) throw new Error('Ошибка удаления');
     await loadReviews();
     Telegram.WebApp.showAlert('Отзыв удалён!');
@@ -146,10 +149,8 @@ const initiatePayment = async () => {
       },
       body: JSON.stringify({ text: reviewText.value, targetUserId: userId.value })
     });
-
     if (!response.ok) throw new Error('Ошибка создания платежа');
     const { invoiceLink } = await response.json();
-
     Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'cancelled') {
         reviewText.value = '';
@@ -184,12 +185,10 @@ const checkAdminStatus = async () => {
 onMounted(async () => {
   currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
   userId.value = route.params.userId || currentUser.value?.id;
-
   if (!userId.value) {
     router.push('/');
     return;
   }
-
   await checkAdminStatus();
   await loadProfileData();
   await loadReviews();
