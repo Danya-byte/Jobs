@@ -72,7 +72,7 @@ const profileData = reactive({
 const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
-const ADMIN_IDS = ["1940359844", "1871247390"];
+const ADMIN_IDS = ["1940359844", "1871247390", "1029594875"];
 
 const isOwner = computed(() => {
   return currentUser.value?.id?.toString() === userId.value?.toString();
