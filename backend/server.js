@@ -3,7 +3,6 @@ const { hydrateFiles } = require("@grammyjs/files");
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
-const fetch = require("node-fetch");
 const fs = require("fs").promises;
 const path = require("path");
 const { Mutex } = require("async-mutex");
@@ -268,36 +267,18 @@ app.get("/api/user/:userId", async (req, res) => {
 
     if (userJob) {
       try {
-        const userData = await bot.api.getChat(userJob.userId);
-        firstName = userData.first_name || "Workers";
+        const userData = await bot.api.getChat(userJob.userId); // Запрос данных пользователя по userId
+        firstName = userData.first_name || "Unknown"; // Имя из Telegram
         responseUsername = userData.username || null;
-
         if (responseUsername) {
-          const avatarUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-          const response = await fetch(avatarUrl, { method: "HEAD" });
-          if (response.ok) {
-            photoUrl = avatarUrl;
-          } else {
-            logger.warn(`Avatar not found for ${responseUsername}, using default`);
-          }
+          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
         }
       } catch (telegramError) {
         logger.error(`Failed to fetch Telegram data for user ${userJob.userId}: ${telegramError.message}`);
         firstName = userJob.nick || "Unknown";
         responseUsername = userJob.username || null;
-
         if (responseUsername) {
-          const avatarUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-          try {
-            const response = await fetch(avatarUrl, { method: "HEAD" });
-            if (response.ok) {
-              photoUrl = avatarUrl;
-            } else {
-              logger.warn(`Avatar not found for ${responseUsername}, using default`);
-            }
-          } catch (fetchError) {
-            logger.error(`Failed to check avatar for ${responseUsername}: ${fetchError.message}`);
-          }
+          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
         }
       }
     }
