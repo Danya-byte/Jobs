@@ -14,7 +14,7 @@
     <div class="content">
         <div class="categories">
             <button class="category-btn active">Jobs</button>
-            <RouterLink to="/nft"><button class="category-btn">Gift</button></RouterLink>
+            <RouterLink to="#"><button class="category-btn">Gift</button></RouterLink>
         </div>
 
         <div class="search-container">
