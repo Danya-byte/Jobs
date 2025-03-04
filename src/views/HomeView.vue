@@ -231,6 +231,18 @@ const deleteJob = async (jobId) => {
     }
 };
 
+const checkAdminStatus = async () => {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
+            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        });
+        isAdmin.value = response.data.isAdmin;
+    } catch (error) {
+        console.error('Error checking admin status:', error);
+        isAdmin.value = false;
+    }
+};
+
 const handleClickOutside = (event) => {
     if (searchInput.value && !searchInput.value.contains(event.target)) {
         searchInput.value.blur();
@@ -250,9 +262,9 @@ onMounted(() => {
             userLastName.value = user.last_name || '';
             currentUserId.value = user.id;
             currentUsername.value = user.username;
-            isAdmin.value = ['1940359844', '1871247390'].includes(user.id.toString());
         }
     }
+    checkAdminStatus();
     fetchJobs();
 });
 </script>

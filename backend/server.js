@@ -162,12 +162,12 @@ app.post("/api/jobs", async (req, res) => {
 
     const newJob = {
       id: `${Date.now()}_${user.id}`,
-      adminId: user.id, // ID администратора, который создал вакансию
-      userId: req.body.userId, // ID пользователя, указанный админом
+      adminId: user.id,
+      userId: req.body.userId,
       username: req.body.username || "unknown",
       nick: req.body.nick,
       position: req.body.position,
-      profileLink: `/profile/${req.body.userId}`, // Формируем profileLink на основе userId
+      profileLink: `/profile/${req.body.userId}`,
       experience: req.body.experience,
       description: req.body.description,
       requirements: req.body.requirements,
@@ -344,6 +344,28 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
   } catch (e) {
     console.error("Error in DELETE /api/reviews:", e);
     res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/isAdmin", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!user.id) {
+      return res.status(400).json({ error: "Invalid user data" });
+    }
+
+    const isAdmin = ADMIN_IDS.includes(user.id.toString());
+    res.json({ isAdmin });
+  } catch (e) {
+    console.error("Error in GET /api/isAdmin:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

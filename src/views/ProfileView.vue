@@ -72,14 +72,10 @@ const profileData = reactive({
 const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
-const ADMIN_IDS = ["1940359844", "1871247390", "1029594875", "6629517298"];
+const isAdmin = ref(false);
 
 const isOwner = computed(() => {
   return currentUser.value?.id?.toString() === userId.value?.toString();
-});
-
-const isAdmin = computed(() => {
-  return ADMIN_IDS.includes(currentUser.value?.id?.toString());
 });
 
 const handleClickOutside = () => {
@@ -120,8 +116,12 @@ const loadReviews = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
     const data = await response.json();
-    allReviews.value = data;
+    const filteredAndSortedReviews = data
+      .filter(review => review.date)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    allReviews.value = filteredAndSortedReviews;
   } catch (error) {
+    console.error('Error loading reviews:', error);
   }
 };
 
@@ -172,6 +172,21 @@ const initiatePayment = async () => {
   }
 };
 
+const checkAdminStatus = async () => {
+  try {
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', {
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
+      }
+    });
+    const data = await response.json();
+    isAdmin.value = data.isAdmin;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    isAdmin.value = false;
+  }
+};
+
 onMounted(async () => {
   currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
   userId.value = route.params.userId || currentUser.value?.id;
@@ -181,6 +196,7 @@ onMounted(async () => {
     return;
   }
 
+  await checkAdminStatus();
   await loadProfileData();
   await loadReviews();
 });
