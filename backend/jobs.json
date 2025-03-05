@@ -83,44 +83,25 @@
     "createdAt": "2023-10-04T15:00:00Z"
   },
   {
-    "id": "1741198876504_1940359844",
+    "id": "1741205552702_1940359844",
     "adminId": 1940359844,
-    "userId": 324,
-    "username": "вцуцамк",
-    "nick": "вцуакц",
-    "position": "йсвумкп",
-    "profileLink": "/profile/324",
-    "experience": 123,
-    "description": "вцуам",
+    "userId": 1940359844,
+    "username": "rollpit",
+    "nick": "Danya",
+    "position": "Backend dev",
+    "profileLink": "/profile/1940359844",
+    "experience": 3,
+    "description": "test",
     "requirements": [
-      "цвуак"
+      "test"
     ],
     "tags": [
-      "цвуацк"
-    ],
-    "contact": "цвуа",
-    "createdAt": "2025-03-05T18:21:16.504Z"
-  },
-  {
-    "id": "1741203431596_1940359844",
-    "adminId": 1940359844,
-    "userId": 12345,
-    "username": "123425",
-    "nick": "3245",
-    "position": "1231245",
-    "profileLink": "/profile/12345",
-    "experience": 234,
-    "description": "13245",
-    "requirements": [
-      "2314"
-    ],
-    "tags": [
-      "23145"
+      "test"
     ],
     "categories": [
-      "design"
+      "it"
     ],
     "contact": "https://t.me/workiks_admin",
-    "createdAt": "2025-03-05T19:37:11.596Z"
+    "createdAt": "2025-03-05T20:12:32.702Z"
   }
 ]

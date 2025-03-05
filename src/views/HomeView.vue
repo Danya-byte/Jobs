@@ -218,20 +218,27 @@ const sortedJobs = computed(() => {
 });
 
 const filteredJobs = computed(() => {
-    let filtered = sortedJobs.value;
-    if (selectedCategories.value.length > 0) {
-        filtered = filtered.filter(job =>
-            job.categories.some(cat =>
-                selectedCategories.value.includes(cat)
-            )
-        );
-    }
-    if (showFavoritesOnly.value) {
-        filtered = filtered.filter(job => isFavorite(job.id));
-    }
-    if (!searchQuery.value) return filtered;
+  let filtered = sortedJobs.value;
+
+  if (selectedCategories.value.length > 0) {
+    filtered = filtered.filter(job => {
+      if (job.categories && job.categories.length > 0) {
+        return job.categories.some(cat => selectedCategories.value.includes(cat));
+      }
+      return false;
+    });
+  }
+
+  if (showFavoritesOnly.value) {
+    filtered = filtered.filter(job => isFavorite(job.id));
+  }
+
+  if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    return filtered.filter(job => job.position.toLowerCase().includes(query));
+    filtered = filtered.filter(job => job.position.toLowerCase().includes(query));
+  }
+
+  return filtered;
 });
 
 const isNew = (job) => {
@@ -299,7 +306,8 @@ const submitJob = async () => {
   try {
     const jobData = {
       ...newJob.value,
-      contact: 'https://t.me/workiks_admin'
+      contact: 'https://t.me/workiks_admin',
+      categories: newJob.value.categories || []
     };
     const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
