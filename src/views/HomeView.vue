@@ -387,7 +387,21 @@ onMounted(() => {
 <style scoped>
 .container { background: linear-gradient(45deg, #101622, #1a2233); min-height: 100vh; padding: 20px; overflow: hidden; position: relative; }
 .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-.profile-link { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.profile-link { display: flex; align-items: center; gap: 10px; text-decoration: none; position: relative; transition: all 0.3s ease; }
+.profile-link:hover::after {
+  content: "View Profile";
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #97f492;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  animation: fade-in 0.3s ease;
+}
 .profile-icon { width: 47px; height: 47px; border-radius: 50%; border: 2px solid #97f492; position: relative; overflow: hidden; animation: pulse-border 2s infinite; }
 @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(151, 244, 146, 0); } 100% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0); } }
 .user-name { display: flex; flex-direction: column; gap: 2px; }
@@ -412,7 +426,8 @@ onMounted(() => {
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
 .job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
 .job-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-.job-icon { width: 40px; height: 40px; border-radius: 10px; }
+.job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
+.job-icon:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(151, 244, 146, 0.5); }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
 .nick { color: #97f492; font-size: 14px; margin: 0; }
 .work { color: #fff; font-size: 18px; margin: 0; }
@@ -438,7 +453,20 @@ onMounted(() => {
 .close-btn { background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 0 10px; }
 .job-details { display: flex; flex-direction: column; gap: 20px; }
 .user-info { display: flex; align-items: center; gap: 15px; position: relative; }
-.nickname { color: #97f492; margin: 0; font-size: 18px; }
+.nickname { color: #97f492; margin: 0; font-size: 18px; position: relative; display: inline-block; cursor: pointer; }
+.nickname::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: #97f492;
+  transition: width 0.3s ease;
+}
+.nickname:hover::after {
+  width: 100%;
+}
 .experience { color: #8a8f98; margin: 0; font-size: 14px; }
 .section h3 { color: #fff; margin: 0 0 10px 0; font-size: 16px; }
 .description { color: #c2c6cf; line-height: 1.5; margin: 0; }
@@ -462,4 +490,22 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 3px; }
 .favorite-btn span { color: #8a8f98; transition: color 0.3s; }
 .favorite-btn .favorite { color: #97f492; }
+
+/* Новые анимации */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-avatar {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(151, 244, 146, 0.5); }
+  100% { transform: scale(1); }
+}
+
+@keyframes glow-text {
+  0% { text-shadow: 0 0 0 rgba(151, 244, 146, 0); }
+  50% { text-shadow: 0 0 15px rgba(151, 244, 146, 0.5); }
+  100% { text-shadow: 0 0 0 rgba(151, 244, 146, 0); }
+}
 </style>
