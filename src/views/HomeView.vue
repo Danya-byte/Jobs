@@ -28,6 +28,13 @@
             </button>
         </div>
 
+        <div class="selected-filters" v-if="selectedCategories.length > 0">
+            <span v-for="cat in selectedCategories" class="filter-pill">
+                {{ categories.find(c => c.value === cat).label }}
+                <button @click="selectedCategories = selectedCategories.filter(c => c !== cat)">×</button>
+            </span>
+        </div>
+
         <div class="jobs-scroll-container">
             <div class="jobs-list">
                 <div v-if="isLoading" class="skeleton-container">
@@ -82,12 +89,12 @@
                     <button class="close-btn" @click="showAddModal = false">×</button>
                 </div>
                 <div class="job-details">
-                    <input v-model="newJob.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number">
-                    <input v-model="newJob.nick" placeholder="Nick" class="search-input">
+                    <input v-model="newJob.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newJob.userId && formSubmitted }">
+                    <input v-model="newJob.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newJob.nick && formSubmitted }">
                     <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
-                    <input v-model="newJob.position" placeholder="Position" class="search-input">
+                    <input v-model="newJob.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newJob.position && formSubmitted }">
                     <input v-model="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
-                    <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
+                    <textarea v-model="newJob.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newJob.description && formSubmitted }"></textarea>
                     <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
                     <ul class="requirements">
                         <li v-for="(req, i) in newJob.requirements" :key="i">
@@ -165,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -204,6 +211,7 @@ const newJob = ref({
 });
 const requirementsInput = ref('');
 const tagsInput = ref('');
+const formSubmitted = ref(false);
 
 const categories = [
     { label: 'IT', value: 'it' },
@@ -282,6 +290,12 @@ const showAddJobModal = () => {
 
 const toggleFilterModal = () => {
     showFilterModal.value = !showFilterModal.value;
+    if (showFilterModal.value) {
+      nextTick(() => {
+        const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
+        firstCheckbox?.focus();
+      });
+    }
 };
 
 const addRequirement = () => {
@@ -299,8 +313,9 @@ const addTag = () => {
 };
 
 const submitJob = async () => {
-  if (!newJob.value.userId) {
-    alert("Please enter a User ID");
+  formSubmitted.value = true;
+  if (!newJob.value.userId || !newJob.value.position || !newJob.value.description) {
+    alert("Please fill in all required fields!");
     return;
   }
   try {
@@ -411,8 +426,8 @@ onMounted(() => {
 .jobs-scroll-container { flex-grow: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
-.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
-.job-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
+.job-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); border-color: #97f492; }
 .job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
 .job-icon:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(151, 244, 146, 0.5); }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
@@ -460,52 +475,15 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(100%); }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 .skeleton-container { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-.skeleton-card { background: #181e29; border-radius: 20px; padding: 20px; height: 150px; animation: skeleton-loading 1.5s infinite; }
-@keyframes skeleton-loading { 0% { background-color: #181e29; } 50% { background-color: #272e38; } 100% { background-color: #181e29; } }
+.skeleton-card { background: linear-gradient(90deg, #181e29 25%, #272e38 50%, #181e29 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s infinite; border-radius: 20px; padding: 20px; height: 150px; }
+@keyframes skeleton-wave { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .new-label { position: absolute; top: 10px; right: 10px; background: #97f492; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 .favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 3px; }
 .favorite-btn span { color: #8a8f98; transition: color 0.3s; }
 .favorite-btn .favorite { color: #97f492; }
-
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pulse-avatar { 0% { transform: scale(1); } 50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(151, 244, 146, 0.5); } 100% { transform: scale(1); } }
-@keyframes glow-text { 0% { text-shadow: 0 0 0 rgba(151, 244, 146, 0); } 50% { text-shadow: 0 0 15px rgba(151, 244, 146, 0.5); } 100% { text-shadow: 0 0 0 rgba(151, 244, 146, 0); } }
-
-@media (hover: none) and (pointer: coarse) {
-  .profile-link::after, .nickname::after { display: none !important; }
-  .job-icon { animation: mobile-pulse 2s infinite; }
-  .nickname { padding-right: 20px; }
-  .nickname::before { content: "←"; position: absolute; right: 0; color: #97f492; animation: arrow-bounce 1s infinite; }
-  @keyframes mobile-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-  @keyframes arrow-bounce { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
-}
-
-.job-icon:active { transform: scale(0.95) !important; transition: transform 0.1s; }
-.nickname:active { color: #6de06a !important; }
-
-.mobile-tap-hint {
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(151, 244, 146, 0.9);
-  color: #000;
-  padding: 12px 20px;
-  border-radius: 25px;
-  animation: hint-bounce 2s 3;
-  font-size: 14px;
-  z-index: 1000;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  display: none;
-}
-
-@keyframes hint-bounce {
-  0%, 20%, 50%, 80%, 100% { transform: translate(-50%, 0); }
-  40% { transform: translate(-50%, -15px); }
-  60% { transform: translate(-50%, -7px); }
-}
-
-@media (max-width: 768px) {
-  .mobile-tap-hint { display: block; }
-}
+.invalid { border: 2px solid #ff6b6b; animation: shake 0.5s; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.selected-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.filter-pill { display: inline-flex; align-items: center; background: #2d3540; padding: 6px 12px; border-radius: 20px; color: #97f492; font-size: 14px; }
+.filter-pill button { background: none; border: none; color: #97f492; margin-left: 8px; cursor: pointer; }
 </style>
