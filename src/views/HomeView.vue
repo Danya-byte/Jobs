@@ -362,7 +362,7 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .skeleton-card { background: #181e29; border-radius: 20px; padding: 20px; height: 150px; animation: skeleton-loading 1.5s infinite; }
 @keyframes skeleton-loading { 0% { background-color: #181e29; } 50% { background-color: #272e38; } 100% { background-color: #181e29; } }
 .new-label { position: absolute; top: 10px; right: 10px; background: #97f492; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-.favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 10px; }
+.favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 5px; }
 .favorite-btn span { color: #8a8f98; transition: color 0.3s; }
 .favorite-btn .favorite { color: #97f492; }
 </style>
