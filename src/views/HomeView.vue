@@ -122,11 +122,19 @@
                 </div>
                 <div class="job-details">
                     <div class="user-info">
-                        <img :src="jobIcon" class="job-icon" loading="lazy">
-                        <div>
-                            <p class="nickname">{{ selectedJob.nick }}</p>
-                            <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
-                        </div>
+                        <RouterLink
+                            :to="{
+                                path: `/profile/${selectedJob.userId}`,
+                                query: { username: selectedJob.username }
+                            }"
+                            class="profile-link"
+                        >
+                            <img :src="jobIcon" class="job-icon" loading="lazy">
+                            <div>
+                                <p class="nickname">{{ selectedJob.nick }}</p>
+                                <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
+                            </div>
+                        </RouterLink>
                         <button class="favorite-btn" @click="toggleFavorite(selectedJob.id)">
                             <span :class="{ 'favorite': isFavorite(selectedJob.id) }">♥</span>
                         </button>
