@@ -98,7 +98,6 @@ async function initJobsFile() {
           description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
           requirements: ["Опыт работы с Vue.js", "Знание HTML, CSS, JavaScript", "Интеграция с Telegram API"],
           tags: ["JavaScript", "Vue 3", "Telegram API"],
-          categories: ["it"],
           contact: "https://t.me/workiks_admin",
           createdAt: new Date().toISOString()
         },
@@ -113,7 +112,6 @@ async function initJobsFile() {
           description: "Модерация сообществ и управление контентом.",
           requirements: ["Опыт работы с социальными сетями", "Коммуникативные навыки", "Знание основ модерации"],
           tags: ["Модерация", "Социальные сети"],
-          categories: ["social"],
           contact: "https://t.me/Danoneee777",
           createdAt: new Date().toISOString()
         },
@@ -187,8 +185,8 @@ app.post("/api/jobs", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const { userId, nick, position, experience, description, requirements, tags, categories } = req.body;
-    if (!userId || !nick || !position || !description || !requirements || !tags) {
+    const { userId, nick, position, experience, description, requirements, tags, contact } = req.body;
+    if (!userId || !nick || !position || !description || !requirements || !tags || !contact) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -204,8 +202,7 @@ app.post("/api/jobs", async (req, res) => {
       description,
       requirements,
       tags,
-      categories: categories || [],
-      contact: "https://t.me/workiks_admin",
+      contact,
       createdAt: new Date().toISOString()
     };
 

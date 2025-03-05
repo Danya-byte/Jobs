@@ -100,5 +100,27 @@
     ],
     "contact": "цвуа",
     "createdAt": "2025-03-05T18:21:16.504Z"
+  },
+  {
+    "id": "1741203431596_1940359844",
+    "adminId": 1940359844,
+    "userId": 12345,
+    "username": "123425",
+    "nick": "3245",
+    "position": "1231245",
+    "profileLink": "/profile/12345",
+    "experience": 234,
+    "description": "13245",
+    "requirements": [
+      "2314"
+    ],
+    "tags": [
+      "23145"
+    ],
+    "categories": [
+      "design"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2025-03-05T19:37:11.596Z"
   }
 ]

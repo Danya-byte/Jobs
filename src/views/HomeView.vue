@@ -13,19 +13,13 @@
 
     <div class="content">
         <div class="categories">
-            <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
-            <RouterLink to="#"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
+            <button class="category-btn" :class="{ active: activeFilter === 'all' }" @click="activeFilter = 'all'">Jobs</button>
+            <button class="category-btn" :class="{ active: activeFilter === 'favorites' }" @click="activeFilter = 'favorites'">Favorites</button>
+            <RouterLink to="#"><button class="category-btn">Gift</button></RouterLink>
         </div>
 
-        <div class="search-and-filter">
-            <div class="search-container">
-                <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
-            </div>
-            <button class="filter-icon" @click="toggleFilterModal">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#97f492" stroke-width="2">
-                    <path d="M22 3H2l8 9.46V19l4 2V12.46L22 3z"/>
-                </svg>
-            </button>
+        <div class="search-container">
+            <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
         </div>
 
         <div class="jobs-scroll-container">
@@ -50,28 +44,6 @@
                 </button>
             </div>
         </div>
-
-        <transition name="fade">
-            <div v-if="showFilterModal" class="filter-modal-overlay" @click.self="showFilterModal = false">
-                <div class="filter-modal">
-                    <h3>Filters</h3>
-                    <div class="filter-section">
-                        <h4>Categories</h4>
-                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
-                            <input type="checkbox" v-model="selectedCategories" :value="category.value">
-                            {{ category.label }}
-                        </label>
-                    </div>
-                    <div class="filter-section">
-                        <label class="checkbox-label">
-                            <input type="checkbox" v-model="showFavoritesOnly">
-                            Show Favorites Only
-                        </label>
-                    </div>
-                    <button @click="showFilterModal = false" class="apply-btn">Apply</button>
-                </div>
-            </div>
-        </transition>
     </div>
 
     <transition name="slide-up">
@@ -86,7 +58,7 @@
                     <input v-model="newJob.nick" placeholder="Nick" class="search-input">
                     <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
                     <input v-model="newJob.position" placeholder="Position" class="search-input">
-                    <input v-model="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
+                    <input v-model.number="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
                     <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
                     <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
                     <ul class="requirements">
@@ -100,13 +72,7 @@
                             {{ tag }} <button @click="newJob.tags.splice(i, 1)" class="delete-tag">×</button>
                         </span>
                     </div>
-                    <div class="filter-section">
-                        <h4>Categories</h4>
-                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
-                            <input type="checkbox" v-model="newJob.categories" :value="category.value">
-                            {{ category.label }}
-                        </label>
-                    </div>
+                    <input v-model="newJob.contact" placeholder="Contact link" class="search-input">
                     <button @click="submitJob" class="contact-btn">Submit Job</button>
                 </div>
             </div>
@@ -165,7 +131,6 @@ const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
 const open = ref(false);
 const showAddModal = ref(false);
-const showFilterModal = ref(false);
 const selectedJob = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
@@ -179,9 +144,7 @@ const searchInput = ref(null);
 const jobs = ref([]);
 const isLoading = ref(true);
 const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
-const selectedCategories = ref([]);
-const showFavoritesOnly = ref(false);
-const activeTab = ref('jobs');
+const activeFilter = ref('all');
 const newJob = ref({
     userId: '',
     nick: '',
@@ -191,39 +154,23 @@ const newJob = ref({
     description: '',
     requirements: [],
     tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin'
+    contact: ''
 });
 const requirementsInput = ref('');
 const tagsInput = ref('');
-
-const categories = [
-    { label: 'IT', value: 'it' },
-    { label: 'Social Media', value: 'social' },
-    { label: 'Management', value: 'management' },
-    { label: 'Design', value: 'design' },
-    { label: 'Marketing', value: 'marketing' }
-];
 
 const sortedJobs = computed(() => {
   return [...jobs.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
 
 const filteredJobs = computed(() => {
-    let filtered = sortedJobs.value;
-    if (selectedCategories.value.length > 0) {
-        filtered = filtered.filter(job =>
-            job.categories.some(cat =>
-                selectedCategories.value.includes(cat)
-            )
-        );
-    }
-    if (showFavoritesOnly.value) {
-        filtered = filtered.filter(job => isFavorite(job.id));
-    }
-    if (!searchQuery.value) return filtered;
-    const query = searchQuery.value.toLowerCase();
-    return filtered.filter(job => job.position.toLowerCase().includes(query));
+  let filtered = sortedJobs.value;
+  if (activeFilter.value === 'favorites') {
+    filtered = filtered.filter(job => isFavorite(job.id));
+  }
+  if (!searchQuery.value) return filtered;
+  const query = searchQuery.value.toLowerCase();
+  return filtered.filter(job => job.position.toLowerCase().includes(query));
 });
 
 const isNew = (job) => {
@@ -259,14 +206,9 @@ const showAddJobModal = () => {
     description: '',
     requirements: [],
     tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin'
+    contact: ''
   };
   showAddModal.value = true;
-};
-
-const toggleFilterModal = () => {
-    showFilterModal.value = !showFilterModal.value;
 };
 
 const addRequirement = () => {
@@ -289,11 +231,7 @@ const submitJob = async () => {
     return;
   }
   try {
-    const jobData = {
-      ...newJob.value,
-      contact: 'https://t.me/workiks_admin'
-    };
-    const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
+    const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     jobs.value.push(response.data.job);
@@ -350,6 +288,7 @@ onMounted(() => {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
+
     if (window.Telegram.WebApp.initDataUnsafe?.user) {
       const user = Telegram.WebApp.initDataUnsafe.user;
       userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
@@ -378,16 +317,12 @@ onMounted(() => {
 .categories { display: flex; gap: 15px; margin-bottom: 20px; flex-shrink: 0; }
 .category-btn { background: #272e38; color: #fff; border: none; padding: 10px 25px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 14px; font-weight: 600; }
 .category-btn.active { background: #97f492; color: #000; animation: pulse 2s infinite; }
-.content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
-.search-and-filter { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-.search-container { flex: 1; }
+.search-container { margin-bottom: 20px; }
 .search-input { width: 100%; padding: 12px 20px; border-radius: 12px; border: none; background: #272e38; color: #fff; font-size: 14px; transition: all 0.3s; }
 .search-input:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
 .search-input::placeholder { color: #6b7280; }
-.filter-icon { background: #272e38; border: none; padding: 7px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
-.filter-icon:hover { background: #97f492; }
-.filter-icon:hover svg { stroke: #000; }
-.jobs-scroll-container { flex-grow: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
+.jobs-scroll-container { flex-grow: 1; overflow-y: auto; padding-right: 20px; margin-right: -30px; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
 .job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
@@ -399,16 +334,6 @@ onMounted(() => {
 .job-description { color: #8a8f98; font-size: 14px; line-height: 1.5; }
 .tags { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; max-width: 100%; }
 .tag { background: #2d3540; color: #97f492; padding: 5px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-.filter-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
-.filter-modal { background: #181e29; width: 300px; border-radius: 20px; padding: 15px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
-@keyframes scale-in { to { transform: scale(1); } }
-.filter-modal h3 { color: #97f492; margin: 0 0 10px 0; font-size: 16px; }
-.filter-section { margin-bottom: 15px; }
-.filter-section h4 { color: #fff; margin: 0 0 8px 0; font-size: 14px; }
-.checkbox-label { display: block; color: #c2c6cf; margin-bottom: 8px; cursor: pointer; font-size: 14px; }
-.checkbox-label input { margin-right: 8px; }
-.apply-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 8px; width: 100%; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; font-size: 14px; }
-.apply-btn:hover { transform: translateY(-2px); }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; }
 .modal { background: #181e29; width: 100%; border-radius: 20px 20px 0 0; padding: 25px; max-height: 90vh; overflow-y: auto; transform: translateY(100%); animation: slide-up 0.3s ease-out forwards; scrollbar-width: none; -ms-overflow-style: none; }
 .modal::-webkit-scrollbar { display: none; }
@@ -430,8 +355,6 @@ onMounted(() => {
 .delete-btn:hover { transform: translateY(-2px); }
 .delete-req, .delete-tag { background: none; border: none; color: #ff6b6b; cursor: pointer; margin-left: 5px; font-size: 16px; }
 textarea.search-input { min-height: 100px; resize: vertical; }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-up-enter-active, .slide-up-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(100%); }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
