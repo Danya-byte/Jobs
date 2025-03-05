@@ -86,7 +86,7 @@
                     <input v-model="newJob.nick" placeholder="Nick" class="search-input">
                     <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
                     <input v-model="newJob.position" placeholder="Position" class="search-input">
-                    <input v-model.number="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
+                    <input v-model="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
                     <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
                     <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
                     <ul class="requirements">
@@ -100,7 +100,13 @@
                             {{ tag }} <button @click="newJob.tags.splice(i, 1)" class="delete-tag">×</button>
                         </span>
                     </div>
-                    <input v-model="newJob.contact" placeholder="Contact link" class="search-input">
+                    <div class="filter-section">
+                        <h4>Categories</h4>
+                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
+                            <input type="checkbox" v-model="newJob.categories" :value="category.value">
+                            {{ category.label }}
+                        </label>
+                    </div>
                     <button @click="submitJob" class="contact-btn">Submit Job</button>
                 </div>
             </div>
@@ -185,7 +191,8 @@ const newJob = ref({
     description: '',
     requirements: [],
     tags: [],
-    contact: ''
+    categories: [],
+    contact: 'https://t.me/workiks_admin'
 });
 const requirementsInput = ref('');
 const tagsInput = ref('');
@@ -206,8 +213,8 @@ const filteredJobs = computed(() => {
     let filtered = sortedJobs.value;
     if (selectedCategories.value.length > 0) {
         filtered = filtered.filter(job =>
-            job.tags.some(tag =>
-                selectedCategories.value.some(cat => tag.toLowerCase().includes(cat))
+            job.categories.some(cat =>
+                selectedCategories.value.includes(cat)
             )
         );
     }
@@ -252,7 +259,8 @@ const showAddJobModal = () => {
     description: '',
     requirements: [],
     tags: [],
-    contact: ''
+    categories: [],
+    contact: 'https://t.me/workiks_admin'
   };
   showAddModal.value = true;
 };
@@ -281,7 +289,11 @@ const submitJob = async () => {
     return;
   }
   try {
-    const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
+    const jobData = {
+      ...newJob.value,
+      contact: 'https://t.me/workiks_admin'
+    };
+    const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     jobs.value.push(response.data.job);
