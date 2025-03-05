@@ -12,14 +12,24 @@
     </nav>
 
     <div class="content">
-        <div class="categories">
-            <button class="category-btn" :class="{ active: activeFilter === 'all' }" @click="activeFilter = 'all'">Jobs</button>
-            <button class="category-btn" :class="{ active: activeFilter === 'favorites' }" @click="activeFilter = 'favorites'">Favorites</button>
-            <RouterLink to="#"><button class="category-btn">Gift</button></RouterLink>
-        </div>
-
-        <div class="search-container">
-            <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
+        <div class="search-and-filters">
+            <div class="search-container">
+                <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
+            </div>
+            <div class="filters-container">
+                <select v-model="categoryFilter" class="filter-select">
+                    <option value="all">All</option>
+                    <option value="it">IT</option>
+                    <option value="social">Social</option>
+                    <option value="management">Management</option>
+                    <option value="design">Design</option>
+                    <option value="marketing">Marketing</option>
+                </select>
+                <select v-model="favoriteFilter" class="filter-select">
+                    <option value="all">All</option>
+                    <option value="favorites">Favorites</option>
+                </select>
+            </div>
         </div>
 
         <div class="jobs-scroll-container">
@@ -144,7 +154,8 @@ const searchInput = ref(null);
 const jobs = ref([]);
 const isLoading = ref(true);
 const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
-const activeFilter = ref('all');
+const categoryFilter = ref('all');
+const favoriteFilter = ref('all');
 const newJob = ref({
     userId: '',
     nick: '',
@@ -164,13 +175,20 @@ const sortedJobs = computed(() => {
 });
 
 const filteredJobs = computed(() => {
-  let filtered = sortedJobs.value;
-  if (activeFilter.value === 'favorites') {
-    filtered = filtered.filter(job => isFavorite(job.id));
-  }
-  if (!searchQuery.value) return filtered;
-  const query = searchQuery.value.toLowerCase();
-  return filtered.filter(job => job.position.toLowerCase().includes(query));
+    let filtered = sortedJobs.value;
+    if (categoryFilter.value !== 'all') {
+        filtered = filtered.filter(job =>
+            job.tags.some(tag =>
+                tag.toLowerCase().includes(categoryFilter.value.toLowerCase())
+            )
+        );
+    }
+    if (favoriteFilter.value === 'favorites') {
+        filtered = filtered.filter(job => isFavorite(job.id));
+    }
+    if (!searchQuery.value) return filtered;
+    const query = searchQuery.value.toLowerCase();
+    return filtered.filter(job => job.position.toLowerCase().includes(query));
 });
 
 const isNew = (job) => {
@@ -288,7 +306,6 @@ onMounted(() => {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
-
     if (window.Telegram.WebApp.initDataUnsafe?.user) {
       const user = Telegram.WebApp.initDataUnsafe.user;
       userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
@@ -314,15 +331,16 @@ onMounted(() => {
 @keyframes color-change { 0% { color: #97f492; } 50% { color: #6de06a; } 100% { color: #97f492; } }
 .add-button { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); padding: 8px 20px; border-radius: 30px; color: #000; font-weight: 400; box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3); transition: 0.3s; font-size: 14px; text-decoration: none; animation: pulse 2s infinite; }
 .add-button:hover { transform: translateY(-2px); }
-.categories { display: flex; gap: 15px; margin-bottom: 20px; flex-shrink: 0; }
-.category-btn { background: #272e38; color: #fff; border: none; padding: 10px 25px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 14px; font-weight: 600; }
-.category-btn.active { background: #97f492; color: #000; animation: pulse 2s infinite; }
-.search-container { margin-bottom: 20px; }
+.content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
+.search-and-filters { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
+.search-container { flex: 1; max-width: 70%; }
 .search-input { width: 100%; padding: 12px 20px; border-radius: 12px; border: none; background: #272e38; color: #fff; font-size: 14px; transition: all 0.3s; }
 .search-input:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
 .search-input::placeholder { color: #6b7280; }
-.content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
-.jobs-scroll-container { flex-grow: 1; overflow-y: auto; padding-right: 20px; margin-right: -30px; scrollbar-width: none; -ms-overflow-style: none; }
+.filters-container { display: flex; gap: 10px; }
+.filter-select { padding: 10px; border-radius: 8px; background: #272e38; color: #fff; border: none; font-size: 14px; min-width: 100px; }
+.filter-select:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
+.jobs-scroll-container { flex-grow: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
 .job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
