@@ -18,6 +18,9 @@
       "Vue 3",
       "Telegram API"
     ],
+    "categories": [
+      "it"
+    ],
     "contact": "https://t.me/workiks_admin",
     "createdAt": "2023-10-01T12:00:00Z"
   },
@@ -38,6 +41,9 @@
     "tags": [
       "Модерация",
       "Социальные сети"
+    ],
+    "categories": [
+      "social"
     ],
     "contact": "https://t.me/Danoneee777",
     "createdAt": "2023-10-02T14:30:00Z"
@@ -60,6 +66,9 @@
       "react",
       "web dev"
     ],
+    "categories": [
+      "it"
+    ],
     "contact": "@workiks_admin",
     "createdAt": "2023-10-03T10:00:00Z"
   },
@@ -78,6 +87,9 @@
     ],
     "tags": [
       "test"
+    ],
+    "categories": [
+      "social"
     ],
     "contact": "@cerioznii",
     "createdAt": "2023-10-04T15:00:00Z"
