@@ -391,7 +391,7 @@ onMounted(() => {
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
 .job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
-.job-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+.job-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
 .job-icon { width: 40px; height: 40px; border-radius: 10px; }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
 .nick { color: #97f492; font-size: 14px; margin: 0; }
