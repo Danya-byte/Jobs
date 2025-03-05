@@ -12,6 +12,11 @@
     </nav>
 
     <div class="content">
+        <div class="categories">
+            <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
+            <RouterLink to="#"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
+        </div>
+
         <div class="search-and-filter">
             <div class="search-container">
                 <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
@@ -170,6 +175,7 @@ const isLoading = ref(true);
 const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
 const selectedCategories = ref([]);
 const showFavoritesOnly = ref(false);
+const activeTab = ref('jobs');
 const newJob = ref({
     userId: '',
     nick: '',
@@ -357,6 +363,9 @@ onMounted(() => {
 @keyframes color-change { 0% { color: #97f492; } 50% { color: #6de06a; } 100% { color: #97f492; } }
 .add-button { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); padding: 8px 20px; border-radius: 30px; color: #000; font-weight: 400; box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3); transition: 0.3s; font-size: 14px; text-decoration: none; animation: pulse 2s infinite; }
 .add-button:hover { transform: translateY(-2px); }
+.categories { display: flex; gap: 15px; margin-bottom: 20px; flex-shrink: 0; }
+.category-btn { background: #272e38; color: #fff; border: none; padding: 10px 25px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 14px; font-weight: 600; }
+.category-btn.active { background: #97f492; color: #000; animation: pulse 2s infinite; }
 .content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
 .search-and-filter { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
 .search-container { flex: 1; }
@@ -379,14 +388,14 @@ onMounted(() => {
 .tags { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; max-width: 100%; }
 .tag { background: #2d3540; color: #97f492; padding: 5px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 .filter-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
-.filter-modal { background: #181e29; width: 300px; border-radius: 20px; padding: 20px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
+.filter-modal { background: #181e29; width: 250px; border-radius: 20px; padding: 15px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
 @keyframes scale-in { to { transform: scale(1); } }
-.filter-modal h3 { color: #97f492; margin: 0 0 15px 0; }
-.filter-section { margin-bottom: 20px; }
-.filter-section h4 { color: #fff; margin: 0 0 10px 0; }
-.checkbox-label { display: block; color: #c2c6cf; margin-bottom: 10px; cursor: pointer; }
-.checkbox-label input { margin-right: 10px; }
-.apply-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 10px; width: 100%; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; }
+.filter-modal h3 { color: #97f492; margin: 0 0 10px 0; font-size: 16px; }
+.filter-section { margin-bottom: 15px; }
+.filter-section h4 { color: #fff; margin: 0 0 8px 0; font-size: 14px; }
+.checkbox-label { display: block; color: #c2c6cf; margin-bottom: 8px; cursor: pointer; font-size: 14px; }
+.checkbox-label input { margin-right: 8px; }
+.apply-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 8px; width: 100%; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; font-size: 14px; }
 .apply-btn:hover { transform: translateY(-2px); }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; }
 .modal { background: #181e29; width: 100%; border-radius: 20px 20px 0 0; padding: 25px; max-height: 90vh; overflow-y: auto; transform: translateY(100%); animation: slide-up 0.3s ease-out forwards; scrollbar-width: none; -ms-overflow-style: none; }
