@@ -315,7 +315,7 @@ const addTag = () => {
 const submitJob = async () => {
   formSubmitted.value = true;
   if (!newJob.value.userId || !newJob.value.position || !newJob.value.description) {
-    alert("Please fill in all required fields!");
+    Telegram.WebApp.showAlert("Please fill in all required fields!");
     return;
   }
   try {
