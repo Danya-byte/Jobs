@@ -12,24 +12,15 @@
     </nav>
 
     <div class="content">
-        <div class="search-and-filters">
+        <div class="search-and-filter">
             <div class="search-container">
                 <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
             </div>
-            <div class="filters-container">
-                <select v-model="categoryFilter" class="filter-select">
-                    <option value="all">All</option>
-                    <option value="it">IT</option>
-                    <option value="social">Social</option>
-                    <option value="management">Management</option>
-                    <option value="design">Design</option>
-                    <option value="marketing">Marketing</option>
-                </select>
-                <select v-model="favoriteFilter" class="filter-select">
-                    <option value="all">All</option>
-                    <option value="favorites">Favorites</option>
-                </select>
-            </div>
+            <button class="filter-icon" @click="toggleFilterModal">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#97f492" stroke-width="2">
+                    <path d="M22 3H2l8 9.46V19l4 2V12.46L22 3z"/>
+                </svg>
+            </button>
         </div>
 
         <div class="jobs-scroll-container">
@@ -54,6 +45,28 @@
                 </button>
             </div>
         </div>
+
+        <transition name="fade">
+            <div v-if="showFilterModal" class="filter-modal-overlay" @click.self="showFilterModal = false">
+                <div class="filter-modal">
+                    <h3>Filters</h3>
+                    <div class="filter-section">
+                        <h4>Categories</h4>
+                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
+                            <input type="checkbox" v-model="selectedCategories" :value="category.value">
+                            {{ category.label }}
+                        </label>
+                    </div>
+                    <div class="filter-section">
+                        <label class="checkbox-label">
+                            <input type="checkbox" v-model="showFavoritesOnly">
+                            Show Favorites Only
+                        </label>
+                    </div>
+                    <button @click="showFilterModal = false" class="apply-btn">Apply</button>
+                </div>
+            </div>
+        </transition>
     </div>
 
     <transition name="slide-up">
@@ -141,6 +154,7 @@ const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
 const open = ref(false);
 const showAddModal = ref(false);
+const showFilterModal = ref(false);
 const selectedJob = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
@@ -154,8 +168,8 @@ const searchInput = ref(null);
 const jobs = ref([]);
 const isLoading = ref(true);
 const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
-const categoryFilter = ref('all');
-const favoriteFilter = ref('all');
+const selectedCategories = ref([]);
+const showFavoritesOnly = ref(false);
 const newJob = ref({
     userId: '',
     nick: '',
@@ -170,20 +184,28 @@ const newJob = ref({
 const requirementsInput = ref('');
 const tagsInput = ref('');
 
+const categories = [
+    { label: 'IT', value: 'it' },
+    { label: 'Social Media', value: 'social' },
+    { label: 'Management', value: 'management' },
+    { label: 'Design', value: 'design' },
+    { label: 'Marketing', value: 'marketing' }
+];
+
 const sortedJobs = computed(() => {
   return [...jobs.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
 
 const filteredJobs = computed(() => {
     let filtered = sortedJobs.value;
-    if (categoryFilter.value !== 'all') {
+    if (selectedCategories.value.length > 0) {
         filtered = filtered.filter(job =>
             job.tags.some(tag =>
-                tag.toLowerCase().includes(categoryFilter.value.toLowerCase())
+                selectedCategories.value.some(cat => tag.toLowerCase().includes(cat))
             )
         );
     }
-    if (favoriteFilter.value === 'favorites') {
+    if (showFavoritesOnly.value) {
         filtered = filtered.filter(job => isFavorite(job.id));
     }
     if (!searchQuery.value) return filtered;
@@ -227,6 +249,10 @@ const showAddJobModal = () => {
     contact: ''
   };
   showAddModal.value = true;
+};
+
+const toggleFilterModal = () => {
+    showFilterModal.value = !showFilterModal.value;
 };
 
 const addRequirement = () => {
@@ -332,14 +358,14 @@ onMounted(() => {
 .add-button { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); padding: 8px 20px; border-radius: 30px; color: #000; font-weight: 400; box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3); transition: 0.3s; font-size: 14px; text-decoration: none; animation: pulse 2s infinite; }
 .add-button:hover { transform: translateY(-2px); }
 .content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
-.search-and-filters { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
-.search-container { flex: 1; max-width: 70%; }
+.search-and-filter { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+.search-container { flex: 1; }
 .search-input { width: 100%; padding: 12px 20px; border-radius: 12px; border: none; background: #272e38; color: #fff; font-size: 14px; transition: all 0.3s; }
 .search-input:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
 .search-input::placeholder { color: #6b7280; }
-.filters-container { display: flex; gap: 10px; }
-.filter-select { padding: 10px; border-radius: 8px; background: #272e38; color: #fff; border: none; font-size: 14px; min-width: 100px; }
-.filter-select:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
+.filter-icon { background: #272e38; border: none; padding: 10px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+.filter-icon:hover { background: #97f492; }
+.filter-icon:hover svg { stroke: #000; }
 .jobs-scroll-container { flex-grow: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
@@ -352,6 +378,16 @@ onMounted(() => {
 .job-description { color: #8a8f98; font-size: 14px; line-height: 1.5; }
 .tags { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; max-width: 100%; }
 .tag { background: #2d3540; color: #97f492; padding: 5px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+.filter-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
+.filter-modal { background: #181e29; width: 300px; border-radius: 20px; padding: 20px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
+@keyframes scale-in { to { transform: scale(1); } }
+.filter-modal h3 { color: #97f492; margin: 0 0 15px 0; }
+.filter-section { margin-bottom: 20px; }
+.filter-section h4 { color: #fff; margin: 0 0 10px 0; }
+.checkbox-label { display: block; color: #c2c6cf; margin-bottom: 10px; cursor: pointer; }
+.checkbox-label input { margin-right: 10px; }
+.apply-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 10px; width: 100%; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; }
+.apply-btn:hover { transform: translateY(-2px); }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; }
 .modal { background: #181e29; width: 100%; border-radius: 20px 20px 0 0; padding: 25px; max-height: 90vh; overflow-y: auto; transform: translateY(100%); animation: slide-up 0.3s ease-out forwards; scrollbar-width: none; -ms-overflow-style: none; }
 .modal::-webkit-scrollbar { display: none; }
@@ -373,6 +409,8 @@ onMounted(() => {
 .delete-btn:hover { transform: translateY(-2px); }
 .delete-req, .delete-tag { background: none; border: none; color: #ff6b6b; cursor: pointer; margin-left: 5px; font-size: 16px; }
 textarea.search-input { min-height: 100px; resize: vertical; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-up-enter-active, .slide-up-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(100%); }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
