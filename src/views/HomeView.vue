@@ -27,22 +27,20 @@
                 <div v-if="isLoading" class="skeleton-container">
                     <div class="skeleton-card" v-for="n in 3" :key="n"></div>
                 </div>
-                <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id" @mousemove="handleMouseMove" @mouseleave="handleMouseLeave">
+                <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
                     <div class="card-header">
                         <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp" loading="lazy">
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
-                            <p class="work">{{ job.position }} <span v-if="isNew(job)" class="new-label">new</span></p>
+                            <p class="work">{{ job.position }}</p>
                             <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
                         </div>
-                        <button class="favorite-btn" @click.stop="toggleFavorite(job.id)">
-                            <span :class="{ 'favorite': isFavorite(job.id) }">♥</span>
-                        </button>
                     </div>
                     <p class="job-description">{{ job.description }}</p>
                     <div class="tags">
                         <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
                     </div>
+                    <span v-if="isNew(job)" class="new-label">new</span>
                 </button>
             </div>
         </div>
@@ -89,12 +87,15 @@
                     <button class="close-btn" @click="open = false">×</button>
                 </div>
                 <div class="job-details">
-                    <div class="user-info" @click="$router.push({ path: selectedJob.profileLink, query: { userId: selectedJob.userId, username: selectedJob.username } })">
+                    <div class="user-info">
                         <img :src="jobIcon" class="job-icon" loading="lazy">
                         <div>
                             <p class="nickname">{{ selectedJob.nick }}</p>
                             <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
                         </div>
+                        <button class="favorite-btn" @click="toggleFavorite(selectedJob.id)">
+                            <span :class="{ 'favorite': isFavorite(selectedJob.id) }">♥</span>
+                        </button>
                     </div>
                     <div class="section">
                         <h3>Description</h3>
@@ -282,24 +283,6 @@ const toggleFavorite = (jobId) => {
 
 const isFavorite = (jobId) => favoriteJobs.value.includes(jobId);
 
-const handleMouseMove = (event) => {
-  const card = event.currentTarget;
-  const rect = card.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
-  const rotateX = (y - centerY) / 20;
-  const rotateY = (centerX - x) / 20;
-
-  card.style.transform = `perspective(500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
-};
-
-const handleMouseLeave = (event) => {
-  const card = event.currentTarget;
-  card.style.transform = 'perspective(500px) rotateX(0) rotateY(0) translateY(0)';
-};
-
 onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
@@ -342,8 +325,8 @@ onMounted(() => {
 .jobs-scroll-container { flex-grow: 1; overflow-y: auto; padding-right: 20px; margin-right: -30px; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
-.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; transform-style: preserve-3d; text-align: left; box-sizing: border-box; }
-.job-card:hover { box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
+.job-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
 .job-icon { width: 40px; height: 40px; border-radius: 10px; }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
 .nick { color: #97f492; font-size: 14px; margin: 0; }
@@ -359,7 +342,7 @@ onMounted(() => {
 .modal-header h2 { color: #97f492; margin: 0; }
 .close-btn { background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 0 10px; }
 .job-details { display: flex; flex-direction: column; gap: 20px; }
-.user-info { display: flex; align-items: center; gap: 15px; }
+.user-info { display: flex; align-items: center; gap: 15px; position: relative; }
 .nickname { color: #97f492; margin: 0; font-size: 18px; }
 .experience { color: #8a8f98; margin: 0; font-size: 14px; }
 .section h3 { color: #fff; margin: 0 0 10px 0; font-size: 16px; }
@@ -378,8 +361,8 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .skeleton-container { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .skeleton-card { background: #181e29; border-radius: 20px; padding: 20px; height: 150px; animation: skeleton-loading 1.5s infinite; }
 @keyframes skeleton-loading { 0% { background-color: #181e29; } 50% { background-color: #272e38; } 100% { background-color: #181e29; } }
-.new-label { background: #ff6b6b; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px; }
+.new-label { position: absolute; top: 10px; right: 10px; background: #97f492; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 .favorite-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 10px; }
 .favorite-btn span { color: #8a8f98; transition: color 0.3s; }
-.favorite-btn .favorite { color: #ff6b6b; }
+.favorite-btn .favorite { color: #97f492; }
 </style>
