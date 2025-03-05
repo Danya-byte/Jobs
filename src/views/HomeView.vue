@@ -475,7 +475,7 @@ textarea.search-input { min-height: 100px; resize: vertical; }
   .profile-link::after, .nickname::after { display: none !important; }
   .job-icon { animation: mobile-pulse 2s infinite; }
   .nickname { padding-right: 20px; }
-  .nickname::before { content: "→"; position: absolute; right: 0; color: #97f492; animation: arrow-bounce 1s infinite; }
+  .nickname::before { content: "<- сlick"; position: absolute; right: 0; color: #97f492; animation: arrow-bounce 1s infinite; }
   @keyframes mobile-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
   @keyframes arrow-bounce { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
 }
