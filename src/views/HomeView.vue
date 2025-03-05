@@ -1,123 +1,145 @@
 <template>
-<div class="container" @click="handleClickOutside">
+  <div class="container" @click="handleClickOutside">
     <nav class="nav-bar">
-        <RouterLink :to="{ path: `/profile/${currentUserId}`, query: { username: currentUsername } }" class="profile-link">
-            <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="profile-icon">
-            <div class="user-name" v-if="userFirstName || userLastName">
-                <span class="first-name">{{ userFirstName }}</span>
-            </div>
-        </RouterLink>
-        <button v-if="isAdmin" @click="showAddJobModal" class="add-button"><span></span> Add Jobs</button>
-        <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
+      <RouterLink :to="{ path: `/profile/${currentUserId}`, query: { username: currentUsername } }" class="profile-link">
+        <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="profile-icon">
+        <div class="user-name" v-if="userFirstName || userLastName">
+          <span class="first-name">{{ userFirstName }}</span>
+        </div>
+      </RouterLink>
+      <button v-if="isAdmin" @click="showAddJobModal" class="add-button"><span></span> Add Jobs</button>
+      <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
     </nav>
 
     <div class="content">
-        <div class="categories">
-            <button class="category-btn active">Jobs</button>
-            <RouterLink to="#"><button class="category-btn">Gift</button></RouterLink>
-        </div>
+      <div class="filters">
+        <select v-model="selectedCategory" class="filter-select">
+          <option value="">Все</option>
+          <option value="IT">IT</option>
+          <option value="Модерация">Модерация</option>
+        </select>
+        <button @click="sortByDate" class="sort-btn">
+          {{ sortNewestFirst ? 'Сначала новые ▼' : 'Сначала старые ▲' }}
+        </button>
+      </div>
 
-        <div class="search-container">
-            <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
-        </div>
+      <div class="search-container">
+        <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
+      </div>
 
-        <div class="jobs-scroll-container">
-            <div class="jobs-list">
-                <button @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
-                    <div class="card-header">
-                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
-                        <div class="job-info">
-                            <p class="nick">{{ job.nick }}</p>
-                            <p class="work">{{ job.position }}</p>
-                            <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
-                        </div>
-                    </div>
-                    <p class="job-description">{{ job.description }}</p>
-                    <div class="tags">
-                        <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
-                    </div>
-                </button>
+      <div class="jobs-scroll-container">
+        <div v-if="loading" class="skeleton-container">
+          <div v-for="n in 5" :key="n" class="skeleton-card">
+            <div class="skeleton-line" style="width: 70%"></div>
+            <div class="skeleton-line" style="width: 90%"></div>
+            <div class="skeleton-line" style="width: 50%"></div>
+          </div>
+        </div>
+        <div v-else class="jobs-list">
+          <button
+            @mousemove="handleParallax($event, $el)"
+            @mouseleave="resetParallax($el)"
+            @click="showJobDetails(job)"
+            class="job-card"
+            v-for="job in filteredJobs"
+            :key="job.id"
+          >
+            <div class="card-header">
+              <span v-if="isNewJob(job)" class="new-badge">NEW</span>
+              <img v-lazy="jobIcon" class="job-icon">
+              <div class="job-info">
+                <p class="nick">{{ job.nick }}</p>
+                <p class="work">{{ job.position }}</p>
+                <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
+              </div>
             </div>
+            <p class="job-description">{{ job.description }}</p>
+            <div class="tags">
+              <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
+            </div>
+          </button>
         </div>
+      </div>
     </div>
 
     <transition name="slide-up">
-        <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>Add New Job</h2>
-                    <button class="close-btn" @click="showAddModal = false">×</button>
-                </div>
-                <div class="job-details">
-                    <input v-model="newJob.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number">
-                    <input v-model="newJob.nick" placeholder="Nick" class="search-input">
-                    <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
-                    <input v-model="newJob.position" placeholder="Position" class="search-input">
-                    <input v-model.number="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
-                    <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
-                    <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
-                    <ul class="requirements">
-                        <li v-for="(req, i) in newJob.requirements" :key="i">
-                            {{ req }} <button @click="newJob.requirements.splice(i, 1)" class="delete-req">×</button>
-                        </li>
-                    </ul>
-                    <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
-                    <div class="tags">
-                        <span v-for="(tag, i) in newJob.tags" :key="i" class="tag">
-                            {{ tag }} <button @click="newJob.tags.splice(i, 1)" class="delete-tag">×</button>
-                        </span>
-                    </div>
-                    <input v-model="newJob.contact" placeholder="Contact link" class="search-input">
-                    <button @click="submitJob" class="contact-btn">Submit Job</button>
-                </div>
+      <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>Add New Job</h2>
+            <button class="close-btn" @click="showAddModal = false">×</button>
+          </div>
+          <div class="job-details">
+            <input v-model="newJob.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number">
+            <input v-model="newJob.nick" placeholder="Nick" class="search-input">
+            <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
+            <input v-model="newJob.position" placeholder="Position" class="search-input">
+            <input v-model.number="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
+            <textarea v-model="newJob.description" placeholder="Description" class="search-input"></textarea>
+            <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
+            <ul class="requirements">
+              <li v-for="(req, i) in newJob.requirements" :key="i">
+                {{ req }} <button @click="newJob.requirements.splice(i, 1)" class="delete-req">×</button>
+              </li>
+            </ul>
+            <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
+            <div class="tags">
+              <span v-for="(tag, i) in newJob.tags" :key="i" class="tag">
+                {{ tag }} <button @click="newJob.tags.splice(i, 1)" class="delete-tag">×</button>
+              </span>
             </div>
+            <input v-model="newJob.contact" placeholder="Contact link" class="search-input">
+            <button @click="submitJob" class="contact-btn">Submit Job</button>
+          </div>
         </div>
+      </div>
     </transition>
 
     <transition name="slide-up">
-        <div v-if="open" class="modal-overlay" @click.self="open = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>{{ selectedJob.position }}</h2>
-                    <button class="close-btn" @click="open = false">×</button>
-                </div>
-                <div class="job-details">
-                    <div class="user-info" @click="$router.push({ path: selectedJob.profileLink, query: { userId: selectedJob.userId, username: selectedJob.username } })">
-                        <img :src="jobIcon" class="job-icon">
-                        <div>
-                            <p class="nickname">{{ selectedJob.nick }}</p>
-                            <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
-                        </div>
-                    </div>
-                    <div class="section">
-                        <h3>Description</h3>
-                        <p class="description">{{ selectedJob.description }}</p>
-                    </div>
-                    <div class="section">
-                        <h3>Requirements</h3>
-                        <ul class="requirements">
-                            <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
-                        </ul>
-                    </div>
-                    <div class="section">
-                        <h3>Skills</h3>
-                        <div class="tags">
-                            <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-                    <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
-                </div>
+      <div v-if="open" class="modal-overlay" @click.self="open = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>{{ selectedJob.position }}</h2>
+            <button class="close-btn" @click="open = false">×</button>
+          </div>
+          <div class="job-details">
+            <div class="user-info" @click="$router.push({ path: selectedJob.profileLink, query: { userId: selectedJob.userId, username: selectedJob.username } })">
+              <img :src="jobIcon" class="job-icon">
+              <div>
+                <p class="nickname">{{ selectedJob.nick }}</p>
+                <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
+              </div>
             </div>
+            <div class="section">
+              <h3>Description</h3>
+              <p class="description">{{ selectedJob.description }}</p>
+            </div>
+            <div class="section">
+              <h3>Requirements</h3>
+              <ul class="requirements">
+                <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
+              </ul>
+            </div>
+            <div class="section">
+              <h3>Skills</h3>
+              <div class="tags">
+                <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
+              </div>
+            </div>
+            <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+            <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
+          </div>
         </div>
+      </div>
     </transition>
-</div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { VueLazyload } from 'vue-lazyload';
 
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
@@ -135,6 +157,58 @@ const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
 const newJob = ref({
+  userId: '',
+  nick: '',
+  username: '',
+  position: '',
+  experience: null,
+  description: '',
+  requirements: [],
+  tags: [],
+  contact: ''
+});
+const requirementsInput = ref('');
+const tagsInput = ref('');
+const selectedCategory = ref('');
+const sortNewestFirst = ref(true);
+const loading = ref(true);
+
+const filteredJobs = computed(() => {
+  let result = jobs.value.filter(job =>
+    job.position.toLowerCase().includes(searchQuery.value.toLowerCase()) &&
+    (selectedCategory.value ? job.tags.includes(selectedCategory.value) : true)
+  );
+
+  return result.sort((a, b) =>
+    sortNewestFirst.value ?
+    new Date(b.createdAt) - new Date(a.createdAt) :
+    new Date(a.createdAt) - new Date(b.createdAt)
+  );
+});
+
+const fetchJobs = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
+    jobs.value = response.data;
+    loading.value = false;
+  } catch (error) {
+    if (error.response) {
+      console.error('Server responded with error:', error.response.data);
+    } else if (error.request) {
+      console.error('No response from server (CORS or network issue):', error.message);
+    } else {
+      console.error('Error setting up request:', error.message);
+    }
+  }
+};
+
+const showJobDetails = (job) => {
+  selectedJob.value = job;
+  open.value = true;
+};
+
+const showAddJobModal = () => {
+  newJob.value = {
     userId: '',
     nick: '',
     username: '',
@@ -144,128 +218,107 @@ const newJob = ref({
     requirements: [],
     tags: [],
     contact: ''
-});
-const requirementsInput = ref('');
-const tagsInput = ref('');
-
-const filteredJobs = computed(() => {
-    if (!searchQuery.value) return jobs.value;
-    const query = searchQuery.value.toLowerCase();
-    return jobs.value.filter(job => job.position.toLowerCase().includes(query));
-});
-
-const fetchJobs = async () => {
-    try {
-        const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
-        jobs.value = response.data;
-    } catch (error) {
-        if (error.response) {
-            console.error('Server responded with error:', error.response.data);
-        } else if (error.request) {
-            console.error('No response from server (CORS or network issue):', error.message);
-        } else {
-            console.error('Error setting up request:', error.message);
-        }
-    }
-};
-
-const showJobDetails = (job) => {
-    selectedJob.value = job;
-    open.value = true;
-};
-
-const showAddJobModal = () => {
-    newJob.value = {
-        userId: '',
-        nick: '',
-        username: '',
-        position: '',
-        experience: null,
-        description: '',
-        requirements: [],
-        tags: [],
-        contact: ''
-    };
-    showAddModal.value = true;
+  };
+  showAddModal.value = true;
 };
 
 const addRequirement = () => {
-    if (requirementsInput.value.trim()) {
-        newJob.value.requirements.push(requirementsInput.value.trim());
-        requirementsInput.value = '';
-    }
+  if (requirementsInput.value.trim()) {
+    newJob.value.requirements.push(requirementsInput.value.trim());
+    requirementsInput.value = '';
+  }
 };
 
 const addTag = () => {
-    if (tagsInput.value.trim()) {
-        newJob.value.tags.push(tagsInput.value.trim());
-        tagsInput.value = '';
-    }
+  if (tagsInput.value.trim()) {
+    newJob.value.tags.push(tagsInput.value.trim());
+    tagsInput.value = '';
+  }
 };
 
 const submitJob = async () => {
-    if (!newJob.value.userId) {
-        alert("Please enter a User ID");
-        return;
-    }
-    try {
-        const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-        });
-        jobs.value.push(response.data.job);
-        showAddModal.value = false;
-    } catch (error) {
-        console.error('Error submitting job:', error.response?.data || error.message);
-    }
+  if (!newJob.value.userId) {
+    alert("Please enter a User ID");
+    return;
+  }
+  try {
+    const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    jobs.value.push(response.data.job);
+    showAddModal.value = false;
+  } catch (error) {
+    console.error('Error submitting job:', error.response?.data || error.message);
+  }
 };
 
 const deleteJob = async (jobId) => {
-    try {
-        await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-        });
-        jobs.value = jobs.value.filter(job => job.id !== jobId);
-        open.value = false;
-    } catch (error) {
-        console.error('Error deleting job:', error.response?.data || error.message);
-    }
+  try {
+    await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    jobs.value = jobs.value.filter(job => job.id !== jobId);
+    open.value = false;
+  } catch (error) {
+    console.error('Error deleting job:', error.response?.data || error.message);
+  }
 };
 
 const checkAdminStatus = async () => {
-    try {
-        const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-        });
-        isAdmin.value = response.data.isAdmin;
-    } catch (error) {
-        console.error('Error checking admin status:', error);
-        isAdmin.value = false;
-    }
+  try {
+    const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    isAdmin.value = response.data.isAdmin;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    isAdmin.value = false;
+  }
 };
 
 const handleClickOutside = (event) => {
-    if (searchInput.value && !searchInput.value.contains(event.target)) {
-        searchInput.value.blur();
-    }
+  if (searchInput.value && !searchInput.value.contains(event.target)) {
+    searchInput.value.blur();
+  }
+};
+
+const handleParallax = (e, el) => {
+  const rect = el.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width - 0.5;
+  const y = (e.clientY - rect.top) / rect.height - 0.5;
+  el.style.transform = `perspective(1000px) rotateX(${y * 5}deg) rotateY(${x * 5}deg)`;
+};
+
+const resetParallax = (el) => {
+  el.style.transform = 'none';
+};
+
+const isNewJob = (job) => {
+  const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  return new Date(job.createdAt) > threeDaysAgo;
+};
+
+const sortByDate = () => {
+  sortNewestFirst.value = !sortNewestFirst.value;
 };
 
 onMounted(() => {
-    if (window.Telegram?.WebApp) {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        Telegram.WebApp.disableVerticalSwipes();
+  if (window.Telegram?.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+    Telegram.WebApp.disableVerticalSwipes();
 
-        if (window.Telegram.WebApp.initDataUnsafe?.user) {
-            const user = Telegram.WebApp.initDataUnsafe.user;
-            userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
-            userFirstName.value = user.first_name || '';
-            userLastName.value = user.last_name || '';
-            currentUserId.value = user.id;
-            currentUsername.value = user.username;
-        }
+    if (window.Telegram.WebApp.initDataUnsafe?.user) {
+      const user = Telegram.WebApp.initDataUnsafe.user;
+      userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
+      userFirstName.value = user.first_name || '';
+      userLastName.value = user.last_name || '';
+      currentUserId.value = user.id;
+      currentUsername.value = user.username;
     }
-    checkAdminStatus();
-    fetchJobs();
+  }
+  checkAdminStatus();
+  fetchJobs();
 });
 </script>
 
@@ -291,7 +344,7 @@ onMounted(() => {
 .jobs-scroll-container { flex-grow: 1; overflow-y: auto; padding-right: 20px; margin-right: -30px; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
-.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: 0.3s; text-align: left; box-sizing: border-box; }
+.job-card { background: linear-gradient(160deg, #1a2233 0%, #18202e 100%); width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: 0.3s; text-align: left; box-sizing: border-box; }
 .job-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
 .job-icon { width: 40px; height: 40px; border-radius: 10px; }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
