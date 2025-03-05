@@ -18,7 +18,8 @@
       "Vue 3",
       "Telegram API"
     ],
-    "contact": "https://t.me/workiks_admin"
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2023-10-01T12:00:00Z"
   },
   {
     "id": "1741042127828_2",
@@ -38,7 +39,8 @@
       "Модерация",
       "Социальные сети"
     ],
-    "contact": "https://t.me/Danoneee777"
+    "contact": "https://t.me/Danoneee777",
+    "createdAt": "2023-10-02T14:30:00Z"
   },
   {
     "id": "1741043551371_1940359844",
@@ -48,7 +50,7 @@
     "nick": "NEON",
     "position": "Web dev",
     "profileLink": "/profile/6568279325",
-    "experience": "10 ",
+    "experience": "10",
     "description": "test",
     "requirements": [
       "React",
@@ -58,7 +60,8 @@
       "react",
       "web dev"
     ],
-    "contact": "@workiks_admin"
+    "contact": "@workiks_admin",
+    "createdAt": "2023-10-03T10:00:00Z"
   },
   {
     "id": "1741163426608_1940359844",
@@ -68,7 +71,7 @@
     "nick": "Arhi",
     "position": "Test",
     "profileLink": "/profile/5531474912",
-    "experience": 993,
+    "experience": "993",
     "description": "test",
     "requirements": [
       "test"
@@ -76,6 +79,7 @@
     "tags": [
       "test"
     ],
-    "contact": "@cerioznii"
+    "contact": "@cerioznii",
+    "createdAt": "2023-10-04T15:00:00Z"
   }
 ]

@@ -2,7 +2,7 @@
 <div class="container" @click="handleClickOutside">
     <nav class="nav-bar">
         <RouterLink :to="{ path: `/profile/${currentUserId}`, query: { username: currentUsername } }" class="profile-link">
-            <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="profile-icon">
+            <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="profile-icon" loading="lazy">
             <div class="user-name" v-if="userFirstName || userLastName">
                 <span class="first-name">{{ userFirstName }}</span>
             </div>
@@ -13,7 +13,8 @@
 
     <div class="content">
         <div class="categories">
-            <button class="category-btn active">Jobs</button>
+            <button class="category-btn" :class="{ active: activeFilter === 'all' }" @click="activeFilter = 'all'">Jobs</button>
+            <button class="category-btn" :class="{ active: activeFilter === 'favorites' }" @click="activeFilter = 'favorites'">Favorites</button>
             <RouterLink to="#"><button class="category-btn">Gift</button></RouterLink>
         </div>
 
@@ -23,14 +24,20 @@
 
         <div class="jobs-scroll-container">
             <div class="jobs-list">
-                <button @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
+                <div v-if="isLoading" class="skeleton-container">
+                    <div class="skeleton-card" v-for="n in 3" :key="n"></div>
+                </div>
+                <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id" @mousemove="handleMouseMove" @mouseleave="handleMouseLeave">
                     <div class="card-header">
-                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp">
+                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp" loading="lazy">
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
-                            <p class="work">{{ job.position }}</p>
+                            <p class="work">{{ job.position }} <span v-if="isNew(job)" class="new-label">new</span></p>
                             <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
                         </div>
+                        <button class="favorite-btn" @click.stop="toggleFavorite(job.id)">
+                            <span :class="{ 'favorite': isFavorite(job.id) }">♥</span>
+                        </button>
                     </div>
                     <p class="job-description">{{ job.description }}</p>
                     <div class="tags">
@@ -83,7 +90,7 @@
                 </div>
                 <div class="job-details">
                     <div class="user-info" @click="$router.push({ path: selectedJob.profileLink, query: { userId: selectedJob.userId, username: selectedJob.username } })">
-                        <img :src="jobIcon" class="job-icon">
+                        <img :src="jobIcon" class="job-icon" loading="lazy">
                         <div>
                             <p class="nickname">{{ selectedJob.nick }}</p>
                             <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
@@ -134,6 +141,9 @@ const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.
 const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
+const isLoading = ref(true);
+const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
+const activeFilter = ref('all');
 const newJob = ref({
     userId: '',
     nick: '',
@@ -148,124 +158,165 @@ const newJob = ref({
 const requirementsInput = ref('');
 const tagsInput = ref('');
 
-const filteredJobs = computed(() => {
-    if (!searchQuery.value) return jobs.value;
-    const query = searchQuery.value.toLowerCase();
-    return jobs.value.filter(job => job.position.toLowerCase().includes(query));
+const sortedJobs = computed(() => {
+  return [...jobs.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
 
+const filteredJobs = computed(() => {
+  let filtered = sortedJobs.value;
+  if (activeFilter.value === 'favorites') {
+    filtered = filtered.filter(job => isFavorite(job.id));
+  }
+  if (!searchQuery.value) return filtered;
+  const query = searchQuery.value.toLowerCase();
+  return filtered.filter(job => job.position.toLowerCase().includes(query));
+});
+
+const isNew = (job) => {
+  const now = new Date();
+  const jobDate = new Date(job.createdAt);
+  const diffInDays = (now - jobDate) / (1000 * 60 * 60 * 24);
+  return diffInDays <= 3;
+};
+
 const fetchJobs = async () => {
-    try {
-        const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
-        jobs.value = response.data;
-    } catch (error) {
-        if (error.response) {
-            console.error('Server responded with error:', error.response.data);
-        } else if (error.request) {
-            console.error('No response from server (CORS or network issue):', error.message);
-        } else {
-            console.error('Error setting up request:', error.message);
-        }
-    }
+  try {
+    const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
+    jobs.value = response.data;
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const showJobDetails = (job) => {
-    selectedJob.value = job;
-    open.value = true;
+  selectedJob.value = job;
+  open.value = true;
 };
 
 const showAddJobModal = () => {
-    newJob.value = {
-        userId: '',
-        nick: '',
-        username: '',
-        position: '',
-        experience: null,
-        description: '',
-        requirements: [],
-        tags: [],
-        contact: ''
-    };
-    showAddModal.value = true;
+  newJob.value = {
+    userId: '',
+    nick: '',
+    username: '',
+    position: '',
+    experience: null,
+    description: '',
+    requirements: [],
+    tags: [],
+    contact: ''
+  };
+  showAddModal.value = true;
 };
 
 const addRequirement = () => {
-    if (requirementsInput.value.trim()) {
-        newJob.value.requirements.push(requirementsInput.value.trim());
-        requirementsInput.value = '';
-    }
+  if (requirementsInput.value.trim()) {
+    newJob.value.requirements.push(requirementsInput.value.trim());
+    requirementsInput.value = '';
+  }
 };
 
 const addTag = () => {
-    if (tagsInput.value.trim()) {
-        newJob.value.tags.push(tagsInput.value.trim());
-        tagsInput.value = '';
-    }
+  if (tagsInput.value.trim()) {
+    newJob.value.tags.push(tagsInput.value.trim());
+    tagsInput.value = '';
+  }
 };
 
 const submitJob = async () => {
-    if (!newJob.value.userId) {
-        alert("Please enter a User ID");
-        return;
-    }
-    try {
-        const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-        });
-        jobs.value.push(response.data.job);
-        showAddModal.value = false;
-    } catch (error) {
-        console.error('Error submitting job:', error.response?.data || error.message);
-    }
+  if (!newJob.value.userId) {
+    alert("Please enter a User ID");
+    return;
+  }
+  try {
+    const response = await axios.post(`${BASE_URL}/api/jobs`, newJob.value, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    jobs.value.push(response.data.job);
+    showAddModal.value = false;
+  } catch (error) {
+    console.error('Error submitting job:', error.response?.data || error.message);
+  }
 };
 
 const deleteJob = async (jobId) => {
-    try {
-        await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-        });
-        jobs.value = jobs.value.filter(job => job.id !== jobId);
-        open.value = false;
-    } catch (error) {
-        console.error('Error deleting job:', error.response?.data || error.message);
-    }
+  try {
+    await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    jobs.value = jobs.value.filter(job => job.id !== jobId);
+    open.value = false;
+  } catch (error) {
+    console.error('Error deleting job:', error.response?.data || error.message);
+  }
 };
 
 const checkAdminStatus = async () => {
-    try {
-        const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-        });
-        isAdmin.value = response.data.isAdmin;
-    } catch (error) {
-        console.error('Error checking admin status:', error);
-        isAdmin.value = false;
-    }
+  try {
+    const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    isAdmin.value = response.data.isAdmin;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    isAdmin.value = false;
+  }
 };
 
 const handleClickOutside = (event) => {
-    if (searchInput.value && !searchInput.value.contains(event.target)) {
-        searchInput.value.blur();
-    }
+  if (searchInput.value && !searchInput.value.contains(event.target)) {
+    searchInput.value.blur();
+  }
+};
+
+const toggleFavorite = (jobId) => {
+  const index = favoriteJobs.value.indexOf(jobId);
+  if (index === -1) {
+    favoriteJobs.value.push(jobId);
+  } else {
+    favoriteJobs.value.splice(index, 1);
+  }
+  localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
+};
+
+const isFavorite = (jobId) => favoriteJobs.value.includes(jobId);
+
+const handleMouseMove = (event) => {
+  const card = event.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const centerX = rect.width / 2;
+  const centerY = rect.height / 2;
+  const rotateX = (y - centerY) / 20;
+  const rotateY = (centerX - x) / 20;
+
+  card.style.transform = `perspective(500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+};
+
+const handleMouseLeave = (event) => {
+  const card = event.currentTarget;
+  card.style.transform = 'perspective(500px) rotateX(0) rotateY(0) translateY(0)';
 };
 
 onMounted(() => {
-    if (window.Telegram?.WebApp) {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        Telegram.WebApp.disableVerticalSwipes();
+  if (window.Telegram?.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+    Telegram.WebApp.disableVerticalSwipes();
 
-        if (window.Telegram.WebApp.initDataUnsafe?.user) {
-            const user = Telegram.WebApp.initDataUnsafe.user;
-            userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
-            userFirstName.value = user.first_name || '';
-            userLastName.value = user.last_name || '';
-            currentUserId.value = user.id;
-            currentUsername.value = user.username;
-        }
+    if (window.Telegram.WebApp.initDataUnsafe?.user) {
+      const user = Telegram.WebApp.initDataUnsafe.user;
+      userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
+      userFirstName.value = user.first_name || '';
+      userLastName.value = user.last_name || '';
+      currentUserId.value = user.id;
+      currentUsername.value = user.username;
     }
-    checkAdminStatus();
-    fetchJobs();
+  }
+  checkAdminStatus();
+  fetchJobs();
 });
 </script>
 
@@ -291,10 +342,10 @@ onMounted(() => {
 .jobs-scroll-container { flex-grow: 1; overflow-y: auto; padding-right: 20px; margin-right: -30px; scrollbar-width: none; -ms-overflow-style: none; }
 .jobs-scroll-container::-webkit-scrollbar { display: none; }
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
-.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: 0.3s; text-align: left; box-sizing: border-box; }
-.job-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; transform-style: preserve-3d; text-align: left; box-sizing: border-box; }
+.job-card:hover { box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
 .job-icon { width: 40px; height: 40px; border-radius: 10px; }
-.card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+.card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
 .nick { color: #97f492; font-size: 14px; margin: 0; }
 .work { color: #fff; font-size: 18px; margin: 0; }
 .job-description { color: #8a8f98; font-size: 14px; line-height: 1.5; }
@@ -324,4 +375,11 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .slide-up-enter-active, .slide-up-leave-active { transition: opacity 0.3s, transform 0.3s; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(100%); }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+.skeleton-container { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.skeleton-card { background: #181e29; border-radius: 20px; padding: 20px; height: 150px; animation: skeleton-loading 1.5s infinite; }
+@keyframes skeleton-loading { 0% { background-color: #181e29; } 50% { background-color: #272e38; } 100% { background-color: #181e29; } }
+.new-label { background: #ff6b6b; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px; }
+.favorite-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 10px; }
+.favorite-btn span { color: #8a8f98; transition: color 0.3s; }
+.favorite-btn .favorite { color: #ff6b6b; }
 </style>

@@ -99,6 +99,7 @@ async function initJobsFile() {
           requirements: ["Опыт работы с Vue.js", "Знание HTML, CSS, JavaScript", "Интеграция с Telegram API"],
           tags: ["JavaScript", "Vue 3", "Telegram API"],
           contact: "https://t.me/workiks_admin",
+          createdAt: new Date().toISOString()
         },
         {
           id: `${Date.now()}_2`,
@@ -112,6 +113,7 @@ async function initJobsFile() {
           requirements: ["Опыт работы с социальными сетями", "Коммуникативные навыки", "Знание основ модерации"],
           tags: ["Модерация", "Социальные сети"],
           contact: "https://t.me/Danoneee777",
+          createdAt: new Date().toISOString()
         },
       ];
       await fs.writeFile(JOBS_FILE, JSON.stringify(initialJobs, null, 2));
@@ -201,6 +203,7 @@ app.post("/api/jobs", async (req, res) => {
       requirements,
       tags,
       contact,
+      createdAt: new Date().toISOString()
     };
 
     jobsData.push(newJob);
@@ -267,8 +270,8 @@ app.get("/api/user/:userId", async (req, res) => {
 
     if (userJob) {
       try {
-        const userData = await bot.api.getChat(userJob.userId); // Запрос данных пользователя по userId
-        firstName = userData.first_name || "Unknown"; // Имя из Telegram
+        const userData = await bot.api.getChat(userJob.userId);
+        firstName = userData.first_name || "Unknown";
         responseUsername = userData.username || null;
         if (responseUsername) {
           photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
