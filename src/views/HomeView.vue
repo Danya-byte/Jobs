@@ -319,7 +319,7 @@ const submitJob = async () => {
     return;
   }
   try {
-    const jobData = {
+    const job RadiData = {
       ...newJob.value,
       contact: 'https://t.me/workiks_admin',
       categories: newJob.value.categories || []
@@ -368,14 +368,44 @@ const handleClickOutside = (event) => {
   if (isProfileLink) return;
 };
 
-const toggleFavorite = (jobId) => {
+const toggleFavorite = async (jobId) => {
   const index = favoriteJobs.value.indexOf(jobId);
-  if (index === -1) {
-    favoriteJobs.value.push(jobId);
-  } else {
-    favoriteJobs.value.splice(index, 1);
+  const job = jobs.value.find(j => j.id === jobId);
+  const telegramData = window.Telegram.WebApp.initData;
+
+  if (!telegramData) {
+    console.error('Telegram WebApp data not available');
+    return;
   }
-  localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
+
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+
+  try {
+    if (index === -1) {
+      favoriteJobs.value.push(jobId);
+      await axios.post(`${BASE_URL}/api/subscribe`, {
+        userId: user.id,
+        category: job.categories[0]
+      }, {
+        headers: { 'X-Telegram-Data': telegramData }
+      });
+      Telegram.WebApp.showAlert("Вы подписались на уведомления для этой категории!");
+    } else {
+      favoriteJobs.value.splice(index, 1);
+      await axios.post(`${BASE_URL}/api/unsubscribe`, {
+        userId: user.id,
+        category: job.categories[0]
+      }, {
+        headers: { 'X-Telegram-Data': telegramData }
+      });
+      Telegram.WebApp.showAlert("Вы отписались от уведомлений для этой категории.");
+    }
+    localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
+  } catch (error) {
+    console.error('Error toggling favorite:', error.response?.data || error.message);
+    Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
+  }
 };
 
 const isFavorite = (jobId) => favoriteJobs.value.includes(jobId);

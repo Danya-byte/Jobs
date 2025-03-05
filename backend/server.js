@@ -15,14 +15,17 @@ const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
+const SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
+const subscriptionsMutex = new Mutex();
 
 let jobsData = [];
 let reviewsData = {};
+let subscriptionsData = {};
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -85,45 +88,22 @@ async function initJobsFile() {
   try {
     await fs.access(JOBS_FILE);
     const data = await fs.readFile(JOBS_FILE, "utf8");
-    if (!data.trim()) {
-      const initialJobs = [
-        {
-          id: `${Date.now()}_1`,
-          nick: "Matvey",
-          userId: "1029594875",
-          username: "whsxg",
-          position: "Frontend Developer",
-          profileLink: "/profile/1029594875",
-          experience: "5",
-          description: "Разработка Telegram Mini App по ТЗ с полным циклом от проектирования до запуска.",
-          requirements: ["Опыт работы с Vue.js", "Знание HTML, CSS, JavaScript", "Интеграция с Telegram API"],
-          tags: ["JavaScript", "Vue 3", "Telegram API"],
-          categories: ["it"],
-          contact: "https://t.me/workiks_admin",
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: `${Date.now()}_2`,
-          nick: "Danone",
-          userId: "7079899705",
-          username: "Danoneee777",
-          position: "Moderator",
-          profileLink: "/profile/7079899705",
-          experience: "3",
-          description: "Модерация сообществ и управление контентом.",
-          requirements: ["Опыт работы с социальными сетями", "Коммуникативные навыки", "Знание основ модерации"],
-          tags: ["Модерация", "Социальные сети"],
-          categories: ["social"],
-          contact: "https://t.me/Danoneee777",
-          createdAt: new Date().toISOString()
-        },
-      ];
-      await fs.writeFile(JOBS_FILE, JSON.stringify(initialJobs, null, 2));
-    }
+    if (!data.trim()) await fs.writeFile(JOBS_FILE, "[]");
   } catch {
-    await fs.writeFile(JOBS_FILE, JSON.stringify([], null, 2));
+    await fs.writeFile(JOBS_FILE, "[]");
   }
   logger.info("Jobs file initialized");
+}
+
+async function initSubscriptionsFile() {
+  try {
+    await fs.access(SUBSCRIPTIONS_FILE);
+    const data = await fs.readFile(SUBSCRIPTIONS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(SUBSCRIPTIONS_FILE, "{}");
+  } catch {
+    await fs.writeFile(SUBSCRIPTIONS_FILE, "{}");
+  }
+  logger.info("Subscriptions file initialized");
 }
 
 async function loadJobs() {
@@ -145,6 +125,17 @@ async function loadReviews() {
   } catch (e) {
     logger.error(`Failed to load reviews: ${e.message}`);
     reviewsData = {};
+  }
+}
+
+async function loadSubscriptions() {
+  try {
+    const rawData = await fs.readFile(SUBSCRIPTIONS_FILE, "utf8");
+    subscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
+    logger.info(`Loaded ${Object.keys(subscriptionsData).length} subscriptions into memory`);
+  } catch (e) {
+    logger.error(`Failed to load subscriptions: ${e.message}`);
+    subscriptionsData = {};
   }
 }
 
@@ -212,6 +203,29 @@ app.post("/api/jobs", async (req, res) => {
     jobsData.push(newJob);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
     logger.info(`Job added by admin ${user.id}: ${newJob.id}`);
+
+    if (categories && categories.length > 0) {
+      for (const category of categories) {
+        const subscribers = Object.entries(subscriptionsData)
+          .filter(([_, cats]) => cats.includes(category))
+          .map(([userId]) => userId);
+
+        for (const subscriberId of subscribers) {
+          try {
+            await bot.api.sendMessage(
+              subscriberId,
+              `Новая вакансия в категории "${category}":\n\n` +
+              `Позиция: ${position}\n` +
+              `Описание: ${description}\n` +
+              `Контакт: ${newJob.contact}`
+            );
+            logger.info(`Notification sent to user ${subscriberId} for job ${newJob.id}`);
+          } catch (e) {
+            logger.error(`Failed to send notification to ${subscriberId}: ${e.message}`);
+          }
+        }
+      }
+    }
 
     res.json({ success: true, job: newJob });
   } catch (e) {
@@ -293,6 +307,69 @@ app.get("/api/user/:userId", async (req, res) => {
   } catch (e) {
     logger.error(`Error in GET /api/user: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/subscribe", async (req, res) => {
+  const release = await subscriptionsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { userId, category } = req.body;
+    if (!userId || !category) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (!subscriptionsData[userId]) {
+      subscriptionsData[userId] = [];
+    }
+
+    if (!subscriptionsData[userId].includes(category)) {
+      subscriptionsData[userId].push(category);
+      await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+      logger.info(`User ${userId} subscribed to category ${category}`);
+    }
+
+    res.json({ success: true });
+  } catch (e) {
+    logger.error(`Error in POST /api/subscribe: ${e.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.post("/api/unsubscribe", async (req, res) => {
+  const release = await subscriptionsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { userId, category } = req.body;
+    if (!userId || !category) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (subscriptionsData[userId]) {
+      subscriptionsData[userId] = subscriptionsData[userId].filter(cat => cat !== category);
+      if (subscriptionsData[userId].length === 0) {
+        delete subscriptionsData[userId];
+      }
+      await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+      logger.info(`User ${userId} unsubscribed from category ${category}`);
+    }
+
+    res.json({ success: true });
+  } catch (e) {
+    logger.error(`Error in POST /api/unsubscribe: ${e.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
@@ -468,10 +545,11 @@ async function ensureLogsDir() {
   }
 }
 
-Promise.all([ensureLogsDir(), initReviewsFile(), initJobsFile()])
+Promise.all([ensureLogsDir(), initReviewsFile(), initJobsFile(), initSubscriptionsFile()])
   .then(async () => {
     await loadJobs();
     await loadReviews();
+    await loadSubscriptions();
     app.listen(port, () => {
       bot.start();
       logger.info(`Server running on port ${port}`);
