@@ -328,9 +328,13 @@ const checkAdminStatus = async () => {
 };
 
 const handleClickOutside = (event) => {
+  const isProfileLink = event.target.closest('.profile-link') !== null;
+
   if (searchInput.value && !searchInput.value.contains(event.target)) {
     searchInput.value.blur();
   }
+
+  if (isProfileLink) return;
 };
 
 const toggleFavorite = (jobId) => {
