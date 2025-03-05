@@ -372,7 +372,7 @@ onMounted(() => {
 .search-input { width: 100%; padding: 12px 20px; border-radius: 12px; border: none; background: #272e38; color: #fff; font-size: 14px; transition: all 0.3s; }
 .search-input:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
 .search-input::placeholder { color: #6b7280; }
-.filter-icon { background: #272e38; border: none; padding: 10px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+.filter-icon { background: #272e38; border: none; padding: 7px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
 .filter-icon:hover { background: #97f492; }
 .filter-icon:hover svg { stroke: #000; }
 .jobs-scroll-container { flex-grow: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
@@ -388,7 +388,7 @@ onMounted(() => {
 .tags { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; max-width: 100%; }
 .tag { background: #2d3540; color: #97f492; padding: 5px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 .filter-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
-.filter-modal { background: #181e29; width: 250px; border-radius: 20px; padding: 15px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
+.filter-modal { background: #181e29; width: 300px; border-radius: 20px; padding: 15px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
 @keyframes scale-in { to { transform: scale(1); } }
 .filter-modal h3 { color: #97f492; margin: 0 0 10px 0; font-size: 16px; }
 .filter-section { margin-bottom: 15px; }
