@@ -413,7 +413,7 @@ onMounted(() => {
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
 .job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
 .job-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-.job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
+.job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; position: relative; }
 .job-icon:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(151, 244, 146, 0.5); }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
 .nick { color: #97f492; font-size: 14px; margin: 0; }
@@ -440,7 +440,7 @@ onMounted(() => {
 .close-btn { background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 0 10px; }
 .job-details { display: flex; flex-direction: column; gap: 20px; }
 .user-info { display: flex; align-items: center; gap: 15px; position: relative; }
-.nickname { color: #97f492; margin: 0; font-size: 18px; position: relative; display: inline-block; cursor: pointer; }
+.nickname { color: #97f492; margin: 0; font-size: 18px; position: relative; display: inline-block; cursor: pointer; max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-bottom: 25px !important; }
 .nickname::after { content: ""; position: absolute; bottom: -2px; left: 0; width: 0; height: 2px; background: #97f492; transition: width 0.3s ease; }
 .nickname:hover::after { width: 100%; }
 .experience { color: #8a8f98; margin: 0; font-size: 14px; }
@@ -474,10 +474,12 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 @media (hover: none) and (pointer: coarse) {
   .profile-link::after, .nickname::after { display: none !important; }
   .job-icon { animation: mobile-pulse 2s infinite; }
-  .nickname { padding-right: 20px; }
-  .nickname::before { content: "←"; position: absolute; right: 0; color: #97f492; animation: arrow-bounce 1s infinite; }
+  .nickname { padding-bottom: 25px !important; }
+  .nickname::before { content: "← click"; position: absolute; left: 0; bottom: -20px; color: #97f492; font-size: 12px; white-space: nowrap; animation: arrow-bounce 1s infinite; display: flex; align-items: center; gap: 5px; }
+  .job-icon::after { content: "click"; position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); color: #97f492; font-size: 12px; animation: hint-bounce 2s infinite; }
   @keyframes mobile-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-  @keyframes arrow-bounce { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
+  @keyframes arrow-bounce { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-5px); } }
+  @keyframes hint-bounce { 0%, 20%, 50%, 80%, 100% { transform: translate(-50%, 0); } 40% { transform: translate(-50%, -15px); } 60% { transform: translate(-50%, -7px); } }
 }
 
 .job-icon:active { transform: scale(0.95) !important; transition: transform 0.1s; }
@@ -497,12 +499,6 @@ textarea.search-input { min-height: 100px; resize: vertical; }
   z-index: 1000;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   display: none;
-}
-
-@keyframes hint-bounce {
-  0%, 20%, 50%, 80%, 100% { transform: translate(-50%, 0); }
-  40% { transform: translate(-50%, -15px); }
-  60% { transform: translate(-50%, -7px); }
 }
 
 @media (max-width: 768px) {
