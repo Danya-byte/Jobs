@@ -319,7 +319,7 @@ const submitJob = async () => {
     return;
   }
   try {
-    const job RadiData = {
+    const jobData = {
       ...newJob.value,
       contact: 'https://t.me/workiks_admin',
       categories: newJob.value.categories || []
