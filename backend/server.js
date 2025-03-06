@@ -530,7 +530,6 @@ app.post("/api/toggleFavorite", async (req, res) => {
     const isVacancy = !!vacancy;
     const favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
     const favoriteIndex = favoriteJobs.indexOf(itemId);
-    let message = "";
 
     if (favoriteIndex === -1) {
       favoriteJobs.push(itemId);
@@ -544,7 +543,6 @@ app.post("/api/toggleFavorite", async (req, res) => {
           companySubscriptionsData[user.id].push(companyId);
           await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
         }
-        message = "Вы подписались на вакансии компании!";
       } else {
         const category = job.categories[0];
         if (!subscriptionsData[user.id]) {
@@ -554,7 +552,6 @@ app.post("/api/toggleFavorite", async (req, res) => {
           subscriptionsData[user.id].push(category);
           await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
         }
-        message = "Вы подписались на уведомления для этой категории!";
       }
     } else {
       favoriteJobs.splice(favoriteIndex, 1);
@@ -566,7 +563,6 @@ app.post("/api/toggleFavorite", async (req, res) => {
           if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
           await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
         }
-        message = "Вы отписались от вакансий компании.";
       } else {
         const category = job.categories[0];
         if (subscriptionsData[user.id]) {
@@ -574,12 +570,10 @@ app.post("/api/toggleFavorite", async (req, res) => {
           if (subscriptionsData[user.id].length === 0) delete subscriptionsData[user.id];
           await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
         }
-        message = "Вы отписались от уведомлений для этой категории.";
       }
     }
 
     await fs.writeFile(path.join(__dirname, "favoriteJobs.json"), JSON.stringify(favoriteJobs, null, 2));
-    await bot.api.sendMessage(user.id, message);
     res.json({ success: true, favorites: favoriteJobs });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
