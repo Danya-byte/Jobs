@@ -2,39 +2,19 @@
   <div class="profile-container" @click="handleClickOutside">
     <RouterLink to="/" class="back-btn">
       <div class="back-button-wrapper" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
-        <img
-          src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png"
-          alt="Back"
-          class="back-icon"
-        >
+        <img src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png" alt="Back" class="back-icon">
         <span class="back-text">Назад</span>
       </div>
     </RouterLink>
 
     <div class="profile-content">
-      <img
-        :src="avatarSrc"
-        class="profile-avatar"
-        @error="handleAvatarError"
-        @load="startAnimation"
-        :class="{'avatar-visible': loaded}"
-      >
+      <img :src="avatarSrc" class="profile-avatar" @error="handleAvatarError" @load="startAnimation" :class="{ 'avatar-visible': loaded }">
       <h1 class="profile-name">{{ profileData.firstName }}</h1>
     </div>
 
     <div class="reviews-section">
-      <textarea
-        v-model="reviewText"
-        class="review-input"
-        placeholder="Напишите ваш отзыв..."
-        @click.stop
-      ></textarea>
-
-      <button
-        class="leave-review-btn"
-        @click="initiatePayment"
-        :disabled="!reviewText || isOwner"
-      >
+      <textarea v-model="reviewText" class="review-input" placeholder="Напишите ваш отзыв..." @click.stop></textarea>
+      <button class="leave-review-btn" @click="initiatePayment" :disabled="!reviewText || isOwner">
         Оплатить 1★ и отправить
       </button>
 
@@ -44,18 +24,10 @@
 
       <div v-else class="reviews-list">
         <div v-for="review in allReviews" :key="review.id" class="review-message">
-          <div class="message-content">
-            {{ review.text }}
-          </div>
+          <div class="message-content">{{ review.text }}</div>
           <div class="message-date">
             {{ new Date(review.date).toLocaleString() }}
-            <button
-              v-if="isAdmin"
-              @click.stop="deleteReview(review.id)"
-              class="delete-btn"
-            >
-              🗑️
-            </button>
+            <button v-if="isAdmin" @click.stop="deleteReview(review.id)" class="delete-btn">🗑️</button>
           </div>
         </div>
       </div>
@@ -105,8 +77,6 @@ const handleTouchEnd = () => {
 };
 
 const loadProfileData = async () => {
-  console.log('Current user:', currentUser.value);
-  console.log('User ID:', userId.value);
   if (userId.value === currentUser.value?.id?.toString()) {
     profileData.firstName = currentUser.value.first_name || 'Без имени';
     profileData.username = currentUser.value.username || '';
@@ -114,9 +84,7 @@ const loadProfileData = async () => {
   } else {
     try {
       const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
-        headers: {
-          'X-Telegram-Data': Telegram.WebApp.initData
-        }
+        headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
       });
       const data = await response.json();
       profileData.firstName = data.firstName || 'Без имени';
@@ -135,10 +103,7 @@ const loadReviews = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
     const data = await response.json();
-    const filteredAndSortedReviews = data
-      .filter(review => review.date)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-    allReviews.value = filteredAndSortedReviews;
+    allReviews.value = data.sort((a, b) => new Date(b.date) - new Date(a.date));
   } catch (error) {
     console.error('Error loading reviews:', error);
   }
@@ -148,9 +113,7 @@ const deleteReview = async (reviewId) => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/${reviewId}`, {
       method: 'DELETE',
-      headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData
-      }
+      headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
     });
     if (!response.ok) throw new Error('Ошибка удаления');
     await loadReviews();
@@ -191,9 +154,7 @@ const initiatePayment = async () => {
 const checkAdminStatus = async () => {
   try {
     const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', {
-      headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData
-      }
+      headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
     });
     const data = await response.json();
     isAdmin.value = data.isAdmin;
@@ -201,6 +162,10 @@ const checkAdminStatus = async () => {
     console.error('Error checking admin status:', error);
     isAdmin.value = false;
   }
+};
+
+const startAnimation = () => {
+  loaded.value = true;
 };
 
 onMounted(async () => {

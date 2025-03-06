@@ -1,240 +1,235 @@
 <template>
-<div class="container" @click="handleClickOutside">
+  <div class="container" @click="handleClickOutside">
     <nav class="nav-bar">
-        <RouterLink :to="{ path: `/profile/${currentUserId}`, query: { username: currentUsername } }" class="profile-link">
-            <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="profile-icon" loading="lazy">
-            <div class="user-name" v-if="userFirstName || userLastName">
-                <span class="first-name">{{ userFirstName }}</span>
-            </div>
-        </RouterLink>
-        <button v-if="isAdmin" @click="showAddJobModal" class="add-button"><span></span> Add Jobs</button>
-        <button v-if="isAdmin" @click="showAddVacancyModal" class="add-button"><span></span> Add Vacancy</button>
-        <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
+      <RouterLink :to="{ path: `/profile/${currentUserId}`, query: { username: currentUsername } }" class="profile-link">
+        <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="profile-icon" loading="lazy">
+        <div class="user-name" v-if="userFirstName || userLastName">
+          <span class="first-name">{{ userFirstName }}</span>
+        </div>
+      </RouterLink>
+      <button v-if="isAdmin" @click="showAddJobModal" class="add-button"><span></span> Add Jobs</button>
+      <button v-if="isAdmin" @click="showAddVacancyModal" class="add-button"><span></span> Add Vacancy</button>
+      <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
     </nav>
 
     <div class="content">
-        <div class="categories">
-            <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
-            <button class="category-btn" :class="{ active: activeTab === 'companies' }" @click="activeTab = 'companies'">Companies</button>
-            <RouterLink to="#"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
-        </div>
+      <div class="categories">
+        <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
+        <button class="category-btn" :class="{ active: activeTab === 'companies' }" @click="activeTab = 'companies'">Companies</button>
+        <RouterLink to="#"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
+      </div>
 
-        <div class="search-and-filter">
-            <div class="search-container">
-                <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
-            </div>
-            <button class="filter-icon" @click="toggleFilterModal">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#97f492" stroke-width="2">
-                    <path d="M22 3H2l8 9.46V19l4 2V12.46L22 3z"/>
-                </svg>
-            </button>
+      <div class="search-and-filter">
+        <div class="search-container">
+          <input v-model="searchQuery" type="text" placeholder="Search by position..." class="search-input" ref="searchInput">
         </div>
+        <button class="filter-icon" @click="toggleFilterModal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#97f492" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2V12.46L22 3z"/>
+          </svg>
+        </button>
+      </div>
 
-        <div class="selected-filters" v-if="selectedCategories.length > 0">
-            <span v-for="cat in selectedCategories" class="filter-pill">
-                {{ categories.find(c => c.value === cat).label }}
-                <button @click="selectedCategories = selectedCategories.filter(c => c !== cat)">×</button>
-            </span>
+      <div class="selected-filters" v-if="selectedCategories.length > 0">
+        <span v-for="cat in selectedCategories" class="filter-pill">
+          {{ categories.find(c => c.value === cat).label }}
+          <button @click="selectedCategories = selectedCategories.filter(c => c !== cat)">×</button>
+        </span>
+      </div>
+
+      <div class="jobs-scroll-container">
+        <div class="jobs-list" v-if="activeTab === 'jobs'">
+          <div v-if="isLoading" class="skeleton-container">
+            <div class="skeleton-card" v-for="n in 3" :key="n"></div>
+          </div>
+          <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
+            <div class="card-header">
+              <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp" loading="lazy">
+              <div class="job-info">
+                <p class="nick">{{ job.nick }}</p>
+                <p class="work">{{ job.position }}</p>
+                <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
+              </div>
+            </div>
+            <p class="job-description">{{ job.description }}</p>
+            <div class="tags">
+              <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
+            </div>
+            <span v-if="isNew(job)" class="new-label">new</span>
+          </button>
         </div>
-
-        <div class="jobs-scroll-container">
-            <div class="jobs-list" v-if="activeTab === 'jobs'">
-                <div v-if="isLoading" class="skeleton-container">
-                    <div class="skeleton-card" v-for="n in 3" :key="n"></div>
-                </div>
-                <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
-                    <div class="card-header">
-                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp" loading="lazy">
-                        <div class="job-info">
-                            <p class="nick">{{ job.nick }}</p>
-                            <p class="work">{{ job.position }}</p>
-                            <p class="experience">{{ job.experience ? `${job.experience} years experience` : 'No experience specified' }}</p>
-                        </div>
-                    </div>
-                    <p class="job-description">{{ job.description }}</p>
-                    <div class="tags">
-                        <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
-                    </div>
-                    <span v-if="isNew(job)" class="new-label">new</span>
-                </button>
+        <div class="jobs-list" v-if="activeTab === 'companies'">
+          <div v-if="isLoading" class="skeleton-container">
+            <div class="skeleton-card" v-for="n in 3" :key="n"></div>
+          </div>
+          <button v-else @click="showVacancyDetails(vacancy)" class="job-card" v-for="vacancy in filteredVacancies" :key="vacancy.id">
+            <div class="card-header">
+              <img :src="vacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
+              <div class="job-info">
+                <p class="nick">{{ vacancy.companyName }} <span v-if="vacancy.verified" class="verified-label">Verified</span></p>
+                <p class="work">{{ vacancy.position }}</p>
+                <p class="experience">{{ vacancy.description.slice(0, 50) + '...' }}</p>
+              </div>
             </div>
-            <div class="jobs-list" v-if="activeTab === 'companies'">
-                <div v-if="isLoading" class="skeleton-container">
-                    <div class="skeleton-card" v-for="n in 3" :key="n"></div>
-                </div>
-                <button v-else @click="showVacancyDetails(vacancy)" class="job-card" v-for="vacancy in filteredVacancies" :key="vacancy.id">
-                    <div class="card-header">
-                        <img :src="vacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
-                        <div class="job-info">
-                            <p class="nick">{{ vacancy.companyName }} <span v-if="vacancy.verified" class="verified-label">Verified</span></p>
-                            <p class="work">{{ vacancy.position }}</p>
-                            <p class="experience">{{ vacancy.description.slice(0, 50) + '...' }}</p>
-                        </div>
-                    </div>
-                    <div class="tags">
-                        <span v-for="(tag, i) in vacancy.tags" :key="i" class="tag">{{ tag }}</span>
-                    </div>
-                    <span v-if="isNew(vacancy)" class="new-label">new</span>
-                </button>
+            <div class="tags">
+              <span v-for="(tag, i) in vacancy.tags" :key="i" class="tag">{{ tag }}</span>
             </div>
+            <span v-if="isNew(vacancy)" class="new-label">new</span>
+          </button>
         </div>
+      </div>
 
-        <transition name="fade">
-            <div v-if="showFilterModal" class="filter-modal-overlay" @click.self="showFilterModal = false">
-                <div class="filter-modal">
-                    <h3>Filters</h3>
-                    <div class="filter-section">
-                        <h4>Categories</h4>
-                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
-                            <input type="checkbox" v-model="selectedCategories" :value="category.value">
-                            {{ category.label }}
-                        </label>
-                    </div>
-                    <div class="filter-section">
-                        <label class="checkbox-label">
-                            <input type="checkbox" v-model="showFavoritesOnly">
-                            Show Favorites Only
-                        </label>
-                    </div>
-                    <button @click="showFilterModal = false" class="apply-btn">Apply</button>
-                </div>
+      <transition name="fade">
+        <div v-if="showFilterModal" class="filter-modal-overlay" @click.self="showFilterModal = false">
+          <div class="filter-modal">
+            <h3>Filters</h3>
+            <div class="filter-section">
+              <h4>Categories</h4>
+              <label v-for="category in categories" :key="category.value" class="checkbox-label">
+                <input type="checkbox" v-model="selectedCategories" :value="category.value">
+                {{ category.label }}
+              </label>
             </div>
-        </transition>
+            <div class="filter-section">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="showFavoritesOnly">
+                Show Favorites Only
+              </label>
+            </div>
+            <button @click="showFilterModal = false" class="apply-btn">Apply</button>
+          </div>
+        </div>
+      </transition>
     </div>
 
     <transition name="slide-up">
-        <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>{{ addMode === 'job' ? 'Add New Job' : 'Add New Vacancy' }}</h2>
-                    <button class="close-btn" @click="showAddModal = false">×</button>
-                </div>
-                <div class="job-details">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.companyUserId" placeholder="Company User ID (e.g., 1234567890)" class="search-input" type="number" :class="{ 'invalid': !newItem.companyUserId && formSubmitted }">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.companyName" placeholder="Company Name" class="search-input" :class="{ 'invalid': !newItem.companyName && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newItem.userId && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newItem.nick && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.username" placeholder="Username (optional)" class="search-input">
-                    <input v-model="newItem.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newItem.position && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
-                    <textarea v-model="newItem.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newItem.description && formSubmitted }"></textarea>
-                    <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
-                    <ul class="requirements">
-                        <li v-for="(req, i) in newItem.requirements" :key="i">
-                            {{ req }} <button @click="newItem.requirements.splice(i, 1)" class="delete-req">×</button>
-                        </li>
-                    </ul>
-                    <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
-                    <div class="tags">
-                        <span v-for="(tag, i) in newItem.tags" :key="i" class="tag">
-                            {{ tag }} <button @click="newItem.tags.splice(i, 1)" class="delete-tag">×</button>
-                        </span>
-                    </div>
-                    <div class="filter-section">
-                        <h4>Categories</h4>
-                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
-                            <input type="checkbox" v-model="newItem.categories" :value="category.value">
-                            {{ category.label }}
-                        </label>
-                    </div>
-                    <input v-model="newItem.contact" placeholder="Contact (e.g., https://t.me/username)" class="search-input" :class="{ 'invalid': !newItem.contact && formSubmitted }">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.officialWebsite" placeholder="Official Website (e.g., https://company.com)" class="search-input" :class="{ 'invalid': !newItem.officialWebsite && formSubmitted }">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.photoUrl" placeholder="Photo URL" class="search-input" :class="{ 'invalid': !newItem.photoUrl && formSubmitted }">
-                    <label v-if="addMode === 'vacancy'" class="checkbox-label">
-                        <input type="checkbox" v-model="newItem.verified"> Verified
-                    </label>
-                    <button @click="submitItem" class="contact-btn">Submit</button>
-                </div>
+      <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>{{ addMode === 'job' ? 'Add New Job' : 'Add New Vacancy' }}</h2>
+            <button class="close-btn" @click="showAddModal = false">×</button>
+          </div>
+          <div class="job-details">
+            <input v-if="addMode === 'vacancy'" v-model="newItem.companyUserId" placeholder="Company User ID (e.g., 1234567890)" class="search-input" type="number" :class="{ 'invalid': !newItem.companyUserId && formSubmitted }">
+            <input v-if="addMode === 'vacancy'" v-model="newItem.companyName" placeholder="Company Name" class="search-input" :class="{ 'invalid': !newItem.companyName && formSubmitted }">
+            <input v-if="addMode === 'job'" v-model="newItem.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newItem.userId && formSubmitted }">
+            <input v-if="addMode === 'job'" v-model="newItem.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newItem.nick && formSubmitted }">
+            <input v-if="addMode === 'job'" v-model="newItem.username" placeholder="Username (optional)" class="search-input">
+            <input v-model="newItem.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newItem.position && formSubmitted }">
+            <input v-if="addMode === 'job'" v-model="newItem.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
+            <textarea v-model="newItem.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newItem.description && formSubmitted }"></textarea>
+            <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
+            <ul class="requirements">
+              <li v-for="(req, i) in newItem.requirements" :key="i">
+                {{ req }} <button @click="newItem.requirements.splice(i, 1)" class="delete-req">×</button>
+              </li>
+            </ul>
+            <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
+            <div class="tags">
+              <span v-for="(tag, i) in newItem.tags" :key="i" class="tag">
+                {{ tag }} <button @click="newItem.tags.splice(i, 1)" class="delete-tag">×</button>
+              </span>
             </div>
+            <div class="filter-section">
+              <h4>Categories</h4>
+              <label v-for="category in categories" :key="category.value" class="checkbox-label">
+                <input type="checkbox" v-model="newItem.categories" :value="category.value">
+                {{ category.label }}
+              </label>
+            </div>
+            <input v-model="newItem.contact" placeholder="Contact (e.g., https://t.me/username)" class="search-input" :class="{ 'invalid': !newItem.contact && formSubmitted }">
+            <input v-if="addMode === 'vacancy'" v-model="newItem.officialWebsite" placeholder="Official Website (e.g., https://company.com)" class="search-input" :class="{ 'invalid': !newItem.officialWebsite && formSubmitted }">
+            <input v-if="addMode === 'vacancy'" v-model="newItem.photoUrl" placeholder="Photo URL" class="search-input" :class="{ 'invalid': !newItem.photoUrl && formSubmitted }">
+            <label v-if="addMode === 'vacancy'" class="checkbox-label">
+              <input type="checkbox" v-model="newItem.verified"> Verified
+            </label>
+            <button @click="submitItem" class="contact-btn">Submit</button>
+          </div>
         </div>
+      </div>
     </transition>
 
     <transition name="slide-up">
-        <div v-if="open" class="modal-overlay" @click.self="open = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>{{ isVacancy ? selectedVacancy.position : selectedJob.position }}</h2>
-                    <button class="close-btn" @click="open = false">×</button>
+      <div v-if="open" class="modal-overlay" @click.self="open = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>{{ isVacancy ? selectedVacancy.position : selectedJob.position }}</h2>
+            <button class="close-btn" @click="open = false">×</button>
+          </div>
+          <div class="job-details" v-if="isVacancy">
+            <div class="user-info">
+              <a :href="selectedVacancy.officialWebsite" target="_blank" class="company-link">
+                <img :src="selectedVacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
+                <div>
+                  <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-label">Verified</span></p>
                 </div>
-                <div class="job-details" v-if="isVacancy">
-                    <div class="user-info">
-                        <a :href="selectedVacancy.officialWebsite" target="_blank" class="company-link">
-                            <img :src="selectedVacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
-                            <div>
-                                <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-label">Verified</span></p>
-                            </div>
-                        </a>
-                        <button class="favorite-btn" @click="toggleFavorite(selectedVacancy.id)">
-                            <span :class="{ 'favorite': isFavorite(selectedVacancy.id) }">♥</span>
-                        </button>
-                    </div>
-                    <div class="section">
-                        <h3>Description</h3>
-                        <p class="description">{{ selectedVacancy.description }}</p>
-                    </div>
-                    <div class="section">
-                        <h3>Requirements</h3>
-                        <ul class="requirements">
-                            <li v-for="(req, i) in selectedVacancy.requirements" :key="i">{{ req }}</li>
-                        </ul>
-                    </div>
-                    <div class="section">
-                        <h3>Skills</h3>
-                        <div class="tags">
-                            <span v-for="(tag, i) in selectedVacancy.tags" :key="i" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-                    <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
-                </div>
-                <div class="job-details" v-else>
-                    <div class="user-info">
-                        <RouterLink
-                            :to="{
-                                path: `/profile/${selectedJob.userId}`,
-                                query: { username: selectedJob.username }
-                            }"
-                            class="profile-link"
-                        >
-                            <img :src="jobIcon" class="job-icon" loading="lazy">
-                            <div>
-                                <p class="nickname">{{ selectedJob.nick }}</p>
-                                <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
-                            </div>
-                        </RouterLink>
-                        <button class="favorite-btn" @click="toggleFavorite(selectedJob.id)">
-                            <span :class="{ 'favorite': isFavorite(selectedJob.id) }">♥</span>
-                        </button>
-                    </div>
-                    <div class="section">
-                        <h3>Description</h3>
-                        <p class="description">{{ selectedJob.description }}</p>
-                    </div>
-                    <div class="section">
-                        <h3>Requirements</h3>
-                        <ul class="requirements">
-                            <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
-                        </ul>
-                    </div>
-                    <div class="section">
-                        <h3>Skills</h3>
-                        <div class="tags">
-                            <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-                    <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
-                </div>
+              </a>
+              <button class="favorite-btn" @click="toggleFavorite(selectedVacancy.id)">
+                <span :class="{ 'favorite': isFavorite(selectedVacancy.id) }">♥</span>
+              </button>
             </div>
+            <div class="section">
+              <h3>Description</h3>
+              <p class="description">{{ selectedVacancy.description }}</p>
+            </div>
+            <div class="section">
+              <h3>Requirements</h3>
+              <ul class="requirements">
+                <li v-for="(req, i) in selectedVacancy.requirements" :key="i">{{ req }}</li>
+              </ul>
+            </div>
+            <div class="section">
+              <h3>Skills</h3>
+              <div class="tags">
+                <span v-for="(tag, i) in selectedVacancy.tags" :key="i" class="tag">{{ tag }}</span>
+              </div>
+            </div>
+            <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
+            <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
+          </div>
+          <div class="job-details" v-else>
+            <div class="user-info">
+              <RouterLink :to="{ path: `/profile/${selectedJob.userId}`, query: { username: selectedJob.username } }" class="profile-link">
+                <img :src="jobIcon" class="job-icon" loading="lazy">
+                <div>
+                  <p class="nickname">{{ selectedJob.nick }}</p>
+                  <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
+                </div>
+              </RouterLink>
+              <button class="favorite-btn" @click="toggleFavorite(selectedJob.id)">
+                <span :class="{ 'favorite': isFavorite(selectedJob.id) }">♥</span>
+              </button>
+            </div>
+            <div class="section">
+              <h3>Description</h3>
+              <p class="description">{{ selectedJob.description }}</p>
+            </div>
+            <div class="section">
+              <h3>Requirements</h3>
+              <ul class="requirements">
+                <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
+              </ul>
+            </div>
+            <div class="section">
+              <h3>Skills</h3>
+              <div class="tags">
+                <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
+              </div>
+            </div>
+            <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+            <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
+          </div>
         </div>
+      </div>
     </transition>
-</div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import debounce from 'lodash/debounce';
 
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
@@ -254,28 +249,28 @@ const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
 const vacancies = ref([]);
-const isLoading = ref(true);
+const isLoading = ref(false);
 const favoriteJobs = ref([]);
 const selectedCategories = ref([]);
 const showFavoritesOnly = ref(false);
 const activeTab = ref('jobs');
 const addMode = ref('job');
 const newItem = ref({
-    userId: '',
-    nick: '',
-    username: '',
-    position: '',
-    experience: null,
-    description: '',
-    requirements: [],
-    tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin',
-    companyUserId: '',
-    companyName: '',
-    officialWebsite: '',
-    verified: false,
-    photoUrl: ''
+  userId: '',
+  nick: '',
+  username: '',
+  position: '',
+  experience: null,
+  description: '',
+  requirements: [],
+  tags: [],
+  categories: [],
+  contact: 'https://t.me/workiks_admin',
+  companyUserId: '',
+  companyName: '',
+  officialWebsite: '',
+  verified: false,
+  photoUrl: ''
 });
 const requirementsInput = ref('');
 const tagsInput = ref('');
@@ -283,39 +278,40 @@ const formSubmitted = ref(false);
 const isVacancy = ref(false);
 
 const categories = [
-    { label: 'IT', value: 'it' },
-    { label: 'Social Media', value: 'social' },
-    { label: 'Management', value: 'management' },
-    { label: 'Design', value: 'design' },
-    { label: 'Marketing', value: 'marketing' },
-    { label: 'Finance', value: 'finance' }
+  { label: 'IT', value: 'it' },
+  { label: 'Social Media', value: 'social' },
+  { label: 'Management', value: 'management' },
+  { label: 'Design', value: 'design' },
+  { label: 'Marketing', value: 'marketing' },
+  { label: 'Finance', value: 'finance' }
 ];
 
-const sortedJobs = computed(() => {
-  return [...jobs.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-});
+const fetchData = debounce(async () => {
+  isLoading.value = true;
+  try {
+    const endpoint = activeTab.value === 'jobs' ? '/api/jobs' : '/api/vacancies';
+    const response = await axios.get(`${BASE_URL}${endpoint}`, { timeout: 5000 });
+    if (activeTab.value === 'jobs') jobs.value = response.data;
+    else vacancies.value = response.data;
+  } catch (error) {
+    console.error(`Error fetching ${activeTab.value}:`, error);
+  } finally {
+    isLoading.value = false;
+  }
+}, 300);
 
 const filteredJobs = computed(() => {
-  let filtered = sortedJobs.value;
-
+  let filtered = [...jobs.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(job => {
-      if (job.categories && job.categories.length > 0) {
-        return job.categories.some(cat => selectedCategories.value.includes(cat));
-      }
-      return false;
-    });
+    filtered = filtered.filter(job => job.categories.some(cat => selectedCategories.value.includes(cat)));
   }
-
   if (showFavoritesOnly.value) {
-    filtered = filtered.filter(job => isFavorite(job.id));
+    filtered = filtered.filter(job => favoriteJobs.value.includes(job.id));
   }
-
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(job => job.position.toLowerCase().includes(query));
   }
-
   return filtered;
 });
 
@@ -325,7 +321,7 @@ const filteredVacancies = computed(() => {
     filtered = filtered.filter(vacancy => vacancy.categories.some(cat => selectedCategories.value.includes(cat)));
   }
   if (showFavoritesOnly.value) {
-    filtered = filtered.filter(vacancy => isFavorite(vacancy.id));
+    filtered = filtered.filter(vacancy => favoriteJobs.value.includes(vacancy.id));
   }
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
@@ -339,26 +335,6 @@ const isNew = (item) => {
   const itemDate = new Date(item.createdAt);
   const diffInDays = (now - itemDate) / (1000 * 60 * 60 * 24);
   return diffInDays <= 3;
-};
-
-const fetchJobs = async () => {
-  try {
-    const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
-    jobs.value = response.data;
-  } catch (error) {
-    console.error('Error fetching jobs:', error);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const fetchVacancies = async () => {
-  try {
-    const response = await axios.get(`${BASE_URL}/api/vacancies`, { timeout: 5000 });
-    vacancies.value = response.data;
-  } catch (error) {
-    console.error('Error fetching vacancies:', error);
-  }
 };
 
 const fetchFavorites = async () => {
@@ -420,13 +396,13 @@ const showAddVacancyModal = () => {
 };
 
 const toggleFilterModal = () => {
-    showFilterModal.value = !showFilterModal.value;
-    if (showFilterModal.value) {
-      nextTick(() => {
-        const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
-        firstCheckbox?.focus();
-      });
-    }
+  showFilterModal.value = !showFilterModal.value;
+  if (showFilterModal.value) {
+    nextTick(() => {
+      const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
+      firstCheckbox?.focus();
+    });
+  }
 };
 
 const addRequirement = () => {
@@ -457,6 +433,7 @@ const submitItem = async () => {
       });
       jobs.value.push(response.data.job);
       showAddModal.value = false;
+      fetchData(); // Обновляем данные после добавления
     } catch (error) {
       console.error('Error submitting job:', error.response?.data || error.message);
     }
@@ -472,6 +449,7 @@ const submitItem = async () => {
       });
       vacancies.value.push(response.data.vacancy);
       showAddModal.value = false;
+      fetchData(); // Обновляем данные после добавления
     } catch (error) {
       console.error('Error submitting vacancy:', error.response?.data || error.message);
     }
@@ -485,6 +463,7 @@ const deleteJob = async (jobId) => {
     });
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
+    fetchData(); // Обновляем данные после удаления
   } catch (error) {
     console.error('Error deleting job:', error.response?.data || error.message);
   }
@@ -497,6 +476,7 @@ const deleteVacancy = async (vacancyId) => {
     });
     vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
     open.value = false;
+    fetchData(); // Обновляем данные после удаления
   } catch (error) {
     console.error('Error deleting vacancy:', error.response?.data || error.message);
   }
@@ -516,27 +496,19 @@ const checkAdminStatus = async () => {
 
 const handleClickOutside = (event) => {
   const isProfileLink = event.target.closest('.profile-link') !== null;
-
   if (searchInput.value && !searchInput.value.contains(event.target)) {
     searchInput.value.blur();
   }
-
   if (isProfileLink) return;
 };
 
 const toggleFavorite = async (itemId) => {
-  const isVacancyItem = vacancies.value.some(v => v.id === itemId);
-  const wasFavorite = favoriteJobs.value.includes(itemId);
   try {
     const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     favoriteJobs.value = response.data.favorites;
-    if (wasFavorite) {
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
-    } else {
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
-    }
+    Telegram.WebApp.showAlert(favoriteJobs.value.includes(itemId) ? "Добавлено в избранное!" : "Удалено из избранного!");
   } catch (error) {
     console.error('Error toggling favorite:', error.response?.data || error.message);
     Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
@@ -549,6 +521,9 @@ const handleImageError = (event) => {
   event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 };
 
+watch(activeTab, () => fetchData());
+watch(searchQuery, () => fetchData());
+
 onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
@@ -559,7 +534,7 @@ onMounted(() => {
     }
     if (window.Telegram.WebApp.initDataUnsafe?.user) {
       const user = Telegram.WebApp.initDataUnsafe.user;
-      userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
+      userPhoto.value = user.photo_url || (user.username ? `https://t.me/i/userpic/160/${user.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
       userFirstName.value = user.first_name || '';
       userLastName.value = user.last_name || '';
       currentUserId.value = user.id;
@@ -567,8 +542,7 @@ onMounted(() => {
     }
   }
   checkAdminStatus();
-  fetchJobs();
-  fetchVacancies();
+  fetchData();
   fetchFavorites();
 });
 </script>
