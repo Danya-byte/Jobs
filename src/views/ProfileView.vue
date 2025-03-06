@@ -16,41 +16,46 @@
         :src="avatarSrc"
         class="profile-avatar"
         @error="handleAvatarError"
+        @load="startAnimation"
         :class="{'avatar-visible': loaded}"
       >
       <h1 class="profile-name">{{ profileData.firstName }}</h1>
-      <div class="reviews-section">
-        <textarea
-          v-model="reviewText"
-          class="review-input"
-          placeholder="Напишите ваш отзыв..."
-          @click.stop
-        ></textarea>
-        <button
-          class="leave-review-btn"
-          @click="initiatePayment"
-          :disabled="!reviewText || isOwner"
-        >
-          Оплатить 1★ и отправить
-        </button>
-        <div v-if="allReviews.length === 0" class="no-reviews">
-          Пока отзывов нет, вы можете быть первым!
-        </div>
-        <div v-else class="reviews-list">
-          <div v-for="review in allReviews" :key="review.id" class="review-message">
-            <div class="message-content">
-              {{ review.text }}
-            </div>
-            <div class="message-date">
-              {{ new Date(review.date).toLocaleString() }}
-              <button
-                v-if="isAdmin"
-                @click.stop="deleteReview(review.id)"
-                class="delete-btn"
-              >
-                🗑️
-              </button>
-            </div>
+    </div>
+
+    <div class="reviews-section">
+      <textarea
+        v-model="reviewText"
+        class="review-input"
+        placeholder="Напишите ваш отзыв..."
+        @click.stop
+      ></textarea>
+
+      <button
+        class="leave-review-btn"
+        @click="initiatePayment"
+        :disabled="!reviewText || isOwner"
+      >
+        Оплатить 1★ и отправить
+      </button>
+
+      <div v-if="allReviews.length === 0" class="no-reviews">
+        Пока отзывов нет, вы можете быть первым!
+      </div>
+
+      <div v-else class="reviews-list">
+        <div v-for="review in allReviews" :key="review.id" class="review-message">
+          <div class="message-content">
+            {{ review.text }}
+          </div>
+          <div class="message-date">
+            {{ new Date(review.date).toLocaleString() }}
+            <button
+              v-if="isAdmin"
+              @click.stop="deleteReview(review.id)"
+              class="delete-btn"
+            >
+              🗑️
+            </button>
           </div>
         </div>
       </div>
@@ -100,6 +105,8 @@ const handleTouchEnd = () => {
 };
 
 const loadProfileData = async () => {
+  console.log('Current user:', currentUser.value);
+  console.log('User ID:', userId.value);
   if (userId.value === currentUser.value?.id?.toString()) {
     profileData.firstName = currentUser.value.first_name || 'Без имени';
     profileData.username = currentUser.value.username || '';
@@ -116,6 +123,7 @@ const loadProfileData = async () => {
       profileData.username = data.username || '';
       avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     } catch (error) {
+      console.error('Ошибка загрузки профиля:', error);
       avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
       profileData.firstName = 'Без имени';
     }
@@ -190,6 +198,7 @@ const checkAdminStatus = async () => {
     const data = await response.json();
     isAdmin.value = data.isAdmin;
   } catch (error) {
+    console.error('Error checking admin status:', error);
     isAdmin.value = false;
   }
 };
