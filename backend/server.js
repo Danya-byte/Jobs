@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
-const SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
+const FREELANCER_SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
 const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
 const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
 const LOGS_DIR = path.join(__dirname, "logs");
@@ -23,13 +23,13 @@ const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
-const subscriptionsMutex = new Mutex();
+const freelancerSubscriptionsMutex = new Mutex();
 const vacanciesMutex = new Mutex();
 const companySubscriptionsMutex = new Mutex();
 
 let jobsData = [];
 let reviewsData = {};
-let subscriptionsData = {};
+let freelancerSubscriptionsData = {};
 let vacanciesData = [];
 let companySubscriptionsData = [];
 
@@ -99,13 +99,13 @@ async function initJobsFile() {
   }
 }
 
-async function initSubscriptionsFile() {
+async function initFreelancerSubscriptionsFile() {
   try {
-    await fs.access(SUBSCRIPTIONS_FILE);
-    const data = await fs.readFile(SUBSCRIPTIONS_FILE, "utf8");
-    if (!data.trim()) await fs.writeFile(SUBSCRIPTIONS_FILE, "{}");
+    await fs.access(FREELANCER_SUBSCRIPTIONS_FILE);
+    const data = await fs.readFile(FREELANCER_SUBSCRIPTIONS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, "{}");
   } catch {
-    await fs.writeFile(SUBSCRIPTIONS_FILE, "{}");
+    await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, "{}");
   }
 }
 
@@ -147,12 +147,12 @@ async function loadReviews() {
   }
 }
 
-async function loadSubscriptions() {
+async function loadFreelancerSubscriptions() {
   try {
-    const rawData = await fs.readFile(SUBSCRIPTIONS_FILE, "utf8");
-    subscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
+    const rawData = await fs.readFile(FREELANCER_SUBSCRIPTIONS_FILE, "utf8");
+    freelancerSubscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
   } catch (e) {
-    subscriptionsData = {};
+    freelancerSubscriptionsData = {};
   }
 }
 
@@ -237,16 +237,16 @@ app.post("/api/jobs", async (req, res) => {
     jobsData.push(newJob);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
 
-    const subscribers = Object.entries(subscriptionsData)
-      .filter(([_, positions]) => positions.includes(position))
+    const subscribers = Object.entries(freelancerSubscriptionsData)
+      .filter(([_, positions]) => positions.includes(newJob.position))
       .map(([userId]) => userId);
 
     for (const subscriberId of subscribers) {
       try {
         await bot.api.sendMessage(
           subscriberId,
-          `🎉 Новый фрилансер на позицию "${position}":\n\n` +
-            `📝 Описание: ${description}\n` +
+          `🎉 Новый фрилансер на позицию "${newJob.position}":\n\n` +
+            `📝 Описание: ${newJob.description}\n` +
             `🔗 Контакт: ${newJob.contact}`
         );
       } catch (e) {
@@ -357,7 +357,7 @@ app.post("/api/vacancies", async (req, res) => {
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
 
     const subscribers = Object.entries(companySubscriptionsData)
-      .filter(([_, companies]) => companies.includes(companyName))
+      .filter(([_, companies]) => companies.includes(newVacancy.companyName))
       .map(([userId]) => userId);
 
     for (const subscriberId of subscribers) {
@@ -365,9 +365,9 @@ app.post("/api/vacancies", async (req, res) => {
         await bot.api.sendMessage(
           subscriberId,
           `🏢 Компания "${newVacancy.companyName}" разместила новую вакансию:\n\n` +
-            `📌 ${newVacancy.position}\n` +
-            `📝 ${newVacancy.description}\n` +
-            `🔗 ${newVacancy.contact}`
+            `📌 Позиция: ${newVacancy.position}\n` +
+            `📝 Описание: ${newVacancy.description}\n` +
+            `🔗 Контакт: ${newVacancy.contact}`
         );
       } catch (e) {
         logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
@@ -447,68 +447,9 @@ app.get("/api/user/:userId", async (req, res) => {
   }
 });
 
-app.post("/api/subscribe", async (req, res) => {
-  const release = await subscriptionsMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { userId, category } = req.body;
-    if (!userId || !category) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    if (!subscriptionsData[userId]) {
-      subscriptionsData[userId] = [];
-    }
-
-    if (!subscriptionsData[userId].includes(category)) {
-      subscriptionsData[userId].push(category);
-      await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
-    }
-
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-
-app.post("/api/unsubscribe", async (req, res) => {
-  const release = await subscriptionsMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { userId, category } = req.body;
-    if (!userId || !category) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    if (subscriptionsData[userId]) {
-      subscriptionsData[userId] = subscriptionsData[userId].filter((cat) => cat !== category);
-      if (subscriptionsData[userId].length === 0) {
-        delete subscriptionsData[userId];
-      }
-      await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
-    }
-
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-
 app.post("/api/toggleFavorite", async (req, res) => {
-  const releaseSubs = await subscriptionsMutex.acquire();
-  const releaseCompanySubs = await companySubscriptionsMutex.acquire();
+  const releaseFreelancer = await freelancerSubscriptionsMutex.acquire();
+  const releaseCompany = await companySubscriptionsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
@@ -525,50 +466,56 @@ app.post("/api/toggleFavorite", async (req, res) => {
 
     const job = jobsData.find((j) => j.id === itemId);
     const vacancy = vacanciesData.find((v) => v.id === itemId);
-    const favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+
+    let favoriteJobs = [];
+    try {
+      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+    } catch {
+      favoriteJobs = [];
+    }
+
     const favoriteIndex = favoriteJobs.indexOf(itemId);
+    const userId = user.id.toString();
 
     if (favoriteIndex === -1) {
       favoriteJobs.push(itemId);
 
       if (vacancy) {
-        const companyName = vacancy.companyName;
-        if (!companySubscriptionsData[user.id]) {
-          companySubscriptionsData[user.id] = [];
+        if (!companySubscriptionsData[userId]) {
+          companySubscriptionsData[userId] = [];
         }
-        if (!companySubscriptionsData[user.id].includes(companyName)) {
-          companySubscriptionsData[user.id].push(companyName);
+        if (!companySubscriptionsData[userId].includes(vacancy.companyName)) {
+          companySubscriptionsData[userId].push(vacancy.companyName);
           await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
         }
       } else if (job) {
-        const position = job.position;
-        if (!subscriptionsData[user.id]) {
-          subscriptionsData[user.id] = [];
+        if (!freelancerSubscriptionsData[userId]) {
+          freelancerSubscriptionsData[userId] = [];
         }
-        if (!subscriptionsData[user.id].includes(position)) {
-          subscriptionsData[user.id].push(position);
-          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+        if (!freelancerSubscriptionsData[userId].includes(job.position)) {
+          freelancerSubscriptionsData[userId].push(job.position);
+          await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
         }
       }
     } else {
       favoriteJobs.splice(favoriteIndex, 1);
 
-      if (vacancy) {
-        const companyName = vacancy.companyName;
-        if (companySubscriptionsData[user.id]) {
-          companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter(
-            (name) => name !== companyName
-          );
-          if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
-          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+      if (vacancy && companySubscriptionsData[userId]) {
+        companySubscriptionsData[userId] = companySubscriptionsData[userId].filter(
+          (name) => name !== vacancy.companyName
+        );
+        if (companySubscriptionsData[userId].length === 0) {
+          delete companySubscriptionsData[userId];
         }
-      } else if (job) {
-        const position = job.position;
-        if (subscriptionsData[user.id]) {
-          subscriptionsData[user.id] = subscriptionsData[user.id].filter((pos) => pos !== position);
-          if (subscriptionsData[user.id].length === 0) delete subscriptionsData[user.id];
-          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+      } else if (job && freelancerSubscriptionsData[userId]) {
+        freelancerSubscriptionsData[userId] = freelancerSubscriptionsData[userId].filter(
+          (pos) => pos !== job.position
+        );
+        if (freelancerSubscriptionsData[userId].length === 0) {
+          delete freelancerSubscriptionsData[userId];
         }
+        await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
       }
     }
 
@@ -577,8 +524,28 @@ app.post("/api/toggleFavorite", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
-    releaseSubs();
-    releaseCompanySubs();
+    releaseFreelancer();
+    releaseCompany();
+  }
+});
+
+app.get("/api/favorites", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    let favoriteJobs = [];
+    try {
+      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+    } catch {
+      favoriteJobs = [];
+    }
+
+    res.json(favoriteJobs);
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -759,14 +726,14 @@ Promise.all([
   ensureLogsDir(),
   initReviewsFile(),
   initJobsFile(),
-  initSubscriptionsFile(),
+  initFreelancerSubscriptionsFile(),
   initVacanciesFile(),
   initCompanySubscriptionsFile(),
 ])
   .then(async () => {
     await loadJobs();
     await loadReviews();
-    await loadSubscriptions();
+    await loadFreelancerSubscriptions();
     await loadVacancies();
     await loadCompanySubscriptions();
     app.listen(port, () => {
