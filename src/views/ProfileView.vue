@@ -12,66 +12,27 @@
     </RouterLink>
 
     <div class="profile-content">
-      <img
-        :src="avatarSrc"
-        class="profile-avatar"
-        @error="handleAvatarError"
-        @load="startAnimation"
-        :class="{'avatar-visible': loaded}"
-      >
-      <h1 class="profile-name">{{ profileData.firstName }}</h1>
-      <div v-if="userVacancies.length > 0" class="jobs-section">
-        <h2>Company Vacancies</h2>
-        <div v-for="vacancy in userVacancies" :key="vacancy.id" class="job-item">
-          <img :src="vacancy.photoUrl" class="job-icon" loading="lazy" @error="handleAvatarError">
-          <p class="job-title">{{ vacancy.position }}</p>
-          <p class="job-description">{{ vacancy.description }}</p>
-        </div>
-      </div>
-      <div v-else-if="userJobs.length > 0" class="jobs-section">
-        <h2>Freelancer Jobs</h2>
-        <div v-for="job in userJobs" :key="job.id" class="job-item">
-          <p class="job-title">{{ job.position }}</p>
-          <p class="job-description">{{ job.description }}</p>
-        </div>
-      </div>
-      <div v-if="userVacancies.length === 0" class="reviews-section">
-        <textarea
-          v-model="reviewText"
-          class="review-input"
-          placeholder="Напишите ваш отзыв..."
-          @click.stop
-        ></textarea>
-        <button
-          class="leave-review-btn"
-          @click="initiatePayment"
-          :disabled="!reviewText || isOwner"
-        >
-          Оплатить 1★ и отправить
-        </button>
-        <div v-if="allReviews.length === 0" class="no-reviews">
-          Пока отзывов нет, вы можете быть первым!
-        </div>
-        <div v-else class="reviews-list">
-          <div v-for="review in allReviews" :key="review.id" class="review-message">
-            <div class="message-content">
-              {{ review.text }}
-            </div>
-            <div class="message-date">
-              {{ new Date(review.date).toLocaleString() }}
-              <button
-                v-if="isAdmin"
-                @click.stop="deleteReview(review.id)"
-                class="delete-btn"
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
+  <img :src="avatarSrc" class="profile-avatar" @error="handleAvatarError" @load="startAnimation" :class="{'avatar-visible': loaded}">
+  <h1 class="profile-name">{{ profileData.firstName }}</h1>
+  <div class="reviews-section">
+    <textarea v-model="reviewText" class="review-input" placeholder="Напишите ваш отзыв..." @click.stop></textarea>
+    <button class="leave-review-btn" @click="initiatePayment" :disabled="!reviewText || isOwner">
+      Оплатить 1★ и отправить
+    </button>
+    <div v-if="allReviews.length === 0" class="no-reviews">
+      Пока отзывов нет, вы можете быть первым!
+    </div>
+    <div v-else class="reviews-list">
+      <div v-for="review in allReviews" :key="review.id" class="review-message">
+        <div class="message-content">{{ review.text }}</div>
+        <div class="message-date">
+          {{ new Date(review.date).toLocaleString() }}
+          <button v-if="isAdmin" @click.stop="deleteReview(review.id)" class="delete-btn">🗑️</button>
         </div>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup>
