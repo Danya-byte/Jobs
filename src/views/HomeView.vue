@@ -16,7 +16,6 @@
         <div class="categories">
             <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
             <button class="category-btn" :class="{ active: activeTab === 'companies' }" @click="activeTab = 'companies'">Companies</button>
-            <RouterLink to="#"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
         </div>
 
         <div class="search-and-filter">
