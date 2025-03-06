@@ -334,7 +334,7 @@ const filteredVacancies = computed(() => {
   return filtered;
 });
 
-const isNew = item => {
+const isNew = (item) => {
   const now = new Date();
   const itemDate = new Date(item.createdAt);
   const diffInDays = (now - itemDate) / (1000 * 60 * 60 * 24);
@@ -361,13 +361,13 @@ const fetchVacancies = async () => {
   }
 };
 
-const showJobDetails = job => {
+const showJobDetails = (job) => {
   selectedJob.value = job;
   isVacancy.value = false;
   open.value = true;
 };
 
-const showVacancyDetails = vacancy => {
+const showVacancyDetails = (vacancy) => {
   selectedVacancy.value = vacancy;
   isVacancy.value = true;
   open.value = true;
@@ -467,19 +467,19 @@ const submitItem = async () => {
   }
 };
 
-const deleteJob = async jobId => {
+const deleteJob = async (jobId) => {
   try {
     await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
-  } catch (error No) {
+  } catch (error) {
     console.error('Error deleting job:', error.response?.data || error.message);
   }
 };
 
-const deleteVacancy = async vacancyId => {
+const deleteVacancy = async (vacancyId) => {
   try {
     await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
@@ -503,7 +503,7 @@ const checkAdminStatus = async () => {
   }
 };
 
-const handleClickOutside = event => {
+const handleClickOutside = (event) => {
   const isProfileLink = event.target.closest('.profile-link') !== null;
 
   if (searchInput.value && !searchInput.value.contains(event.target)) {
@@ -513,47 +513,33 @@ const handleClickOutside = event => {
   if (isProfileLink) return;
 };
 
-const toggleFavorite = async itemId => {
+const toggleFavorite = async (itemId) => {
   const index = favoriteJobs.value.indexOf(itemId);
   const isVacancyItem = vacancies.value.some(v => v.id === itemId);
-  const job = jobs.value.find(j => j.id === itemId);
-  const vacancy = vacancies.value.find(v => v.id === itemId);
   try {
     if (index === -1) {
       favoriteJobs.value.push(itemId);
-      await axios.post(
-        `${BASE_URL}/api/toggleFavorite`,
-        { itemId },
-        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-      );
-      Telegram.WebApp.showAlert(
-        isVacancyItem
-          ? `Вы подписались на новые вакансии от "${vacancy.companyName}"!`
-          : `Вы подписались на новые объявления на позицию "${job.position}"!`
-      );
+      await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      });
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
     } else {
       favoriteJobs.value.splice(index, 1);
-      await axios.post(
-        `${BASE_URL}/api/toggleFavorite`,
-        { itemId },
-        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-      );
-      Telegram.WebApp.showAlert(
-        isVacancyItem
-          ? `Вы отписались от вакансий "${vacancy.companyName}".`
-          : `Вы отписались от объявлений на позицию "${job.position}".`
-      );
+      await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      });
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
     }
     localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
   } catch (error) {
     console.error('Error toggling favorite:', error.response?.data || error.message);
-    Telegram.WebApp.showAlert('Произошла ошибка при подписке/отписке.');
+    Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
   }
 };
 
-const isFavorite = itemId => favoriteJobs.value.includes(itemId);
+const isFavorite = (itemId) => favoriteJobs.value.includes(itemId);
 
-const handleImageError = event => {
+const handleImageError = (event) => {
   event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 };
 
