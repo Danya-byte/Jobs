@@ -410,7 +410,7 @@ const showAddVacancyModal = () => {
     requirements: [],
     tags: [],
     categories: [],
-    contact: '',
+    contact: 'https://t.me/workiks_admin',
     officialWebsite: '',
     verified: false,
     photoUrl: ''
