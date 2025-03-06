@@ -1613,3 +1613,7 @@ Please make sure your database server is running at `ep-purple-resonance-a1th4uz
 2025-03-06 23:47:03 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
 2025-03-06 23:47:04 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
 2025-03-06 23:47:04 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-06 23:52:41 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-06 23:52:41 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-06 23:52:41 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-06 23:54:54 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
