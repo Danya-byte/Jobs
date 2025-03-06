@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  adminId     String
+  userId      String
+  username    String?
+  nick        String
+  position    String
+  profileLink String
+  experience  Int?
+  description String
+  requirements String[] @default([])
+  tags        String[] @default([])
+  categories  String[] @default([])
+  contact     String
+  createdAt   DateTime @default(now())
+}
+
+model Vacancy {
+  id             String   @id @default(uuid())
+  adminId        String
+  companyUserId  String
+  companyName    String
+  position       String
+  description    String
+  requirements   String[] @default([])
+  tags           String[] @default([])
+  categories     String[] @default([])
+  contact        String
+  officialWebsite String
+  verified       Boolean  @default(false)
+  photoUrl       String
+  createdAt      DateTime @default(now())
+}
+
+model Review {
+  id           String   @id @default(uuid())
+  text         String
+  authorUserId String
+  targetUserId String
+  date         DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model FreelancerSubscription {
+  userId    String   @id
+  positions String[] @default([])
+}
+
+model CompanySubscription {
+  userId    String   @id
+  companies String[] @default([])
+}
+
+model Favorite {
+  userId  String
+  itemId  String
+  createdAt DateTime @default(now())
+  @@id([userId, itemId])
+}

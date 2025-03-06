@@ -1,0 +1,25 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\.f1c0cc49c8507797dd6157aa6968f0fdead7711c-audit.json",
+    "files": [
+        {
+            "date": 1741107284301,
+            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-04-app.log",
+            "hash": "2cc4d83987b6feb64763ecf7e4e12e2bf168d24cf2f8282c340003665c929f64"
+        },
+        {
+            "date": 1741162053960,
+            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-05-app.log",
+            "hash": "3703b0a57cd37cbe2a44738b69265bb4b898f79e985f27dbb9ee500776a68457"
+        },
+        {
+            "date": 1741209058295,
+            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-06-app.log",
+            "hash": "1eea3c8461bcefb4a5a9988ed9d2c46300bd41833f244cdc0f983152a2d298eb"
+        }
+    ],
+    "hashType": "sha256"
+}
