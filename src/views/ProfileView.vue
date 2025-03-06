@@ -2,19 +2,39 @@
   <div class="profile-container" @click="handleClickOutside">
     <RouterLink to="/" class="back-btn">
       <div class="back-button-wrapper" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
-        <img src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png" alt="Back" class="back-icon">
+        <img
+          src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png"
+          alt="Back"
+          class="back-icon"
+        >
         <span class="back-text">Назад</span>
       </div>
     </RouterLink>
 
     <div class="profile-content">
-      <img :src="avatarSrc" class="profile-avatar" @error="handleAvatarError" @load="startAnimation" :class="{ 'avatar-visible': loaded }">
+      <img
+        :src="avatarSrc"
+        class="profile-avatar"
+        @error="handleAvatarError"
+        @load="startAnimation"
+        :class="{'avatar-visible': loaded}"
+      >
       <h1 class="profile-name">{{ profileData.firstName }}</h1>
     </div>
 
     <div class="reviews-section">
-      <textarea v-model="reviewText" class="review-input" placeholder="Напишите ваш отзыв..." @click.stop></textarea>
-      <button class="leave-review-btn" @click="initiatePayment" :disabled="!reviewText || isOwner">
+      <textarea
+        v-model="reviewText"
+        class="review-input"
+        placeholder="Напишите ваш отзыв..."
+        @click.stop
+      ></textarea>
+
+      <button
+        class="leave-review-btn"
+        @click="initiatePayment"
+        :disabled="!reviewText || isOwner"
+      >
         Оплатить 1★ и отправить
       </button>
 
@@ -24,10 +44,18 @@
 
       <div v-else class="reviews-list">
         <div v-for="review in allReviews" :key="review.id" class="review-message">
-          <div class="message-content">{{ review.text }}</div>
+          <div class="message-content">
+            {{ review.text }}
+          </div>
           <div class="message-date">
             {{ new Date(review.date).toLocaleString() }}
-            <button v-if="isAdmin" @click.stop="deleteReview(review.id)" class="delete-btn">🗑️</button>
+            <button
+              v-if="isAdmin"
+              @click.stop="deleteReview(review.id)"
+              class="delete-btn"
+            >
+              🗑️
+            </button>
           </div>
         </div>
       </div>
@@ -44,30 +72,19 @@ const router = useRouter();
 const currentUser = ref(null);
 const userId = ref('');
 const loaded = ref(false);
-const profileData = reactive({ firstName: '', username: '' });
+const profileData = reactive({
+  firstName: '',
+  username: ''
+});
 const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
 const isAdmin = ref(false);
 const isTouched = ref(false);
-const ENCRYPTION_KEY = 'cd1f4ab91882737f02e7a109e82af74ba8f5896cb288812636753119b4277d46';
 
-const isOwner = computed(() => currentUser.value?.id?.toString() === userId.value?.toString());
-
-function hexToBytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-  }
-  return bytes;
-}
-
-async function decrypt(encryptedData, iv) {
-  const keyBuffer = hexToBytes(ENCRYPTION_KEY);
-  const key = await window.crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-CBC' }, false, ['decrypt']);
-  const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) }, key, new Uint8Array(hexToBytes(encryptedData)));
-  return JSON.parse(new TextDecoder().decode(decrypted));
-}
+const isOwner = computed(() => {
+  return currentUser.value?.id?.toString() === userId.value?.toString();
+});
 
 const handleClickOutside = () => {
   Telegram.WebApp.closeScanQrPopup();
@@ -82,24 +99,31 @@ const handleTouchStart = () => {
 };
 
 const handleTouchEnd = () => {
-  setTimeout(() => isTouched.value = false, 300);
+  setTimeout(() => {
+    isTouched.value = false;
+  }, 300);
 };
 
 const loadProfileData = async () => {
+  console.log('Current user:', currentUser.value);
+  console.log('User ID:', userId.value);
   if (userId.value === currentUser.value?.id?.toString()) {
     profileData.firstName = currentUser.value.first_name || 'Без имени';
     profileData.username = currentUser.value.username || '';
     avatarSrc.value = currentUser.value.photo_url || (currentUser.value.username ? `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
   } else {
     try {
-      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, { headers: { 'X-Telegram-Data': Telegram.WebApp.initData } });
+      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
+        headers: {
+          'X-Telegram-Data': Telegram.WebApp.initData
+        }
+      });
       const data = await response.json();
-      const decryptedData = await decrypt(data.encryptedData, data.iv);
-      profileData.firstName = decryptedData.firstName || 'Без имени';
-      profileData.username = decryptedData.username || '';
-      avatarSrc.value = decryptedData.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      profileData.firstName = data.firstName || 'Без имени';
+      profileData.username = data.username || '';
+      avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     } catch (error) {
-      console.error('Ошибка загрузки профиля:', error.message);
+      console.error('Ошибка загрузки профиля:', error);
       avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
       profileData.firstName = 'Без имени';
     }
@@ -111,76 +135,72 @@ const loadReviews = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
     const data = await response.json();
-    allReviews.value = await decrypt(data.encryptedData, data.iv);
+    const filteredAndSortedReviews = data
+      .filter(review => review.date)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    allReviews.value = filteredAndSortedReviews;
   } catch (error) {
-    console.error('Error loading reviews:', error.message);
+    console.error('Error loading reviews:', error);
   }
-};
-
-const setupReviewStream = () => {
-  const eventSource = new EventSource(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/stream/${userId.value}`);
-  eventSource.onmessage = async (event) => {
-    const data = JSON.parse(event.data);
-    allReviews.value = await decrypt(data.encryptedData, data.iv);
-  };
-  return () => eventSource.close();
 };
 
 const deleteReview = async (reviewId) => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/${reviewId}`, {
       method: 'DELETE',
-      headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
+      }
     });
-    await decrypt((await response.json()).encryptedData, (await response.json()).iv);
+    if (!response.ok) throw new Error('Ошибка удаления');
     await loadReviews();
     Telegram.WebApp.showAlert('Отзыв удалён!');
   } catch (error) {
-    console.error('Error deleting review:', error.message);
     Telegram.WebApp.showAlert(error.message);
   }
 };
 
 const initiatePayment = async () => {
   try {
-    allReviews.value.unshift({ id: 'temp', text: reviewText.value, date: new Date().toISOString() });
     const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
       method: 'POST',
-      headers: { 'X-Telegram-Data': Telegram.WebApp.initData, 'Content-Type': 'application/json' },
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ text: reviewText.value, targetUserId: userId.value })
     });
-    const data = await response.json();
-    const decryptedData = await decrypt(data.encryptedData, data.iv);
-    Telegram.WebApp.openInvoice(decryptedData.invoiceLink, (status) => {
+    if (!response.ok) throw new Error('Ошибка создания платежа');
+    const { invoiceLink } = await response.json();
+    Telegram.WebApp.openInvoice(invoiceLink, (status) => {
       if (status === 'cancelled') {
-        allReviews.value = allReviews.value.filter(r => r.id !== 'temp');
         reviewText.value = '';
         Telegram.WebApp.showAlert('Вы не подтвердили платеж!');
       }
       if (status === 'paid') {
+        loadReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }
     });
   } catch (error) {
-    allReviews.value = allReviews.value.filter(r => r.id !== 'temp');
-    console.error('Error initiating payment:', error.message);
     Telegram.WebApp.showAlert(error.message);
   }
 };
 
 const checkAdminStatus = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', { headers: { 'X-Telegram-Data': Telegram.WebApp.initData } });
-    isAdmin.value = (await decrypt((await response.json()).encryptedData, (await response.json()).iv)).isAdmin;
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', {
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
+      }
+    });
+    const data = await response.json();
+    isAdmin.value = data.isAdmin;
   } catch (error) {
-    console.error('Error checking admin status:', error.message);
+    console.error('Error checking admin status:', error);
     isAdmin.value = false;
   }
-};
-
-const startAnimation = () => {
-  loaded.value = true;
 };
 
 onMounted(async () => {
@@ -193,7 +213,6 @@ onMounted(async () => {
   await checkAdminStatus();
   await loadProfileData();
   await loadReviews();
-  setupReviewStream();
 });
 </script>
 

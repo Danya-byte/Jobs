@@ -84,3 +84,27 @@ Please make sure your database server is running at `ep-purple-resonance-a1th4uz
 2025-03-07 01:13:24 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
 2025-03-07 01:13:24 [INFO]: Request: GET /api/user/6629517298 | Status: 200 | Duration: 2ms
 2025-03-07 01:13:24 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 0ms
+2025-03-07 01:27:55 [INFO]: Connected to Redis
+2025-03-07 01:27:55 [INFO]: Server running on port 3000
+2025-03-07 01:28:19 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 10ms
+2025-03-07 01:28:20 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 01:28:20 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1010ms
+2025-03-07 01:28:23 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 673ms
+2025-03-07 01:28:25 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 01:28:31 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 01:28:32 [INFO]: Request: GET /api/user/6629517298 | Status: 200 | Duration: 1ms
+2025-03-07 01:28:32 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 669ms
+2025-03-07 01:28:41 [INFO]: Request: POST /api/createInvoiceLink | Status: 200 | Duration: 826ms
+2025-03-07 01:28:52 [INFO]: Request: POST /api/createInvoiceLink | Status: 200 | Duration: 494ms
+2025-03-07 01:29:25 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 01:29:25 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 01:29:25 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 01:31:03 [INFO]: Request: POST /api/jobs | Status: 200 | Duration: 673ms
+2025-03-07 01:31:04 [ERROR]: Error in POST /api/jobs: limit is not defined, Stack: ReferenceError: limit is not defined
+    at C:\Users\danya\PycharmProjects\JobsBoard\backend\server.js:149:55
+2025-03-07 01:31:04 [INFO]: Request: POST /api/jobs | Status: 500 | Duration: 1343ms
+2025-03-07 01:31:04 [ERROR]: Unhandled Rejection: Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+2025-03-07 01:31:08 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 01:31:08 [INFO]: Request: GET /api/user/5164023566 | Status: 200 | Duration: 1ms
+2025-03-07 01:31:09 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 663ms
+2025-03-07 01:37:10 [INFO]: Server running on port 3000

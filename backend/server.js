@@ -1,30 +1,40 @@
 const { Bot } = require("grammy");
+const { hydrateFiles } = require("@grammyjs/files");
 const express = require("express");
 const cors = require("cors");
-const compression = require("compression");
 const crypto = require("crypto");
+const fs = require("fs").promises;
+const path = require("path");
+const { Mutex } = require("async-mutex");
 const winston = require("winston");
 const DailyRotateFile = require("winston-daily-rotate-file");
-const { PrismaClient } = require("@prisma/client");
-const redis = require("redis");
-const Queue = require("bull");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || "cd1f4ab91882737f02e7a109e82af74ba8f5896cb288812636753119b4277d46", "hex");
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-});
-const redisClient = redis.createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
-const notificationQueue = new Queue("notifications", process.env.REDIS_URL || "redis://localhost:6379");
+const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
+const REVIEWS_FILE = path.join(__dirname, "reviews.json");
+const JOBS_FILE = path.join(__dirname, "jobs.json");
+const FREELANCER_SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
+const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
+const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
+const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
+
+const jobsMutex = new Mutex();
+const reviewsMutex = new Mutex();
+const freelancerSubscriptionsMutex = new Mutex();
+const vacanciesMutex = new Mutex();
+const companySubscriptionsMutex = new Mutex();
+
+let jobsData = [];
+let reviewsData = {};
+let freelancerSubscriptionsData = {};
+let vacanciesData = [];
+let companySubscriptionsData = [];
+
 const bot = new Bot(BOT_TOKEN);
+bot.api.config.use(hydrateFiles(bot.token));
 
 const logger = winston.createLogger({
   level: "info",
@@ -35,34 +45,133 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.Console(),
     new DailyRotateFile({
-      filename: "logs/%DATE%-app.log",
+      filename: path.join(LOGS_DIR, "%DATE%-app.log"),
       datePattern: "YYYY-MM-DD",
       maxFiles: "14d",
     }),
   ],
 });
 
-app.use(compression());
-app.use(express.json({ limit: "1mb" }));
-app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], credentials: true }));
-
 app.use((req, res, next) => {
   const startTime = Date.now();
   const oldJson = res.json;
+
   res.json = function (data) {
     const duration = Date.now() - startTime;
-    logger.info(`Request: ${req.method} ${req.path} | Status: ${res.statusCode} | Duration: ${duration}ms`);
+    logger.info(
+      `Request: ${req.method} ${req.path} | Body: ${JSON.stringify(req.body)} | Response: ${JSON.stringify(data)} | Status: ${res.statusCode} | Duration: ${duration}ms`
+    );
     return oldJson.call(this, data);
   };
+
   next();
 });
 
-function encrypt(data) {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
-  let encrypted = cipher.update(JSON.stringify(data), "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return { iv: iv.toString("hex"), encryptedData: encrypted };
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "X-Telegram-Data", "Authorization", "Cache-Control", "X-Requested-With"],
+  credentials: true,
+  exposedHeaders: ["X-Telegram-Data"],
+};
+
+app.use(express.json({ limit: "1mb" }));
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+async function initReviewsFile() {
+  try {
+    await fs.access(REVIEWS_FILE);
+    const data = await fs.readFile(REVIEWS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(REVIEWS_FILE, "{}");
+  } catch {
+    await fs.writeFile(REVIEWS_FILE, "{}");
+  }
+}
+
+async function initJobsFile() {
+  try {
+    await fs.access(JOBS_FILE);
+    const data = await fs.readFile(JOBS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(JOBS_FILE, "[]");
+  } catch {
+    await fs.writeFile(JOBS_FILE, "[]");
+  }
+}
+
+async function initFreelancerSubscriptionsFile() {
+  try {
+    await fs.access(FREELANCER_SUBSCRIPTIONS_FILE);
+    const data = await fs.readFile(FREELANCER_SUBSCRIPTIONS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, "{}");
+  } catch {
+    await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, "{}");
+  }
+}
+
+async function initVacanciesFile() {
+  try {
+    await fs.access(VACANCIES_FILE);
+    const data = await fs.readFile(VACANCIES_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(VACANCIES_FILE, "[]");
+  } catch {
+    await fs.writeFile(VACANCIES_FILE, "[]");
+  }
+}
+
+async function initCompanySubscriptionsFile() {
+  try {
+    await fs.access(COMPANY_SUBSCRIPTIONS_FILE);
+    const data = await fs.readFile(COMPANY_SUBSCRIPTIONS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, "{}");
+  } catch {
+    await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, "{}");
+  }
+}
+
+async function loadJobs() {
+  try {
+    const rawData = await fs.readFile(JOBS_FILE, "utf8");
+    jobsData = rawData.trim() ? JSON.parse(rawData) : [];
+  } catch (e) {
+    jobsData = [];
+  }
+}
+
+async function loadReviews() {
+  try {
+    const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
+    reviewsData = rawData.trim() ? JSON.parse(rawData) : {};
+  } catch (e) {
+    reviewsData = {};
+  }
+}
+
+async function loadFreelancerSubscriptions() {
+  try {
+    const rawData = await fs.readFile(FREELANCER_SUBSCRIPTIONS_FILE, "utf8");
+    freelancerSubscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
+  } catch (e) {
+    freelancerSubscriptionsData = {};
+  }
+}
+
+async function loadVacancies() {
+  try {
+    const rawData = await fs.readFile(VACANCIES_FILE, "utf8");
+    vacanciesData = rawData.trim() ? JSON.parse(rawData) : [];
+  } catch (e) {
+    vacanciesData = [];
+  }
+}
+
+async function loadCompanySubscriptions() {
+  try {
+    const rawData = await fs.readFile(COMPANY_SUBSCRIPTIONS_FILE, "utf8");
+    companySubscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
+  } catch (e) {
+    companySubscriptionsData = {};
+  }
 }
 
 function validateTelegramData(initData) {
@@ -70,209 +179,237 @@ function validateTelegramData(initData) {
     const params = new URLSearchParams(initData);
     const receivedHash = params.get("hash");
     if (!receivedHash) return false;
+
     const dataCheckString = Array.from(params.entries())
       .filter(([key]) => key !== "hash")
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, val]) => `${key}=${val}`)
       .join("\n");
+
     const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
     return crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex") === receivedHash;
-  } catch {
+  } catch (e) {
     return false;
   }
 }
 
 app.get("/api/jobs", async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-    const skip = (page - 1) * limit;
-    if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-      return res.status(400).json(encrypt({ error: "Invalid page or limit parameters" }));
-    }
-    const cacheKey = `jobs:${page}:${limit}`;
-    let cached = await redisClient.get(cacheKey);
-    if (cached) {
-      const { iv, encryptedData } = JSON.parse(cached);
-      return res.json({ iv, encryptedData });
-    }
-    const jobs = await prisma.job.findMany({
-      orderBy: { createdAt: "desc" },
-      skip: parseInt(skip),
-      take: parseInt(limit),
-    });
-    const encrypted = encrypt(jobs);
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
-    res.json(encrypted);
-  } catch (e) {
-    logger.error(`Error in GET /api/jobs: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
-  }
+  res.json(jobsData);
 });
 
 app.post("/api/jobs", async (req, res) => {
+  const release = await jobsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
+
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json(encrypt({ error: "Forbidden" }));
+      return res.status(403).json({ error: "Forbidden" });
     }
+
     const { userId, nick, position, experience, description, requirements, tags, categories } = req.body;
     if (!userId || !nick || !position || !description || !requirements || !tags) {
-      return res.status(400).json(encrypt({ error: "Missing required fields" }));
+      return res.status(400).json({ error: "Missing required fields" });
     }
-    const newJob = await prisma.job.create({
-      data: {
-        adminId: user.id.toString(),
-        userId: userId.toString(),
-        username: req.body.username || "unknown",
-        nick,
-        position,
-        profileLink: `/profile/${userId}`,
-        experience: experience ? parseInt(experience) : null,
-        description,
-        requirements,
-        tags,
-        categories: categories || [],
-        contact: "https://t.me/workiks_admin",
-      },
-    });
-    const encrypted = encrypt({ success: true, job: newJob });
-    res.json(encrypted);
-    const subscribers = await prisma.freelancerSubscription.findMany({
-      where: { positions: { has: position } },
-    });
-    notificationQueue.add({ subscribers, job: newJob });
-    const pageKeys = await redisClient.keys(`jobs:*:${limit || 10}`);
-    if (pageKeys.length) await redisClient.del(pageKeys);
+
+    const newJob = {
+      id: `${Date.now()}_${user.id}`,
+      adminId: user.id,
+      userId,
+      username: req.body.username || "unknown",
+      nick,
+      position,
+      profileLink: `/profile/${userId}`,
+      experience,
+      description,
+      requirements,
+      tags,
+      categories: categories || [],
+      contact: "https://t.me/workiks_admin",
+      createdAt: new Date().toISOString(),
+    };
+
+    jobsData.push(newJob);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    const subscribers = Object.entries(freelancerSubscriptionsData)
+      .filter(([_, positions]) => positions.includes(newJob.position))
+      .map(([userId]) => userId);
+
+    logger.info(`Found ${subscribers.length} subscribers for position "${newJob.position}": ${subscribers.join(", ")}`);
+
+    for (const subscriberId of subscribers) {
+      try {
+        await bot.api.sendMessage(
+          subscriberId,
+          `🎉 Новый фрилансер на позицию "${newJob.position}":\n\n` +
+            `📝 Описание: ${newJob.description}\n` +
+            `🔗 Контакт: ${newJob.contact}`
+        );
+        logger.info(`Notified user ${subscriberId} about new job on position "${newJob.position}"`);
+      } catch (e) {
+        logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, job: newJob });
   } catch (e) {
-    logger.error(`Error in POST /api/jobs: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    logger.error(`Error in POST /api/jobs: ${e.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
 app.delete("/api/jobs/:jobId", async (req, res) => {
+  const release = await jobsMutex.acquire();
   try {
     const { jobId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
+
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
+
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json(encrypt({ error: "Forbidden" }));
+      return res.status(403).json({ error: "Forbidden" });
     }
-    if (!jobId) {
-      return res.status(400).json(encrypt({ error: "Missing jobId" }));
+
+    const jobIndex = jobsData.findIndex((job) => job.id === jobId);
+    if (jobIndex === -1) {
+      return res.status(404).json({ error: "Job not found" });
     }
-    await prisma.job.delete({ where: { id: jobId } });
-    const pageKeys = await redisClient.keys(`jobs:*:${limit || 10}`);
-    if (pageKeys.length) await redisClient.del(pageKeys);
-    res.json(encrypt({ success: true }));
+
+    jobsData.splice(jobIndex, 1);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in DELETE /api/jobs: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
 app.get("/api/vacancies", async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-    const skip = (page - 1) * limit;
-    if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-      return res.status(400).json(encrypt({ error: "Invalid page or limit parameters" }));
-    }
-    const cacheKey = `vacancies:${page}:${limit}`;
-    let cached = await redisClient.get(cacheKey);
-    if (cached) {
-      const { iv, encryptedData } = JSON.parse(cached);
-      return res.json({ iv, encryptedData });
-    }
-    const vacancies = await prisma.vacancy.findMany({
-      orderBy: { createdAt: "desc" },
-      skip: parseInt(skip),
-      take: parseInt(limit),
-    });
-    const encrypted = encrypt(vacancies);
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
-    res.json(encrypted);
-  } catch (e) {
-    logger.error(`Error in GET /api/vacancies: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
-  }
+  res.json(vacanciesData);
 });
 
 app.post("/api/vacancies", async (req, res) => {
+  const release = await vacanciesMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json(encrypt({ error: "Forbidden" }));
+      return res.status(403).json({ error: "Forbidden" });
     }
-    const { companyUserId, companyName, position, description, requirements, tags, categories, contact, officialWebsite, verified, photoUrl } = req.body;
-    if (!companyUserId || !companyName || !position || !description || !requirements || !tags || !contact || !officialWebsite || !photoUrl) {
-      return res.status(400).json(encrypt({ error: "Missing required fields" }));
+    const {
+      companyUserId,
+      companyName,
+      position,
+      description,
+      requirements,
+      tags,
+      categories,
+      contact,
+      officialWebsite,
+      verified,
+      photoUrl,
+    } = req.body;
+    if (
+      !companyUserId ||
+      !companyName ||
+      !position ||
+      !description ||
+      !requirements ||
+      !tags ||
+      !contact ||
+      !officialWebsite ||
+      !photoUrl
+    ) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
-    const newVacancy = await prisma.vacancy.create({
-      data: {
-        adminId: user.id.toString(),
-        companyUserId: companyUserId.toString(),
-        companyName,
-        position,
-        description,
-        requirements,
-        tags,
-        categories: categories || [],
-        contact,
-        officialWebsite,
-        verified: !!verified,
-        photoUrl,
-      },
-    });
-    const encrypted = encrypt({ success: true, vacancy: newVacancy });
-    res.json(encrypted);
-    const subscribers = await prisma.companySubscription.findMany({
-      where: { companies: { has: companyName } },
-    });
-    notificationQueue.add({ subscribers, vacancy: newVacancy });
-    const pageKeys = await redisClient.keys(`vacancies:*:${limit || 10}`);
-    if (pageKeys.length) await redisClient.del(pageKeys);
+    const newVacancy = {
+      id: `${Date.now()}_${user.id}`,
+      adminId: user.id,
+      companyUserId,
+      companyName,
+      position,
+      description,
+      requirements,
+      tags,
+      categories: categories || [],
+      contact,
+      officialWebsite,
+      verified: verified || false,
+      photoUrl,
+      createdAt: new Date().toISOString(),
+    };
+    vacanciesData.push(newVacancy);
+    await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
+
+    const subscribers = Object.entries(companySubscriptionsData)
+      .filter(([_, companies]) => companies.includes(newVacancy.companyName))
+      .map(([userId]) => userId);
+
+    for (const subscriberId of subscribers) {
+      try {
+        await bot.api.sendMessage(
+          subscriberId,
+          `🏢 Компания "${newVacancy.companyName}" разместила новую вакансию:\n\n` +
+            `📌 Позиция: ${newVacancy.position}\n` +
+            `📝 Описание: ${newVacancy.description}\n` +
+            `🔗 Контакт: ${newVacancy.contact}`
+        );
+      } catch (e) {
+        logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, vacancy: newVacancy });
   } catch (e) {
-    logger.error(`Error in POST /api/vacancies: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
 app.delete("/api/vacancies/:vacancyId", async (req, res) => {
+  const release = await vacanciesMutex.acquire();
   try {
     const { vacancyId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json(encrypt({ error: "Forbidden" }));
+      return res.status(403).json({ error: "Forbidden" });
     }
-    if (!vacancyId) {
-      return res.status(400).json(encrypt({ error: "Missing vacancyId" }));
+    const vacancyIndex = vacanciesData.findIndex((vacancy) => vacancy.id === vacancyId);
+    if (vacancyIndex === -1) {
+      return res.status(404).json({ error: "Vacancy not found" });
     }
-    await prisma.vacancy.delete({ where: { id: vacancyId } });
-    const pageKeys = await redisClient.keys(`vacancies:*:${limit || 10}`);
-    if (pageKeys.length) await redisClient.del(pageKeys);
-    res.json(encrypt({ success: true }));
+    vacanciesData.splice(vacancyIndex, 1);
+    await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
+    res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in DELETE /api/vacancies: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
@@ -280,87 +417,119 @@ app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
+
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
-    if (!userId) {
-      return res.status(400).json(encrypt({ error: "Missing userId" }));
-    }
-    const cacheKey = `user:${userId}`;
-    let cached = await redisClient.get(cacheKey);
-    if (cached) {
-      const { iv, encryptedData } = JSON.parse(cached);
-      return res.json({ iv, encryptedData });
-    }
-    const userJob = await prisma.job.findFirst({ where: { userId } });
-    const userVacancy = await prisma.vacancy.findFirst({ where: { companyUserId: userId } });
+
+    const userJob = jobsData.find((job) => job.userId.toString() === userId);
+    const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
     let firstName = "Unknown";
     let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
     let responseUsername = null;
+
     if (userJob || userVacancy) {
       try {
         const userData = await bot.api.getChat(userJob ? userJob.userId : userVacancy.companyUserId);
         firstName = userData.first_name || "Unknown";
         responseUsername = userData.username || null;
-        if (responseUsername) photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-      } catch {
+        if (responseUsername) {
+          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
+        }
+      } catch (telegramError) {
         firstName = userJob ? userJob.nick : userVacancy ? userVacancy.companyName : "Unknown";
-        responseUsername = userJob ? userJob.username : null;
-        if (responseUsername) photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
+        responseUsername = userJob ? userJob.username : userVacancy ? null : null;
+        if (responseUsername) {
+          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
+        }
       }
     }
-    const userData = { firstName, username: responseUsername, photoUrl };
-    const encrypted = encrypt(userData);
-    await redisClient.setEx(cacheKey, 86400, JSON.stringify(encrypted));
-    res.json(encrypted);
+
+    res.json({ firstName, username: responseUsername, photoUrl });
   } catch (e) {
-    logger.error(`Error in GET /api/user: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.post("/api/toggleFavorite", async (req, res) => {
+  const releaseFreelancer = await freelancerSubscriptionsMutex.acquire();
+  const releaseCompany = await companySubscriptionsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
     const { itemId } = req.body;
+
     if (!user.id || !itemId) {
-      return res.status(400).json(encrypt({ error: "Missing required fields" }));
+      return res.status(400).json({ error: "Missing required fields" });
     }
+
+    const job = jobsData.find((j) => j.id === itemId);
+    const vacancy = vacanciesData.find((v) => v.id === itemId);
+
+    let favoriteJobs = [];
+    try {
+      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+    } catch {
+      favoriteJobs = [];
+    }
+
+    const favoriteIndex = favoriteJobs.indexOf(itemId);
     const userId = user.id.toString();
-    const existingFavorite = await prisma.favorite.findUnique({
-      where: { userId_itemId: { userId, itemId } },
-    });
-    if (existingFavorite) {
-      await prisma.favorite.delete({ where: { userId_itemId: { userId, itemId } } });
+
+    if (favoriteIndex === -1) {
+      favoriteJobs.push(itemId);
+
+      if (vacancy) {
+        if (!companySubscriptionsData[userId]) {
+          companySubscriptionsData[userId] = [];
+        }
+        if (!companySubscriptionsData[userId].includes(vacancy.companyName)) {
+          companySubscriptionsData[userId].push(vacancy.companyName);
+          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+        }
+      } else if (job) {
+        if (!freelancerSubscriptionsData[userId]) {
+          freelancerSubscriptionsData[userId] = [];
+        }
+        if (!freelancerSubscriptionsData[userId].includes(job.position)) {
+          freelancerSubscriptionsData[userId].push(job.position);
+          await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
+        }
+      }
     } else {
-      await prisma.favorite.create({ data: { userId, itemId } });
-      const job = await prisma.job.findUnique({ where: { id: itemId } });
-      const vacancy = await prisma.vacancy.findUnique({ where: { id: itemId } });
-      if (job) {
-        await prisma.freelancerSubscription.upsert({
-          where: { userId },
-          update: { positions: { push: job.position } },
-          create: { userId, positions: [job.position] },
-        });
-      } else if (vacancy) {
-        await prisma.companySubscription.upsert({
-          where: { userId },
-          update: { companies: { push: vacancy.companyName } },
-          create: { userId, companies: [vacancy.companyName] },
-        });
+      favoriteJobs.splice(favoriteIndex, 1);
+
+      if (vacancy && companySubscriptionsData[userId]) {
+        companySubscriptionsData[userId] = companySubscriptionsData[userId].filter(
+          (name) => name !== vacancy.companyName
+        );
+        if (companySubscriptionsData[userId].length === 0) {
+          delete companySubscriptionsData[userId];
+        }
+        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+      } else if (job && freelancerSubscriptionsData[userId]) {
+        freelancerSubscriptionsData[userId] = freelancerSubscriptionsData[userId].filter(
+          (pos) => pos !== job.position
+        );
+        if (freelancerSubscriptionsData[userId].length === 0) {
+          delete freelancerSubscriptionsData[userId];
+        }
+        await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
       }
     }
-    const favorites = await prisma.favorite.findMany({ where: { userId }, select: { itemId: true } });
-    await redisClient.setEx(`favorites:${userId}`, 3600, JSON.stringify(favorites.map(f => f.itemId)));
-    res.json(encrypt({ success: true, favorites: favorites.map(f => f.itemId) }));
+
+    await fs.writeFile(path.join(__dirname, "favoriteJobs.json"), JSON.stringify(favoriteJobs, null, 2));
+    res.json({ success: true, favorites: favoriteJobs });
   } catch (e) {
-    logger.error(`Error in POST /api/toggleFavorite: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    releaseFreelancer();
+    releaseCompany();
   }
 });
 
@@ -368,46 +537,42 @@ app.get("/api/favorites", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-    const userId = user.id.toString();
-    if (!userId) {
-      return res.status(400).json(encrypt({ error: "Missing userId" }));
+
+    let favoriteJobs = [];
+    try {
+      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+    } catch {
+      favoriteJobs = [];
     }
-    const cacheKey = `favorites:${userId}`;
-    let cached = await redisClient.get(cacheKey);
-    if (cached) {
-      return res.json(encrypt(JSON.parse(cached)));
-    }
-    const favorites = await prisma.favorite.findMany({ where: { userId }, select: { itemId: true } });
-    const favoriteIds = favorites.map(f => f.itemId);
-    const encrypted = encrypt(favoriteIds);
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(favoriteIds));
-    res.json(encrypted);
+
+    res.json(favoriteJobs);
   } catch (e) {
-    logger.error(`Error in GET /api/favorites: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.post("/api/createInvoiceLink", async (req, res) => {
+  const release = await reviewsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user"));
     const { text, targetUserId } = req.body;
+
     if (!user?.id || !targetUserId || !text) {
       return res.status(400).json({ error: "Invalid data" });
     }
+
     const payload = `${user.id}_${Date.now()}`;
-    await prisma.review.create({
-      data: { id: payload, text, authorUserId: user.id.toString(), targetUserId },
-    });
+    reviewsData[payload] = { text, authorUserId: user.id, targetUserId };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
     const invoiceLink = await bot.api.createInvoiceLink(
       "Submit a Review",
       "Pay 1 Telegram Star to submit a review",
@@ -416,84 +581,56 @@ app.post("/api/createInvoiceLink", async (req, res) => {
       "XTR",
       [{ label: "Review Submission", amount: 1 }]
     );
-    res.json(encrypt({ success: true, invoiceLink }));
+
+    res.json({ success: true, invoiceLink });
   } catch (e) {
-    logger.error(`Error in POST /api/createInvoiceLink: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
 app.get("/api/reviews", async (req, res) => {
   try {
-    const { targetUserId, page = 1, limit = 10 } = req.query;
-    const skip = (page - 1) * limit;
-    if (!targetUserId || isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-      return res.status(400).json(encrypt({ error: "Invalid targetUserId, page, or limit parameters" }));
-    }
-    const cacheKey = `reviews:${targetUserId}:${page}:${limit}`;
-    let cached = await redisClient.get(cacheKey);
-    if (cached) {
-      const { iv, encryptedData } = JSON.parse(cached);
-      return res.json({ iv, encryptedData });
-    }
-    const reviews = await prisma.review.findMany({
-      where: { targetUserId, date: { not: null } },
-      orderBy: { date: "desc" },
-      skip: parseInt(skip),
-      take: parseInt(limit),
-    });
-    const encrypted = encrypt(reviews);
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
-    res.json(encrypted);
+    const { targetUserId } = req.query;
+    const reviews = Object.entries(reviewsData)
+      .filter(([_, review]) => review.targetUserId === targetUserId && review.date)
+      .map(([id, review]) => ({ id, ...review }));
+    res.json(reviews);
   } catch (e) {
-    logger.error(`Error in GET /api/reviews: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.get("/api/reviews/stream/:targetUserId", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  const { targetUserId } = req.params;
-  const sendUpdate = async () => {
-    const reviews = await prisma.review.findMany({
-      where: { targetUserId, date: { not: null } },
-      orderBy: { date: "desc" },
-    });
-    const encrypted = encrypt(reviews);
-    res.write(`data: ${JSON.stringify(encrypted)}\n\n`);
-  };
-  sendUpdate();
-  const interval = setInterval(sendUpdate, 5000);
-  req.on("close", () => clearInterval(interval));
-});
-
 app.delete("/api/reviews/:reviewId", async (req, res) => {
+  const release = await reviewsMutex.acquire();
   try {
     const { reviewId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
+
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user"));
+
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json(encrypt({ error: "Forbidden" }));
+      return res.status(403).json({ error: "Forbidden" });
     }
-    if (!reviewId) {
-      return res.status(400).json(encrypt({ error: "Missing reviewId" }));
+
+    if (!reviewsData[reviewId]) {
+      return res.status(404).json({ error: "Review not found" });
     }
-    const review = await prisma.review.findUnique({ where: { id: reviewId } });
-    if (!review) {
-      return res.status(404).json(encrypt({ error: "Review not found" }));
-    }
-    await prisma.review.delete({ where: { id: reviewId } });
-    const keys = await redisClient.keys(`reviews:${review.targetUserId}:*`);
-    if (keys.length) await redisClient.del(keys);
-    res.json(encrypt({ success: true }));
+
+    delete reviewsData[reviewId];
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in DELETE /api/reviews: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
   }
 });
 
@@ -501,18 +638,20 @@ app.get("/api/isAdmin", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json(encrypt({ error: "Unauthorized" }));
+      return res.status(401).json({ error: "Unauthorized" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
+
     if (!user.id) {
-      return res.status(400).json(encrypt({ error: "Invalid user data" }));
+      return res.status(400).json({ error: "Invalid user data" });
     }
+
     const isAdmin = ADMIN_IDS.includes(user.id.toString());
-    res.json(encrypt({ isAdmin }));
+    res.json({ isAdmin });
   } catch (e) {
-    logger.error(`Error in GET /api/isAdmin: ${e.message}, Stack: ${e.stack}`);
-    res.status(500).json(encrypt({ error: "Internal server error", details: e.message }));
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -521,88 +660,95 @@ bot.on("pre_checkout_query", async (ctx) => {
 });
 
 bot.on("message:successful_payment", async (ctx) => {
+  const release = await reviewsMutex.acquire();
   try {
     const payload = ctx.message.successful_payment.invoice_payload;
-    const review = await prisma.review.findUnique({ where: { id: payload } });
-    if (!review) {
+
+    if (!payload || !reviewsData[payload]) {
       await ctx.reply("Ошибка: не удалось обработать платеж. Обратитесь в поддержку.");
       return;
     }
-    await prisma.review.update({
-      where: { id: payload },
-      data: { date: new Date().toISOString() },
-    });
-    const keys = await redisClient.keys(`reviews:${review.targetUserId}:*`);
-    if (keys.length) await redisClient.del(keys);
-    await ctx.reply("Отзыв опубликован! Спасибо!");
-    const authorData = await bot.api.getChat(review.authorUserId);
-    const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-    const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
-    const message =
-      `*Новый отзыв\\!*\n\n` +
-      `Пользователь *${escapeMarkdownV2(authorUsername)}* оставил вам отзыв:\n` +
-      `> ${escapeMarkdownV2(review.text)}\n\n` +
-      `Дата: ${escapeMarkdownV2(new Date().toLocaleString())}`;
-    await bot.api.sendMessage(review.targetUserId, message, { parse_mode: "MarkdownV2" });
-  } catch (e) {
-    logger.error(`Error in payment processing: ${e.message}`);
-    await ctx.reply("Произошла ошибка при обработке отзыва.");
-  }
-});
 
-notificationQueue.process(async (job) => {
-  const { subscribers, job, vacancy } = job.data;
-  if (job) {
-    await Promise.all(
-      subscribers.map(subscriber =>
-        bot.api.sendMessage(
-          subscriber.userId,
-          `🎉 Новый фрилансер на позицию "${job.position}":\n\n📝 Описание: ${job.description}\n🔗 Контакт: https://t.me/workiks_admin`
-        ).catch(e => logger.error(`Failed to notify user ${subscriber.userId}: ${e.message}`))
-      )
-    );
-  } else if (vacancy) {
-    await Promise.all(
-      subscribers.map(subscriber =>
-        bot.api.sendMessage(
-          subscriber.userId,
-          `🏢 Компания "${vacancy.companyName}" разместила новую вакансию:\n\n📌 Позиция: ${vacancy.position}\n📝 Описание: ${vacancy.description}\n🔗 Контакт: ${vacancy.contact}`
-        ).catch(e => logger.error(`Failed to notify user ${subscriber.userId}: ${e.message}`))
-      )
-    );
+    const { authorUserId, targetUserId, text } = reviewsData[payload];
+    const reviewKey = `${authorUserId}_${Date.now()}`;
+    reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString() };
+    delete reviewsData[payload];
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    await ctx.reply("Отзыв опубликован! Спасибо!");
+
+    try {
+      const authorData = await bot.api.getChat(authorUserId);
+      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
+      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+      const escapedText = escapeMarkdownV2(text);
+      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
+      const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
+      const message =
+        `*Новый отзыв\\!*\n\n` +
+        `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
+        `> ${escapedText}\n\n` +
+        `Дата: ${escapedDate}`;
+      await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
+    } catch (e) {}
+  } catch (e) {
+    await ctx.reply("Произошла ошибка при обработке отзыва.");
+  } finally {
+    release();
   }
 });
 
 async function cleanOldTempReviews() {
+  const release = await reviewsMutex.acquire();
   try {
     const now = Date.now();
-    const oneHourAgo = new Date(now - 60 * 60 * 1000);
-    await prisma.review.deleteMany({
-      where: { date: null, createdAt: { lte: oneHourAgo } },
-    });
-  } catch (e) {
-    logger.error(`Error in cleanOldTempReviews: ${e.message}`);
+    let cleanedCount = 0;
+    for (const [key, review] of Object.entries(reviewsData)) {
+      if (!review.date && now - parseInt(key.split("_")[1]) > 60 * 60 * 1000) {
+        delete reviewsData[key];
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+    }
+  } catch (e) {}
+  finally {
+    release();
   }
 }
 
 setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 
-async function startServer() {
+async function ensureLogsDir() {
   try {
-    await prisma.$connect();
-    await redisClient.connect();
-    logger.info("Connected to Redis");
+    await fs.mkdir(LOGS_DIR, { recursive: true });
+  } catch (e) {}
+}
+
+Promise.all([
+  ensureLogsDir(),
+  initReviewsFile(),
+  initJobsFile(),
+  initFreelancerSubscriptionsFile(),
+  initVacanciesFile(),
+  initCompanySubscriptionsFile(),
+])
+  .then(async () => {
+    await loadJobs();
+    await loadReviews();
+    await loadFreelancerSubscriptions();
+    await loadVacancies();
+    await loadCompanySubscriptions();
     app.listen(port, () => {
       bot.start();
       logger.info(`Server running on port ${port}`);
     });
-  } catch (e) {
+  })
+  .catch((e) => {
     logger.error(`Failed to start server: ${e.message}`);
     process.exit(1);
-  }
-}
-
-startServer();
+  });
 
 process.on("uncaughtException", (err) => logger.error(`Uncaught Exception: ${err.message}`));
 process.on("unhandledRejection", (reason) => logger.error(`Unhandled Rejection: ${reason}`));
