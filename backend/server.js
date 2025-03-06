@@ -214,7 +214,7 @@ app.post("/api/jobs", async (req, res) => {
           try {
             await bot.api.sendMessage(
               subscriberId,
-              `🎉Новая вакансия в категории "${position}":\n\n` +
+              `🎉Новый фрилансер в категории "${position}":\n\n` +
               `📝Описание: ${description}\n` +
               `🔗Контакт: ${newJob.contact}`
             );

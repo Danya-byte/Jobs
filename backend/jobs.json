@@ -140,13 +140,13 @@
     "createdAt": "2025-03-05T21:16:18.920Z"
   },
   {
-    "id": "1741211799379_1940359844",
+    "id": "1741271370361_1940359844",
     "adminId": 1940359844,
-    "userId": 5164023566,
+    "userId": 2126355194,
     "username": "test",
     "nick": "test",
-    "position": "social media",
-    "profileLink": "/profile/5164023566",
+    "position": "test",
+    "profileLink": "/profile/2126355194",
     "experience": 12,
     "description": "test",
     "requirements": [
@@ -156,9 +156,9 @@
       "test"
     ],
     "categories": [
-      "social"
+      "it"
     ],
     "contact": "https://t.me/workiks_admin",
-    "createdAt": "2025-03-05T21:56:39.379Z"
+    "createdAt": "2025-03-06T14:29:30.361Z"
   }
 ]
