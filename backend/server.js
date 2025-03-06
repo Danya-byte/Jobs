@@ -1,5 +1,4 @@
 const { Bot } = require("grammy");
-const { rateLimiter } = require("@grammyjs/ratelimiter");
 const express = require("express");
 const cors = require("cors");
 const compression = require("compression");
@@ -17,11 +16,8 @@ const prisma = new PrismaClient();
 const redisClient = redis.createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
 
-// Инициализация бота
 const bot = new Bot(BOT_TOKEN);
-bot.use(rateLimiter({ timeFrame: 60000, limit: 30 })); // Ограничение 30 запросов в минуту
 
-// Логирование
 const logger = winston.createLogger({
   level: "info",
   format: winston.format.combine(
@@ -38,25 +34,23 @@ const logger = winston.createLogger({
   ],
 });
 
-// Middleware
-app.use(compression()); // Сжатие ответов
+app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], credentials: true }));
 
-// Логирование запросов
+// Оптимизированный middleware для логирования
 app.use((req, res, next) => {
   const startTime = Date.now();
   const oldJson = res.json;
 
   res.json = function (data) {
     const duration = Date.now() - startTime;
-    logger.info(`Request: ${req.method} ${req.path} | Response: ${JSON.stringify(data)} | Duration: ${duration}ms`);
+    logger.info(`Request: ${req.method} ${req.path} | Status: ${res.statusCode} | Duration: ${duration}ms`);
     return oldJson.call(this, data);
   };
   next();
 });
 
-// Валидация Telegram данных
 function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
@@ -76,14 +70,21 @@ function validateTelegramData(initData) {
   }
 }
 
-// Эндпоинты для Jobs
+// Эндпоинт с пагинацией и кэшированием
 app.get("/api/jobs", async (req, res) => {
   try {
-    const cached = await redisClient.get("jobs");
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    const cacheKey = `jobs:${page}:${limit}`;
+    const cached = await redisClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
-    const jobs = await prisma.job.findMany({ orderBy: { createdAt: "desc" } });
-    await redisClient.setEx("jobs", 3600, JSON.stringify(jobs)); // Кэш на 1 час
+    const jobs = await prisma.job.findMany({
+      orderBy: { createdAt: "desc" },
+      skip: parseInt(skip),
+      take: parseInt(limit),
+    });
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(jobs));
     res.json(jobs);
   } catch (e) {
     logger.error(`Error in GET /api/jobs: ${e.message}`);
@@ -127,24 +128,23 @@ app.post("/api/jobs", async (req, res) => {
       },
     });
 
-    // Очистка кэша
-    await redisClient.del("jobs");
+    // Очистка только постраничных кэшей
+    const keys = await redisClient.keys("jobs:*");
+    if (keys.length) await redisClient.del(keys);
 
-    // Уведомление подписчиков
     const subscribers = await prisma.freelancerSubscription.findMany({
       where: { positions: { has: position } },
     });
 
-    for (const subscriber of subscribers) {
-      try {
-        await bot.api.sendMessage(
+    // Параллельная отправка уведомлений
+    await Promise.all(
+      subscribers.map(subscriber =>
+        bot.api.sendMessage(
           subscriber.userId,
           `🎉 Новый фрилансер на позицию "${position}":\n\n📝 Описание: ${description}\n🔗 Контакт: https://t.me/workiks_admin`
-        );
-      } catch (e) {
-        logger.error(`Failed to notify user ${subscriber.userId}: ${e.message}`);
-      }
-    }
+        ).catch(e => logger.error(`Failed to notify user ${subscriber.userId}: ${e.message}`))
+      )
+    );
 
     res.json({ success: true, job: newJob });
   } catch (e) {
@@ -169,7 +169,8 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
     }
 
     await prisma.job.delete({ where: { id: jobId } });
-    await redisClient.del("jobs"); // Очистка кэша
+    const keys = await redisClient.keys("jobs:*");
+    if (keys.length) await redisClient.del(keys);
     res.json({ success: true });
   } catch (e) {
     logger.error(`Error in DELETE /api/jobs: ${e.message}`);
@@ -177,14 +178,21 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
   }
 });
 
-// Эндпоинты для Vacancies
+// Эндпоинт с пагинацией и кэшированием
 app.get("/api/vacancies", async (req, res) => {
   try {
-    const cached = await redisClient.get("vacancies");
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    const cacheKey = `vacancies:${page}:${limit}`;
+    const cached = await redisClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
-    const vacancies = await prisma.vacancy.findMany({ orderBy: { createdAt: "desc" } });
-    await redisClient.setEx("vacancies", 3600, JSON.stringify(vacancies)); // Кэш на 1 час
+    const vacancies = await prisma.vacancy.findMany({
+      orderBy: { createdAt: "desc" },
+      skip: parseInt(skip),
+      take: parseInt(limit),
+    });
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(vacancies));
     res.json(vacancies);
   } catch (e) {
     logger.error(`Error in GET /api/vacancies: ${e.message}`);
@@ -206,19 +214,7 @@ app.post("/api/vacancies", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const {
-      companyUserId,
-      companyName,
-      position,
-      description,
-      requirements,
-      tags,
-      categories,
-      contact,
-      officialWebsite,
-      verified,
-      photoUrl,
-    } = req.body;
+    const { companyUserId, companyName, position, description, requirements, tags, categories, contact, officialWebsite, verified, photoUrl } = req.body;
 
     if (!companyUserId || !companyName || !position || !description || !requirements || !tags || !contact || !officialWebsite || !photoUrl) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -241,22 +237,22 @@ app.post("/api/vacancies", async (req, res) => {
       },
     });
 
-    await redisClient.del("vacancies"); // Очистка кэша
+    const keys = await redisClient.keys("vacancies:*");
+    if (keys.length) await redisClient.del(keys);
 
     const subscribers = await prisma.companySubscription.findMany({
       where: { companies: { has: companyName } },
     });
 
-    for (const subscriber of subscribers) {
-      try {
-        await bot.api.sendMessage(
+    // Параллельная отправка уведомлений
+    await Promise.all(
+      subscribers.map(subscriber =>
+        bot.api.sendMessage(
           subscriber.userId,
           `🏢 Компания "${companyName}" разместила новую вакансию:\n\n📌 Позиция: ${position}\n📝 Описание: ${description}\n🔗 Контакт: ${contact}`
-        );
-      } catch (e) {
-        logger.error(`Failed to notify user ${subscriber.userId}: ${e.message}`);
-      }
-    }
+        ).catch(e => logger.error(`Failed to notify user ${subscriber.userId}: ${e.message}`))
+      )
+    );
 
     res.json({ success: true, vacancy: newVacancy });
   } catch (e) {
@@ -281,7 +277,8 @@ app.delete("/api/vacancies/:vacancyId", async (req, res) => {
     }
 
     await prisma.vacancy.delete({ where: { id: vacancyId } });
-    await redisClient.del("vacancies"); // Очистка кэша
+    const keys = await redisClient.keys("vacancies:*");
+    if (keys.length) await redisClient.del(keys);
     res.json({ success: true });
   } catch (e) {
     logger.error(`Error in DELETE /api/vacancies: ${e.message}`);
@@ -289,7 +286,6 @@ app.delete("/api/vacancies/:vacancyId", async (req, res) => {
   }
 });
 
-// Эндпоинты для пользователей
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -298,7 +294,8 @@ app.get("/api/user/:userId", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const cached = await redisClient.get(`user:${userId}`);
+    const cacheKey = `user:${userId}`;
+    const cached = await redisClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     const userJob = await prisma.job.findFirst({ where: { userId } });
@@ -321,7 +318,7 @@ app.get("/api/user/:userId", async (req, res) => {
     }
 
     const userData = { firstName, username: responseUsername, photoUrl };
-    await redisClient.setEx(`user:${userId}`, 86400, JSON.stringify(userData)); // Кэш на 24 часа
+    await redisClient.setEx(cacheKey, 86400, JSON.stringify(userData));
     res.json(userData);
   } catch (e) {
     logger.error(`Error in GET /api/user: ${e.message}`);
@@ -329,7 +326,6 @@ app.get("/api/user/:userId", async (req, res) => {
   }
 });
 
-// Эндпоинты для избранного
 app.post("/api/toggleFavorite", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -374,7 +370,7 @@ app.post("/api/toggleFavorite", async (req, res) => {
     }
 
     const favorites = await prisma.favorite.findMany({ where: { userId }, select: { itemId: true } });
-    await redisClient.del(`favorites:${userId}`); // Очистка кэша
+    await redisClient.del(`favorites:${userId}`);
     res.json({ success: true, favorites: favorites.map(f => f.itemId) });
   } catch (e) {
     logger.error(`Error in POST /api/toggleFavorite: ${e.message}`);
@@ -393,12 +389,13 @@ app.get("/api/favorites", async (req, res) => {
     const user = JSON.parse(params.get("user") || "{}");
     const userId = user.id.toString();
 
-    const cached = await redisClient.get(`favorites:${userId}`);
+    const cacheKey = `favorites:${userId}`;
+    const cached = await redisClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     const favorites = await prisma.favorite.findMany({ where: { userId }, select: { itemId: true } });
     const favoriteIds = favorites.map(f => f.itemId);
-    await redisClient.setEx(`favorites:${userId}`, 3600, JSON.stringify(favoriteIds));
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(favoriteIds));
     res.json(favoriteIds);
   } catch (e) {
     logger.error(`Error in GET /api/favorites: ${e.message}`);
@@ -406,7 +403,6 @@ app.get("/api/favorites", async (req, res) => {
   }
 });
 
-// Эндпоинты для отзывов
 app.post("/api/createInvoiceLink", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -443,13 +439,22 @@ app.post("/api/createInvoiceLink", async (req, res) => {
   }
 });
 
+// Эндпоинт с пагинацией и кэшированием
 app.get("/api/reviews", async (req, res) => {
   try {
-    const { targetUserId } = req.query;
+    const { targetUserId, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    const cacheKey = `reviews:${targetUserId}:${page}:${limit}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
+
     const reviews = await prisma.review.findMany({
       where: { targetUserId, date: { not: null } },
       orderBy: { date: "desc" },
+      skip: parseInt(skip),
+      take: parseInt(limit),
     });
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(reviews));
     res.json(reviews);
   } catch (e) {
     logger.error(`Error in GET /api/reviews: ${e.message}`);
@@ -472,7 +477,10 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    const review = await prisma.review.findUnique({ where: { id: reviewId } });
     await prisma.review.delete({ where: { id: reviewId } });
+    const keys = await redisClient.keys(`reviews:${review.targetUserId}:*`);
+    if (keys.length) await redisClient.del(keys);
     res.json({ success: true });
   } catch (e) {
     logger.error(`Error in DELETE /api/reviews: ${e.message}`);
@@ -480,7 +488,6 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
   }
 });
 
-// Проверка админского статуса
 app.get("/api/isAdmin", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -503,7 +510,6 @@ app.get("/api/isAdmin", async (req, res) => {
   }
 });
 
-// Обработка платежей Telegram
 bot.on("pre_checkout_query", async (ctx) => {
   await ctx.answerPreCheckoutQuery(true);
 });
@@ -523,6 +529,9 @@ bot.on("message:successful_payment", async (ctx) => {
       data: { date: new Date().toISOString() },
     });
 
+    const keys = await redisClient.keys(`reviews:${review.targetUserId}:*`);
+    if (keys.length) await redisClient.del(keys);
+
     await ctx.reply("Отзыв опубликован! Спасибо!");
 
     const authorData = await bot.api.getChat(review.authorUserId);
@@ -540,7 +549,6 @@ bot.on("message:successful_payment", async (ctx) => {
   }
 });
 
-// Очистка старых временных отзывов
 async function cleanOldTempReviews() {
   try {
     const now = Date.now();
@@ -555,9 +563,12 @@ async function cleanOldTempReviews() {
 
 setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 
-// Запуск сервера
 async function startServer() {
   try {
+    console.log("Connecting to database...");
+    console.log("Using DATABASE_URL:", process.env.DATABASE_URL);
+    await prisma.$connect();
+    console.log("Connected to database");
     await redisClient.connect();
     logger.info("Connected to Redis");
     app.listen(port, () => {
@@ -565,6 +576,7 @@ async function startServer() {
       logger.info(`Server running on port ${port}`);
     });
   } catch (e) {
+    console.error("Error details:", e);
     logger.error(`Failed to start server: ${e.message}`);
     process.exit(1);
   }
