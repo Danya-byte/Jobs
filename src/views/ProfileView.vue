@@ -16,26 +16,10 @@
         :src="avatarSrc"
         class="profile-avatar"
         @error="handleAvatarError"
-        @load="startAnimation"
         :class="{'avatar-visible': loaded}"
       >
       <h1 class="profile-name">{{ profileData.firstName }}</h1>
-      <div v-if="userVacancies.length > 0" class="jobs-section">
-        <h2>Company Vacancies</h2>
-        <div v-for="vacancy in userVacancies" :key="vacancy.id" class="job-item">
-          <img :src="vacancy.photoUrl" class="job-icon" loading="lazy" @error="handleAvatarError">
-          <p class="job-title">{{ vacancy.position }}</p>
-          <p class="job-description">{{ vacancy.description }}</p>
-        </div>
-      </div>
-      <div v-else-if="userJobs.length > 0" class="jobs-section">
-        <h2>Freelancer Jobs</h2>
-        <div v-for="job in userJobs" :key="job.id" class="job-item">
-          <p class="job-title">{{ job.position }}</p>
-          <p class="job-description">{{ job.description }}</p>
-        </div>
-      </div>
-      <div v-if="userVacancies.length === 0" class="reviews-section">
+      <div class="reviews-section">
         <textarea
           v-model="reviewText"
           class="review-input"
@@ -89,8 +73,6 @@ const profileData = reactive({
 });
 const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
-const userJobs = ref([]);
-const userVacancies = ref([]);
 const reviewText = ref('');
 const isAdmin = ref(false);
 const isTouched = ref(false);
@@ -151,19 +133,6 @@ const loadReviews = async () => {
     allReviews.value = filteredAndSortedReviews;
   } catch (error) {
     console.error('Error loading reviews:', error);
-  }
-};
-
-const loadUserData = async () => {
-  try {
-    const jobsResponse = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/jobs`);
-    const vacanciesResponse = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/vacancies`);
-    const jobs = await jobsResponse.json();
-    const vacancies = await vacanciesResponse.json();
-    userJobs.value = jobs.filter(job => job.userId.toString() === userId.value);
-    userVacancies.value = vacancies.filter(vacancy => vacancy.companyUserId.toString() === userId.value);
-  } catch (error) {
-    console.error('Error loading user data:', error);
   }
 };
 
@@ -235,7 +204,6 @@ onMounted(async () => {
   await checkAdminStatus();
   await loadProfileData();
   await loadReviews();
-  await loadUserData();
 });
 </script>
 
@@ -378,48 +346,6 @@ onMounted(async () => {
   font-size: 25px;
   margin-top: 15px;
   text-shadow: 0 4px 10px rgba(151, 244, 146, 0.2);
-}
-
-.jobs-section {
-  margin-top: 20px;
-  padding: 20px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 12px;
-}
-
-.jobs-section h2 {
-  color: #97f492;
-  margin-bottom: 15px;
-  font-size: 20px;
-}
-
-.job-item {
-  background: rgba(255,255,255,0.05);
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.job-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  object-fit: cover;
-}
-
-.job-title {
-  color: #fff;
-  font-size: 16px;
-  margin: 0;
-}
-
-.job-description {
-  color: #c2c6cf;
-  font-size: 14px;
-  margin: 5px 0 0;
 }
 
 .reviews-section {
