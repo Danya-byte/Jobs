@@ -237,25 +237,6 @@ app.post("/api/jobs", async (req, res) => {
     jobsData.push(newJob);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
 
-    if (categories && categories.length > 0) {
-      for (const category of categories) {
-        const subscribers = Object.entries(subscriptionsData)
-          .filter(([_, cats]) => cats.includes(category))
-          .map(([userId]) => userId);
-
-        for (const subscriberId of subscribers) {
-          try {
-            await bot.api.sendMessage(
-              subscriberId,
-              `🎉Новый фрилансер в категории "${position}":\n\n` +
-              `📝Описание: ${description}\n` +
-              `🔗Контакт: ${newJob.contact}`
-            );
-          } catch (e) {}
-        }
-      }
-    }
-
     res.json({ success: true, job: newJob });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -352,27 +333,6 @@ app.post("/api/vacancies", async (req, res) => {
         );
       } catch (e) {
         logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
-      }
-    }
-
-    if (newVacancy.categories && newVacancy.categories.length > 0) {
-      for (const category of newVacancy.categories) {
-        const categorySubscribers = Object.entries(subscriptionsData)
-          .filter(([_, cats]) => cats.includes(category))
-          .map(([userId]) => userId);
-
-        for (const subscriberId of categorySubscribers) {
-          try {
-            await bot.api.sendMessage(
-              subscriberId,
-              `🎉 Новая вакансия в категории "${category}":\n\n` +
-              `🏢 ${newVacancy.companyName}\n` +
-              `📌 ${newVacancy.position}\n` +
-              `📝 ${newVacancy.description}\n` +
-              `🔗 ${newVacancy.contact}`
-            );
-          } catch (e) {}
-        }
       }
     }
 
@@ -509,7 +469,6 @@ app.post("/api/unsubscribe", async (req, res) => {
 });
 
 app.post("/api/toggleFavorite", async (req, res) => {
-  const releaseSubs = await subscriptionsMutex.acquire();
   const releaseCompanySubs = await companySubscriptionsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -525,51 +484,31 @@ app.post("/api/toggleFavorite", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const job = jobsData.find(j => j.id === itemId);
     const vacancy = vacanciesData.find(v => v.id === itemId);
-    const isVacancy = !!vacancy;
+    if (!vacancy) {
+      return res.status(400).json({ error: "Only vacancies can be subscribed to" });
+    }
+
     const favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
     const favoriteIndex = favoriteJobs.indexOf(itemId);
 
     if (favoriteIndex === -1) {
       favoriteJobs.push(itemId);
-
-      if (isVacancy) {
-        if (!companySubscriptionsData[user.id]) {
-          companySubscriptionsData[user.id] = [];
-        }
-        const companyId = vacancy.companyUserId.toString();
-        if (!companySubscriptionsData[user.id].includes(companyId)) {
-          companySubscriptionsData[user.id].push(companyId);
-          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
-        }
-      } else {
-        const category = job.categories[0];
-        if (!subscriptionsData[user.id]) {
-          subscriptionsData[user.id] = [];
-        }
-        if (!subscriptionsData[user.id].includes(category)) {
-          subscriptionsData[user.id].push(category);
-          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
-        }
+      if (!companySubscriptionsData[user.id]) {
+        companySubscriptionsData[user.id] = [];
+      }
+      const companyId = vacancy.companyUserId.toString();
+      if (!companySubscriptionsData[user.id].includes(companyId)) {
+        companySubscriptionsData[user.id].push(companyId);
+        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
       }
     } else {
       favoriteJobs.splice(favoriteIndex, 1);
-
-      if (isVacancy) {
-        const companyId = vacancy.companyUserId.toString();
-        if (companySubscriptionsData[user.id]) {
-          companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter(id => id !== companyId);
-          if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
-          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
-        }
-      } else {
-        const category = job.categories[0];
-        if (subscriptionsData[user.id]) {
-          subscriptionsData[user.id] = subscriptionsData[user.id].filter(cat => cat !== category);
-          if (subscriptionsData[user.id].length === 0) delete subscriptionsData[user.id];
-          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
-        }
+      const companyId = vacancy.companyUserId.toString();
+      if (companySubscriptionsData[user.id]) {
+        companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter(id => id !== companyId);
+        if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
+        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
       }
     }
 
@@ -578,7 +517,6 @@ app.post("/api/toggleFavorite", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
-    releaseSubs();
     releaseCompanySubs();
   }
 });

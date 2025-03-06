@@ -522,13 +522,13 @@ const toggleFavorite = async (itemId) => {
       await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
         headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Вы подписались на уведомления для этой категории!");
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
     } else {
       favoriteJobs.value.splice(index, 1);
       await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
         headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Вы отписались от уведомлений для этой категории.");
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
     }
     localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
   } catch (error) {
