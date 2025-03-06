@@ -417,7 +417,7 @@ onMounted(() => {
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
     if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#181e29');
+      Telegram.WebApp.setHeaderColor('#97f492');
     }
     if (window.Telegram.WebApp.initDataUnsafe?.user) {
       const user = Telegram.WebApp.initDataUnsafe.user;
