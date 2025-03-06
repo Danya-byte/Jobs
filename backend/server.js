@@ -214,10 +214,9 @@ app.post("/api/jobs", async (req, res) => {
           try {
             await bot.api.sendMessage(
               subscriberId,
-              `Новая вакансия в категории "${category}":\n\n` +
-              `Позиция: ${position}\n` +
-              `Описание: ${description}\n` +
-              `Контакт: ${newJob.contact}`
+              `🎉Новая вакансия в категории "${position}":\n\n` +
+              `📝Описание: ${description}\n` +
+              `🔗Контакт: ${newJob.contact}`
             );
             logger.info(`Notification sent to user ${subscriberId} for job ${newJob.id}`);
           } catch (e) {
@@ -505,6 +504,28 @@ bot.on("message:successful_payment", async (ctx) => {
     logger.info(`Review added from payment by user ${authorUserId}: ${reviewKey}`);
 
     await ctx.reply("Отзыв опубликован! Спасибо!");
+
+    try {
+      const authorData = await bot.api.getChat(authorUserId);
+      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
+
+      const escapeMarkdownV2 = (str) => {
+        return str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
+      };
+
+      const escapedText = escapeMarkdownV2(text);
+      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
+      const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
+      const message = `*Новый отзыв\\!*\n\n` +
+                      `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
+                      `> ${escapedText}\n\n` +
+                      `Дата: ${escapedDate}`;
+
+      await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
+      logger.info(`Review notification sent to user ${targetUserId} from ${authorUserId}`);
+    } catch (e) {
+      logger.error(`Failed to send review notification to ${targetUserId}: ${e.message}`);
+    }
   } catch (e) {
     logger.error(`Error in payment handler: ${e.message}`);
     await ctx.reply("Произошла ошибка при обработке отзыва.");

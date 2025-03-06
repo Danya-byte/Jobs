@@ -218,7 +218,8 @@ const categories = [
     { label: 'Social Media', value: 'social' },
     { label: 'Management', value: 'management' },
     { label: 'Design', value: 'design' },
-    { label: 'Marketing', value: 'marketing' }
+    { label: 'Marketing', value: 'marketing' },
+    { label: 'Finance', value: 'finance' }
 ];
 
 const sortedJobs = computed(() => {
