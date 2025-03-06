@@ -12,6 +12,7 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || "your-32-char-secret-key-here", "hex"); // 32 байта для AES-256
 const prisma = new PrismaClient();
 const redisClient = redis.createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
@@ -51,6 +52,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Функция для шифрования данных
+function encrypt(data) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(JSON.stringify(data), "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return { iv: iv.toString("hex"), encryptedData: encrypted };
+}
+
+// Функция для проверки Telegram данных
 function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
@@ -77,15 +88,19 @@ app.get("/api/jobs", async (req, res) => {
     const skip = (page - 1) * limit;
     const cacheKey = `jobs:${page}:${limit}`;
     const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    if (cached) {
+      const { iv, encryptedData } = JSON.parse(cached);
+      return res.json({ iv, encryptedData }); // Возвращаем зашифрованные данные из кэша
+    }
 
     const jobs = await prisma.job.findMany({
       orderBy: { createdAt: "desc" },
       skip: parseInt(skip),
       take: parseInt(limit),
     });
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(jobs));
-    res.json(jobs);
+    const encrypted = encrypt(jobs);
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
+    res.json(encrypted); // Возвращаем зашифрованные данные
   } catch (e) {
     logger.error(`Error in GET /api/jobs: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -128,7 +143,6 @@ app.post("/api/jobs", async (req, res) => {
       },
     });
 
-    // Очистка только постраничных кэшей
     const keys = await redisClient.keys("jobs:*");
     if (keys.length) await redisClient.del(keys);
 
@@ -136,7 +150,6 @@ app.post("/api/jobs", async (req, res) => {
       where: { positions: { has: position } },
     });
 
-    // Параллельная отправка уведомлений
     await Promise.all(
       subscribers.map(subscriber =>
         bot.api.sendMessage(
@@ -146,7 +159,7 @@ app.post("/api/jobs", async (req, res) => {
       )
     );
 
-    res.json({ success: true, job: newJob });
+    res.json(encrypt({ success: true, job: newJob })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in POST /api/jobs: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -171,29 +184,32 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
     await prisma.job.delete({ where: { id: jobId } });
     const keys = await redisClient.keys("jobs:*");
     if (keys.length) await redisClient.del(keys);
-    res.json({ success: true });
+    res.json(encrypt({ success: true })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in DELETE /api/jobs: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Эндпоинт с пагинацией и кэшированием
 app.get("/api/vacancies", async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
     const cacheKey = `vacancies:${page}:${limit}`;
     const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    if (cached) {
+      const { iv, encryptedData } = JSON.parse(cached);
+      return res.json({ iv, encryptedData }); // Возвращаем зашифрованные данные из кэша
+    }
 
     const vacancies = await prisma.vacancy.findMany({
       orderBy: { createdAt: "desc" },
       skip: parseInt(skip),
       take: parseInt(limit),
     });
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(vacancies));
-    res.json(vacancies);
+    const encrypted = encrypt(vacancies);
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
+    res.json(encrypted); // Возвращаем зашифрованные данные
   } catch (e) {
     logger.error(`Error in GET /api/vacancies: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -244,7 +260,6 @@ app.post("/api/vacancies", async (req, res) => {
       where: { companies: { has: companyName } },
     });
 
-    // Параллельная отправка уведомлений
     await Promise.all(
       subscribers.map(subscriber =>
         bot.api.sendMessage(
@@ -254,7 +269,7 @@ app.post("/api/vacancies", async (req, res) => {
       )
     );
 
-    res.json({ success: true, vacancy: newVacancy });
+    res.json(encrypt({ success: true, vacancy: newVacancy })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in POST /api/vacancies: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -279,7 +294,7 @@ app.delete("/api/vacancies/:vacancyId", async (req, res) => {
     await prisma.vacancy.delete({ where: { id: vacancyId } });
     const keys = await redisClient.keys("vacancies:*");
     if (keys.length) await redisClient.del(keys);
-    res.json({ success: true });
+    res.json(encrypt({ success: true })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in DELETE /api/vacancies: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -296,7 +311,10 @@ app.get("/api/user/:userId", async (req, res) => {
 
     const cacheKey = `user:${userId}`;
     const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    if (cached) {
+      const { iv, encryptedData } = JSON.parse(cached);
+      return res.json({ iv, encryptedData }); // Возвращаем зашифрованные данные из кэша
+    }
 
     const userJob = await prisma.job.findFirst({ where: { userId } });
     const userVacancy = await prisma.vacancy.findFirst({ where: { companyUserId: userId } });
@@ -318,8 +336,9 @@ app.get("/api/user/:userId", async (req, res) => {
     }
 
     const userData = { firstName, username: responseUsername, photoUrl };
-    await redisClient.setEx(cacheKey, 86400, JSON.stringify(userData));
-    res.json(userData);
+    const encrypted = encrypt(userData);
+    await redisClient.setEx(cacheKey, 86400, JSON.stringify(encrypted));
+    res.json(encrypted); // Возвращаем зашифрованные данные
   } catch (e) {
     logger.error(`Error in GET /api/user: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -371,7 +390,7 @@ app.post("/api/toggleFavorite", async (req, res) => {
 
     const favorites = await prisma.favorite.findMany({ where: { userId }, select: { itemId: true } });
     await redisClient.del(`favorites:${userId}`);
-    res.json({ success: true, favorites: favorites.map(f => f.itemId) });
+    res.json(encrypt({ success: true, favorites: favorites.map(f => f.itemId) })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in POST /api/toggleFavorite: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -391,12 +410,16 @@ app.get("/api/favorites", async (req, res) => {
 
     const cacheKey = `favorites:${userId}`;
     const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    if (cached) {
+      const { iv, encryptedData } = JSON.parse(cached);
+      return res.json({ iv, encryptedData }); // Возвращаем зашифрованные данные из кэша
+    }
 
     const favorites = await prisma.favorite.findMany({ where: { userId }, select: { itemId: true } });
     const favoriteIds = favorites.map(f => f.itemId);
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(favoriteIds));
-    res.json(favoriteIds);
+    const encrypted = encrypt(favoriteIds);
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
+    res.json(encrypted); // Возвращаем зашифрованные данные
   } catch (e) {
     logger.error(`Error in GET /api/favorites: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -432,21 +455,23 @@ app.post("/api/createInvoiceLink", async (req, res) => {
       [{ label: "Review Submission", amount: 1 }]
     );
 
-    res.json({ success: true, invoiceLink });
+    res.json(encrypt({ success: true, invoiceLink })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in POST /api/createInvoiceLink: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Эндпоинт с пагинацией и кэшированием
 app.get("/api/reviews", async (req, res) => {
   try {
     const { targetUserId, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
     const cacheKey = `reviews:${targetUserId}:${page}:${limit}`;
     const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    if (cached) {
+      const { iv, encryptedData } = JSON.parse(cached);
+      return res.json({ iv, encryptedData }); // Возвращаем зашифрованные данные из кэша
+    }
 
     const reviews = await prisma.review.findMany({
       where: { targetUserId, date: { not: null } },
@@ -454,8 +479,9 @@ app.get("/api/reviews", async (req, res) => {
       skip: parseInt(skip),
       take: parseInt(limit),
     });
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(reviews));
-    res.json(reviews);
+    const encrypted = encrypt(reviews);
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(encrypted));
+    res.json(encrypted); // Возвращаем зашифрованные данные
   } catch (e) {
     logger.error(`Error in GET /api/reviews: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -481,7 +507,7 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
     await prisma.review.delete({ where: { id: reviewId } });
     const keys = await redisClient.keys(`reviews:${review.targetUserId}:*`);
     if (keys.length) await redisClient.del(keys);
-    res.json({ success: true });
+    res.json(encrypt({ success: true })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in DELETE /api/reviews: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
@@ -503,7 +529,7 @@ app.get("/api/isAdmin", async (req, res) => {
     }
 
     const isAdmin = ADMIN_IDS.includes(user.id.toString());
-    res.json({ isAdmin });
+    res.json(encrypt({ isAdmin })); // Зашифрованный ответ
   } catch (e) {
     logger.error(`Error in GET /api/isAdmin: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
