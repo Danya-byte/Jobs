@@ -70,7 +70,7 @@ function hexToBytes(hex) {
 async function decrypt(encryptedData, iv) {
   const crypto = window.crypto || window.msCrypto;
   try {
-    const keyBuffer = hexToBytes(ENCRYPTION_KEY); // Преобразуем hex-строку в байты
+    const keyBuffer = hexToBytes(ENCRYPTION_KEY);
     const key = await crypto.subtle.importKey(
       'raw',
       keyBuffer,
