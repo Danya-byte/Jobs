@@ -1,7 +1,14 @@
 <template>
   <div class="profile-container" @click="handleClickOutside">
     <RouterLink to="/" class="back-btn">
-      <img src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png" alt="Back">
+      <div class="back-button-wrapper">
+        <img
+          src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png"
+          alt="Back"
+          class="back-icon"
+        >
+        <span class="back-text">Назад</span>
+      </div>
     </RouterLink>
 
     <div class="profile-content">
@@ -206,15 +213,66 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-.back-btn img {
-  width: 30px;
-  height: 30px;
-  filter: invert(1);
+.back-btn {
+  text-decoration: none;
+  display: inline-block;
+  position: relative;
+  z-index: 1000;
+}
+
+.back-button-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 25px;
+  border: 1px solid rgba(151, 244, 146, 0.2);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  animation: slideIn 0.5s ease-out;
+}
+
+.back-icon {
+  width: 24px;
+  height: 24px;
+  filter: invert(1) brightness(1.5);
   transition: transform 0.3s ease;
 }
 
-.back-btn:hover img {
+.back-text {
+  color: #97f492;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  width: 0;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover .back-button-wrapper {
+  background: rgba(151, 244, 146, 0.15);
   transform: translateX(-5px);
+  box-shadow: 0 0 15px rgba(151, 244, 146, 0.2);
+}
+
+.back-btn:hover .back-icon {
+  transform: rotate(-45deg);
+}
+
+.back-btn:hover .back-text {
+  opacity: 1;
+  width: auto;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .profile-content {
