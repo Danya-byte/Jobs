@@ -17,6 +17,7 @@ const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
 const SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
 const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
+const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
 
@@ -24,11 +25,13 @@ const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
 const subscriptionsMutex = new Mutex();
 const vacanciesMutex = new Mutex();
+const companySubscriptionsMutex = new Mutex();
 
 let jobsData = [];
 let reviewsData = {};
 let subscriptionsData = {};
 let vacanciesData = [];
+let companySubscriptionsData = [];
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -116,6 +119,16 @@ async function initVacanciesFile() {
   }
 }
 
+async function initCompanySubscriptionsFile() {
+  try {
+    await fs.access(COMPANY_SUBSCRIPTIONS_FILE);
+    const data = await fs.readFile(COMPANY_SUBSCRIPTIONS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, "{}");
+  } catch {
+    await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, "{}");
+  }
+}
+
 async function loadJobs() {
   try {
     const rawData = await fs.readFile(JOBS_FILE, "utf8");
@@ -149,6 +162,15 @@ async function loadVacancies() {
     vacanciesData = rawData.trim() ? JSON.parse(rawData) : [];
   } catch (e) {
     vacanciesData = [];
+  }
+}
+
+async function loadCompanySubscriptions() {
+  try {
+    const rawData = await fs.readFile(COMPANY_SUBSCRIPTIONS_FILE, "utf8");
+    companySubscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
+  } catch (e) {
+    companySubscriptionsData = {};
   }
 }
 
@@ -313,6 +335,47 @@ app.post("/api/vacancies", async (req, res) => {
     };
     vacanciesData.push(newVacancy);
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
+
+    const companyId = newVacancy.companyUserId.toString();
+    const subscribers = Object.entries(companySubscriptionsData)
+      .filter(([_, companies]) => companies.includes(companyId))
+      .map(([userId]) => userId);
+
+    for (const subscriberId of subscribers) {
+      try {
+        await bot.api.sendMessage(
+          subscriberId,
+          `🏢 Компания "${newVacancy.companyName}" разместила новую вакансию:\n\n` +
+          `📌 ${newVacancy.position}\n` +
+          `📝 ${newVacancy.description}\n` +
+          `🔗 ${newVacancy.contact}`
+        );
+      } catch (e) {
+        logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
+      }
+    }
+
+    if (newVacancy.categories && newVacancy.categories.length > 0) {
+      for (const category of newVacancy.categories) {
+        const categorySubscribers = Object.entries(subscriptionsData)
+          .filter(([_, cats]) => cats.includes(category))
+          .map(([userId]) => userId);
+
+        for (const subscriberId of categorySubscribers) {
+          try {
+            await bot.api.sendMessage(
+              subscriberId,
+              `🎉 Новая вакансия в категории "${category}":\n\n` +
+              `🏢 ${newVacancy.companyName}\n` +
+              `📌 ${newVacancy.position}\n` +
+              `📝 ${newVacancy.description}\n` +
+              `🔗 ${newVacancy.contact}`
+            );
+          } catch (e) {}
+        }
+      }
+    }
+
     res.json({ success: true, vacancy: newVacancy });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -442,6 +505,87 @@ app.post("/api/unsubscribe", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
+  }
+});
+
+app.post("/api/toggleFavorite", async (req, res) => {
+  const releaseSubs = await subscriptionsMutex.acquire();
+  const releaseCompanySubs = await companySubscriptionsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    const { itemId } = req.body;
+
+    if (!user.id || !itemId) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const job = jobsData.find(j => j.id === itemId);
+    const vacancy = vacanciesData.find(v => v.id === itemId);
+    const isVacancy = !!vacancy;
+    const favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+    const favoriteIndex = favoriteJobs.indexOf(itemId);
+    let message = "";
+
+    if (favoriteIndex === -1) {
+      favoriteJobs.push(itemId);
+
+      if (isVacancy) {
+        if (!companySubscriptionsData[user.id]) {
+          companySubscriptionsData[user.id] = [];
+        }
+        const companyId = vacancy.companyUserId.toString();
+        if (!companySubscriptionsData[user.id].includes(companyId)) {
+          companySubscriptionsData[user.id].push(companyId);
+          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+        }
+        message = "Вы подписались на вакансии компании!";
+      } else {
+        const category = job.categories[0];
+        if (!subscriptionsData[user.id]) {
+          subscriptionsData[user.id] = [];
+        }
+        if (!subscriptionsData[user.id].includes(category)) {
+          subscriptionsData[user.id].push(category);
+          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+        }
+        message = "Вы подписались на уведомления для этой категории!";
+      }
+    } else {
+      favoriteJobs.splice(favoriteIndex, 1);
+
+      if (isVacancy) {
+        const companyId = vacancy.companyUserId.toString();
+        if (companySubscriptionsData[user.id]) {
+          companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter(id => id !== companyId);
+          if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
+          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+        }
+        message = "Вы отписались от вакансий компании.";
+      } else {
+        const category = job.categories[0];
+        if (subscriptionsData[user.id]) {
+          subscriptionsData[user.id] = subscriptionsData[user.id].filter(cat => cat !== category);
+          if (subscriptionsData[user.id].length === 0) delete subscriptionsData[user.id];
+          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+        }
+        message = "Вы отписались от уведомлений для этой категории.";
+      }
+    }
+
+    await fs.writeFile(path.join(__dirname, "favoriteJobs.json"), JSON.stringify(favoriteJobs, null, 2));
+    await bot.api.sendMessage(user.id, message);
+    res.json({ success: true, favorites: favoriteJobs });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    releaseSubs();
+    releaseCompanySubs();
   }
 });
 
@@ -617,12 +761,20 @@ async function ensureLogsDir() {
   } catch (e) {}
 }
 
-Promise.all([ensureLogsDir(), initReviewsFile(), initJobsFile(), initSubscriptionsFile(), initVacanciesFile()])
+Promise.all([
+  ensureLogsDir(),
+  initReviewsFile(),
+  initJobsFile(),
+  initSubscriptionsFile(),
+  initVacanciesFile(),
+  initCompanySubscriptionsFile()
+])
   .then(async () => {
     await loadJobs();
     await loadReviews();
     await loadSubscriptions();
     await loadVacancies();
+    await loadCompanySubscriptions();
     app.listen(port, () => {
       bot.start();
       logger.info(`Server running on port ${port}`);

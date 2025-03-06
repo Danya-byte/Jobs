@@ -66,7 +66,7 @@
                     <div class="card-header">
                         <img :src="vacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
                         <div class="job-info">
-                            <p class="nick">{{ vacancy.companyName }} <span v-if="vacancy.verified" class="verified-badge">✔</span></p>
+                            <p class="nick">{{ vacancy.companyName }} <span v-if="vacancy.verified" class="verified-label">Verified</span></p>
                             <p class="work">{{ vacancy.position }}</p>
                             <p class="experience">{{ vacancy.description.slice(0, 50) + '...' }}</p>
                         </div>
@@ -161,7 +161,7 @@
                         <a :href="selectedVacancy.officialWebsite" target="_blank" class="company-link">
                             <img :src="selectedVacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
                             <div>
-                                <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-badge">✔</span></p>
+                                <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-label">Verified</span></p>
                             </div>
                         </a>
                         <button class="favorite-btn" @click="toggleFavorite(selectedVacancy.id)">
@@ -515,36 +515,17 @@ const handleClickOutside = (event) => {
 
 const toggleFavorite = async (itemId) => {
   const index = favoriteJobs.value.indexOf(itemId);
-  const job = jobs.value.find(j => j.id === itemId) || vacancies.value.find(v => v.id === itemId);
-  const telegramData = window.Telegram.WebApp.initData;
-
-  if (!telegramData) {
-    console.error('Telegram WebApp data not available');
-    return;
-  }
-
-  const params = new URLSearchParams(telegramData);
-  const user = JSON.parse(params.get("user") || "{}");
-
   try {
     if (index === -1) {
       favoriteJobs.value.push(itemId);
-      await axios.post(`${BASE_URL}/api/subscribe`, {
-        userId: user.id,
-        category: job.categories[0]
-      }, {
-        headers: { 'X-Telegram-Data': telegramData }
+      await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
-      Telegram.WebApp.showAlert("Вы подписались на уведомления для этой категории!");
     } else {
       favoriteJobs.value.splice(index, 1);
-      await axios.post(`${BASE_URL}/api/unsubscribe`, {
-        userId: user.id,
-        category: job.categories[0]
-      }, {
-        headers: { 'X-Telegram-Data': telegramData }
+      await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
-      Telegram.WebApp.showAlert("Вы отписались от уведомлений для этой категории.");
     }
     localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
   } catch (error) {
@@ -670,5 +651,5 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .selected-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
 .filter-pill { display: inline-flex; align-items: center; background: #2d3540; padding: 6px 12px; border-radius: 20px; color: #97f492; font-size: 14px; }
 .filter-pill button { background: none; border: none; color: #97f492; margin-left: 8px; cursor: pointer; }
-.verified-badge { color: #97f492; font-size: 14px; margin-left: 5px; }
+.verified-label { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; font-weight: 600; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 </style>
