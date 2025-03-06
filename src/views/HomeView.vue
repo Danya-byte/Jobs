@@ -526,7 +526,7 @@ const handleClickOutside = (event) => {
 
 const toggleFavorite = async (itemId) => {
   const isVacancyItem = vacancies.value.some(v => v.id === itemId);
-  const wasFavorite = favoriteJobs.value.includes(itemId); // Проверяем, был ли элемент в избранном
+  const wasFavorite = favoriteJobs.value.includes(itemId);
   try {
     const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
