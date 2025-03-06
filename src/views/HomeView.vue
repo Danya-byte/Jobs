@@ -287,9 +287,6 @@ const categories = [
 ];
 
 function hexToBytes(hex) {
-  if (typeof hex !== 'string' || !hex) {
-    throw new Error('Invalid hex string: must be a non-empty string');
-  }
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
@@ -298,33 +295,10 @@ function hexToBytes(hex) {
 }
 
 async function decrypt(encryptedData, iv) {
-  const crypto = window.crypto || window.msCrypto;
-  if (!crypto) {
-    throw new Error('Crypto API is not available');
-  }
-  if (!encryptedData || !iv) {
-    throw new Error('Missing encryptedData or iv');
-  }
-  try {
-    const keyBuffer = hexToBytes(ENCRYPTION_KEY);
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyBuffer,
-      { name: 'AES-CBC' },
-      false,
-      ['decrypt']
-    );
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) },
-      key,
-      new Uint8Array(hexToBytes(encryptedData))
-    );
-    const decoder = new TextDecoder();
-    return JSON.parse(decoder.decode(decrypted));
-  } catch (error) {
-    console.error('Decryption error:', error);
-    throw error;
-  }
+  const keyBuffer = hexToBytes(ENCRYPTION_KEY);
+  const key = await window.crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-CBC' }, false, ['decrypt']);
+  const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) }, key, new Uint8Array(hexToBytes(encryptedData)));
+  return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 const fetchData = debounce(async () => {
@@ -332,9 +306,6 @@ const fetchData = debounce(async () => {
   try {
     const endpoint = activeTab.value === 'jobs' ? '/api/jobs' : '/api/vacancies';
     const response = await axios.get(`${BASE_URL}${endpoint}`, { timeout: 5000 });
-    if (!response.data.iv || !response.data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
     const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
     if (activeTab.value === 'jobs') jobs.value = decryptedData;
     else vacancies.value = decryptedData;
@@ -384,14 +355,8 @@ const isNew = (item) => {
 
 const fetchFavorites = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/favorites`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    if (!response.data.iv || !response.data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
-    favoriteJobs.value = decryptedData;
+    const response = await axios.get(`${BASE_URL}/api/favorites`, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
+    favoriteJobs.value = await decrypt(response.data.encryptedData, response.data.iv);
   } catch (error) {
     console.error('Error fetching favorites:', error.message);
   }
@@ -410,36 +375,13 @@ const showVacancyDetails = (vacancy) => {
 };
 
 const showAddJobModal = () => {
-  newItem.value = {
-    userId: '',
-    nick: '',
-    username: '',
-    position: '',
-    experience: null,
-    description: '',
-    requirements: [],
-    tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin'
-  };
+  newItem.value = { userId: '', nick: '', username: '', position: '', experience: null, description: '', requirements: [], tags: [], categories: [], contact: 'https://t.me/workiks_admin' };
   addMode.value = 'job';
   showAddModal.value = true;
 };
 
 const showAddVacancyModal = () => {
-  newItem.value = {
-    companyUserId: '',
-    companyName: '',
-    position: '',
-    description: '',
-    requirements: [],
-    tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin',
-    officialWebsite: '',
-    verified: false,
-    photoUrl: ''
-  };
+  newItem.value = { companyUserId: '', companyName: '', position: '', description: '', requirements: [], tags: [], categories: [], contact: 'https://t.me/workiks_admin', officialWebsite: '', verified: false, photoUrl: '' };
   addMode.value = 'vacancy';
   showAddModal.value = true;
 };
@@ -447,10 +389,7 @@ const showAddVacancyModal = () => {
 const toggleFilterModal = () => {
   showFilterModal.value = !showFilterModal.value;
   if (showFilterModal.value) {
-    nextTick(() => {
-      const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
-      firstCheckbox?.focus();
-    });
+    nextTick(() => document.querySelector('.filter-modal input[type="checkbox"]')?.focus());
   }
 };
 
@@ -475,19 +414,16 @@ const submitItem = async () => {
       Telegram.WebApp.showAlert("Please fill in all required fields!");
       return;
     }
+    jobs.value.push({ ...newItem.value, id: 'temp', createdAt: new Date().toISOString() });
+    showAddModal.value = false;
     try {
       const jobData = { ...newItem.value, contact: 'https://t.me/workiks_admin', categories: newItem.value.categories || [] };
-      const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-      });
-      if (!response.data.iv || !response.data.encryptedData) {
-        throw new Error('Invalid server response: missing iv or encryptedData');
-      }
+      const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
       const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
-      jobs.value.push(decryptedData.job);
-      showAddModal.value = false;
-      fetchData();
+      jobs.value = jobs.value.map(job => job.id === 'temp' ? decryptedData.job : job);
     } catch (error) {
+      jobs.value = jobs.value.filter(job => job.id !== 'temp');
+      Telegram.WebApp.showAlert("Error adding job!");
       console.error('Error submitting job:', error.message);
     }
   } else {
@@ -495,19 +431,16 @@ const submitItem = async () => {
       Telegram.WebApp.showAlert("Please fill in all required fields!");
       return;
     }
+    vacancies.value.push({ ...newItem.value, id: 'temp', createdAt: new Date().toISOString() });
+    showAddModal.value = false;
     try {
       const vacancyData = { ...newItem.value, categories: newItem.value.categories || [] };
-      const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-      });
-      if (!response.data.iv || !response.data.encryptedData) {
-        throw new Error('Invalid server response: missing iv or encryptedData');
-      }
+      const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
       const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
-      vacancies.value.push(decryptedData.vacancy);
-      showAddModal.value = false;
-      fetchData();
+      vacancies.value = vacancies.value.map(vac => vac.id === 'temp' ? decryptedData.vacancy : vac);
     } catch (error) {
+      vacancies.value = vacancies.value.filter(vac => vac.id !== 'temp');
+      Telegram.WebApp.showAlert("Error adding vacancy!");
       console.error('Error submitting vacancy:', error.message);
     }
   }
@@ -515,16 +448,9 @@ const submitItem = async () => {
 
 const deleteJob = async (jobId) => {
   try {
-    const response = await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    if (!response.data.iv || !response.data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
+    await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
-    fetchData();
   } catch (error) {
     console.error('Error deleting job:', error.message);
   }
@@ -532,16 +458,9 @@ const deleteJob = async (jobId) => {
 
 const deleteVacancy = async (vacancyId) => {
   try {
-    const response = await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    if (!response.data.iv || !response.data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
+    await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
     vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
     open.value = false;
-    fetchData();
   } catch (error) {
     console.error('Error deleting vacancy:', error.message);
   }
@@ -549,14 +468,8 @@ const deleteVacancy = async (vacancyId) => {
 
 const checkAdminStatus = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    if (!response.data.iv || !response.data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
-    isAdmin.value = decryptedData.isAdmin;
+    const response = await axios.get(`${BASE_URL}/api/isAdmin`, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
+    isAdmin.value = (await decrypt(response.data.encryptedData, response.data.iv)).isAdmin;
   } catch (error) {
     console.error('Error checking admin status:', error.message);
     isAdmin.value = false;
@@ -565,26 +478,21 @@ const checkAdminStatus = async () => {
 
 const handleClickOutside = (event) => {
   const isProfileLink = event.target.closest('.profile-link') !== null;
-  if (searchInput.value && !searchInput.value.contains(event.target)) {
-    searchInput.value.blur();
-  }
+  if (searchInput.value && !searchInput.value.contains(event.target)) searchInput.value.blur();
   if (isProfileLink) return;
 };
 
 const toggleFavorite = async (itemId) => {
+  const wasFavorite = isFavorite(itemId);
+  favoriteJobs.value = wasFavorite ? favoriteJobs.value.filter(id => id !== itemId) : [...favoriteJobs.value, itemId];
+  Telegram.WebApp.showAlert(wasFavorite ? "Удалено из избранного!" : "Добавлено в избранное!");
   try {
-    const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    if (!response.data.iv || !response.data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(response.data.encryptedData, response.data.iv);
-    favoriteJobs.value = decryptedData.favorites;
-    Telegram.WebApp.showAlert(favoriteJobs.value.includes(itemId) ? "Добавлено в избранное!" : "Удалено из избранного!");
+    const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } });
+    favoriteJobs.value = (await decrypt(response.data.encryptedData, response.data.iv)).favorites;
   } catch (error) {
+    favoriteJobs.value = wasFavorite ? [...favoriteJobs.value, itemId] : favoriteJobs.value.filter(id => id !== itemId);
+    Telegram.WebApp.showAlert("Ошибка при обновлении избранного!");
     console.error('Error toggling favorite:', error.message);
-    Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
   }
 };
 
@@ -602,9 +510,7 @@ onMounted(() => {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
-    if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
-    }
+    if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
     if (window.Telegram.WebApp.initDataUnsafe?.user) {
       const user = Telegram.WebApp.initDataUnsafe.user;
       userPhoto.value = user.photo_url || (user.username ? `https://t.me/i/userpic/160/${user.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');

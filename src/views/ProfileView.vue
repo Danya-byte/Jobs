@@ -44,10 +44,7 @@ const router = useRouter();
 const currentUser = ref(null);
 const userId = ref('');
 const loaded = ref(false);
-const profileData = reactive({
-  firstName: '',
-  username: ''
-});
+const profileData = reactive({ firstName: '', username: '' });
 const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
 const allReviews = ref([]);
 const reviewText = ref('');
@@ -55,14 +52,9 @@ const isAdmin = ref(false);
 const isTouched = ref(false);
 const ENCRYPTION_KEY = 'cd1f4ab91882737f02e7a109e82af74ba8f5896cb288812636753119b4277d46';
 
-const isOwner = computed(() => {
-  return currentUser.value?.id?.toString() === userId.value?.toString();
-});
+const isOwner = computed(() => currentUser.value?.id?.toString() === userId.value?.toString());
 
 function hexToBytes(hex) {
-  if (typeof hex !== 'string' || !hex) {
-    throw new Error('Invalid hex string: must be a non-empty string');
-  }
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
@@ -71,33 +63,10 @@ function hexToBytes(hex) {
 }
 
 async function decrypt(encryptedData, iv) {
-  const crypto = window.crypto || window.msCrypto;
-  if (!crypto) {
-    throw new Error('Crypto API is not available');
-  }
-  if (!encryptedData || !iv) {
-    throw new Error('Missing encryptedData or iv');
-  }
-  try {
-    const keyBuffer = hexToBytes(ENCRYPTION_KEY);
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyBuffer,
-      { name: 'AES-CBC' },
-      false,
-      ['decrypt']
-    );
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) },
-      key,
-      new Uint8Array(hexToBytes(encryptedData))
-    );
-    const decoder = new TextDecoder();
-    return JSON.parse(decoder.decode(decrypted));
-  } catch (error) {
-    console.error('Decryption error:', error);
-    throw error;
-  }
+  const keyBuffer = hexToBytes(ENCRYPTION_KEY);
+  const key = await window.crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-CBC' }, false, ['decrypt']);
+  const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) }, key, new Uint8Array(hexToBytes(encryptedData)));
+  return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 const handleClickOutside = () => {
@@ -113,9 +82,7 @@ const handleTouchStart = () => {
 };
 
 const handleTouchEnd = () => {
-  setTimeout(() => {
-    isTouched.value = false;
-  }, 300);
+  setTimeout(() => isTouched.value = false, 300);
 };
 
 const loadProfileData = async () => {
@@ -125,13 +92,8 @@ const loadProfileData = async () => {
     avatarSrc.value = currentUser.value.photo_url || (currentUser.value.username ? `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
   } else {
     try {
-      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
-        headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
-      });
+      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, { headers: { 'X-Telegram-Data': Telegram.WebApp.initData } });
       const data = await response.json();
-      if (!data.iv || !data.encryptedData) {
-        throw new Error('Invalid server response: missing iv or encryptedData');
-      }
       const decryptedData = await decrypt(data.encryptedData, data.iv);
       profileData.firstName = decryptedData.firstName || 'Без имени';
       profileData.username = decryptedData.username || '';
@@ -149,14 +111,19 @@ const loadReviews = async () => {
   try {
     const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
     const data = await response.json();
-    if (!data.iv || !data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(data.encryptedData, data.iv);
-    allReviews.value = decryptedData.sort((a, b) => new Date(b.date) - new Date(a.date));
+    allReviews.value = await decrypt(data.encryptedData, data.iv);
   } catch (error) {
     console.error('Error loading reviews:', error.message);
   }
+};
+
+const setupReviewStream = () => {
+  const eventSource = new EventSource(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/stream/${userId.value}`);
+  eventSource.onmessage = async (event) => {
+    const data = JSON.parse(event.data);
+    allReviews.value = await decrypt(data.encryptedData, data.iv);
+  };
+  return () => eventSource.close();
 };
 
 const deleteReview = async (reviewId) => {
@@ -165,12 +132,7 @@ const deleteReview = async (reviewId) => {
       method: 'DELETE',
       headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
     });
-    if (!response.ok) throw new Error('Ошибка удаления');
-    const data = await response.json();
-    if (!data.iv || !data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    await decrypt(data.encryptedData, data.iv); // Проверяем успешность ответа
+    await decrypt((await response.json()).encryptedData, (await response.json()).iv);
     await loadReviews();
     Telegram.WebApp.showAlert('Отзыв удалён!');
   } catch (error) {
@@ -181,32 +143,27 @@ const deleteReview = async (reviewId) => {
 
 const initiatePayment = async () => {
   try {
+    allReviews.value.unshift({ id: 'temp', text: reviewText.value, date: new Date().toISOString() });
     const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
       method: 'POST',
-      headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'X-Telegram-Data': Telegram.WebApp.initData, 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: reviewText.value, targetUserId: userId.value })
     });
-    if (!response.ok) throw new Error('Ошибка создания платежа');
     const data = await response.json();
-    if (!data.iv || !data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
     const decryptedData = await decrypt(data.encryptedData, data.iv);
     Telegram.WebApp.openInvoice(decryptedData.invoiceLink, (status) => {
       if (status === 'cancelled') {
+        allReviews.value = allReviews.value.filter(r => r.id !== 'temp');
         reviewText.value = '';
         Telegram.WebApp.showAlert('Вы не подтвердили платеж!');
       }
       if (status === 'paid') {
-        loadReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
       }
     });
   } catch (error) {
+    allReviews.value = allReviews.value.filter(r => r.id !== 'temp');
     console.error('Error initiating payment:', error.message);
     Telegram.WebApp.showAlert(error.message);
   }
@@ -214,15 +171,8 @@ const initiatePayment = async () => {
 
 const checkAdminStatus = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', {
-      headers: { 'X-Telegram-Data': Telegram.WebApp.initData }
-    });
-    const data = await response.json();
-    if (!data.iv || !data.encryptedData) {
-      throw new Error('Invalid server response: missing iv or encryptedData');
-    }
-    const decryptedData = await decrypt(data.encryptedData, data.iv);
-    isAdmin.value = decryptedData.isAdmin;
+    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', { headers: { 'X-Telegram-Data': Telegram.WebApp.initData } });
+    isAdmin.value = (await decrypt((await response.json()).encryptedData, (await response.json()).iv)).isAdmin;
   } catch (error) {
     console.error('Error checking admin status:', error.message);
     isAdmin.value = false;
@@ -243,6 +193,7 @@ onMounted(async () => {
   await checkAdminStatus();
   await loadProfileData();
   await loadReviews();
+  setupReviewStream();
 });
 </script>
 

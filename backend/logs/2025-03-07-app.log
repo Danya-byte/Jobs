@@ -1,3 +1,86 @@
 2025-03-07 00:05:33 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
 2025-03-07 00:05:33 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
 2025-03-07 00:05:34 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1418ms
+2025-03-07 00:07:07 [INFO]: Connected to Redis
+2025-03-07 00:07:07 [INFO]: Server running on port 3000
+2025-03-07 00:07:10 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 11ms
+2025-03-07 00:07:10 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 00:07:11 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 00:09:50 [INFO]: Connected to Redis
+2025-03-07 00:09:50 [INFO]: Server running on port 3000
+2025-03-07 00:09:53 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 11ms
+2025-03-07 00:09:53 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 00:09:53 [ERROR]: Error parsing cached data in GET /api/jobs: Invalid cached data
+2025-03-07 00:09:53 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 653ms
+2025-03-07 00:09:56 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 1ms
+2025-03-07 00:10:05 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 00:15:47 [INFO]: Connected to Redis
+2025-03-07 00:15:47 [INFO]: Server running on port 3000
+2025-03-07 00:15:50 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 2ms
+2025-03-07 00:15:51 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 11ms
+2025-03-07 00:15:51 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 00:15:53 [ERROR]: Error parsing cached data in GET /api/vacancies: Invalid cached data
+2025-03-07 00:15:54 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 640ms
+2025-03-07 00:15:56 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 0ms
+2025-03-07 00:15:57 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 0ms
+2025-03-07 00:18:16 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 00:18:17 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 00:18:17 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 00:18:23 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 00:18:24 [ERROR]: Error parsing cached data in GET /api/user: Invalid cached data
+2025-03-07 00:18:25 [INFO]: Request: GET /api/user/6629517298 | Status: 200 | Duration: 1701ms
+2025-03-07 00:18:26 [ERROR]: Error parsing cached data in GET /api/reviews: Invalid cached data
+2025-03-07 00:18:26 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 640ms
+2025-03-07 00:18:33 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 00:18:33 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 00:18:33 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 00:18:35 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 1ms
+2025-03-07 00:18:39 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 0ms
+2025-03-07 00:18:52 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 1ms
+2025-03-07 00:18:55 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 00:18:55 [ERROR]: Error parsing cached data in GET /api/reviews: Invalid cached data
+2025-03-07 00:18:55 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 642ms
+2025-03-07 00:18:58 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 00:18:58 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 0ms
+2025-03-07 00:18:58 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 00:19:04 [INFO]: Request: POST /api/toggleFavorite | Status: 200 | Duration: 1919ms
+2025-03-07 00:19:17 [INFO]: Request: POST /api/toggleFavorite | Status: 200 | Duration: 4291ms
+2025-03-07 00:24:47 [INFO]: Request: GET /api/vacancies | Status: 200 | Duration: 1ms
+2025-03-07 00:24:48 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 00:24:51 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 00:24:51 [INFO]: Request: GET /api/user/6629517298 | Status: 200 | Duration: 1ms
+2025-03-07 00:24:51 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 1ms
+2025-03-07 00:24:56 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 00:24:56 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 0ms
+2025-03-07 00:24:57 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 00:24:57 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 0ms
+2025-03-07 00:24:59 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 3780ms
+2025-03-07 00:25:00 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 00:25:00 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 00:25:00 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 01:01:20 [INFO]: Connected to Redis
+2025-03-07 01:01:20 [INFO]: Server running on port 3000
+2025-03-07 01:01:21 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 27ms
+2025-03-07 01:01:21 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 2ms
+2025-03-07 01:01:21 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 01:01:23 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 01:01:23 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 1ms
+2025-03-07 01:01:24 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 01:01:24 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 01:01:25 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 0ms
+2025-03-07 01:12:32 [ERROR]: Failed to start server: Can't reach database server at `ep-purple-resonance-a1th4uz9-pooler.ap-southeast-1.aws.neon.tech:5432`
+
+Please make sure your database server is running at `ep-purple-resonance-a1th4uz9-pooler.ap-southeast-1.aws.neon.tech:5432`.
+2025-03-07 01:13:07 [INFO]: Connected to Redis
+2025-03-07 01:13:07 [INFO]: Server running on port 3000
+2025-03-07 01:13:12 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 11ms
+2025-03-07 01:13:12 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 2ms
+2025-03-07 01:13:13 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 712ms
+2025-03-07 01:13:17 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 01:13:17 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 0ms
+2025-03-07 01:13:18 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-07 01:13:18 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-07 01:13:18 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-07 01:13:24 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-07 01:13:24 [INFO]: Request: GET /api/user/6629517298 | Status: 200 | Duration: 2ms
+2025-03-07 01:13:24 [INFO]: Request: GET /api/reviews | Status: 200 | Duration: 0ms
