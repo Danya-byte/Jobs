@@ -1,7 +1,7 @@
 <template>
   <div class="profile-container" @click="handleClickOutside">
     <RouterLink to="/" class="back-btn">
-      <div class="back-button-wrapper">
+      <div class="back-button-wrapper" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
         <img
           src="https://i.postimg.cc/PxR6j6Rc/BFF14-B15-FF7-A-41-A2-A7-AB-AC75-B7-DE5-FD7.png"
           alt="Back"
@@ -80,6 +80,7 @@ const avatarSrc = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a
 const allReviews = ref([]);
 const reviewText = ref('');
 const isAdmin = ref(false);
+const isTouched = ref(false);
 
 const isOwner = computed(() => {
   return currentUser.value?.id?.toString() === userId.value?.toString();
@@ -91,6 +92,16 @@ const handleClickOutside = () => {
 
 const handleAvatarError = () => {
   avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+};
+
+const handleTouchStart = () => {
+  isTouched.value = true;
+};
+
+const handleTouchEnd = () => {
+  setTimeout(() => {
+    isTouched.value = false;
+  }, 300);
 };
 
 const loadProfileData = async () => {
@@ -209,7 +220,7 @@ onMounted(async () => {
 .profile-container {
   background: linear-gradient(-45deg, #101622, #182038);
   min-height: 100vh;
-  padding: 30px 20px;
+  padding: 20px 10px;
   overflow: hidden;
 }
 
@@ -223,45 +234,81 @@ onMounted(async () => {
 .back-button-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 25px;
-  border: 1px solid rgba(151, 244, 146, 0.2);
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  border: 1px solid rgba(151, 244, 146, 0.3);
   transition: all 0.3s ease;
   cursor: pointer;
   animation: slideIn 0.5s ease-out;
 }
 
 .back-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   filter: invert(1) brightness(1.5);
   transition: transform 0.3s ease;
 }
 
 .back-text {
   color: #97f492;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  opacity: 0;
-  width: 0;
   transition: all 0.3s ease;
-}
-
-.back-btn:hover .back-button-wrapper {
-  background: rgba(151, 244, 146, 0.15);
-  transform: translateX(-5px);
-  box-shadow: 0 0 15px rgba(151, 244, 146, 0.2);
-}
-
-.back-btn:hover .back-icon {
-  transform: rotate(-45deg);
-}
-
-.back-btn:hover .back-text {
   opacity: 1;
-  width: auto;
+}
+
+@media (min-width: 768px) {
+  .profile-container {
+    padding: 30px 20px;
+  }
+
+  .back-button-wrapper {
+    padding: 8px 16px;
+    gap: 8px;
+    border-radius: 25px;
+  }
+
+  .back-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .back-text {
+    font-size: 14px;
+    opacity: 0;
+    width: 0;
+  }
+
+  .back-btn:hover .back-button-wrapper {
+    background: rgba(151, 244, 146, 0.15);
+    transform: translateX(-5px);
+    box-shadow: 0 0 15px rgba(151, 244, 146, 0.2);
+  }
+
+  .back-btn:hover .back-icon {
+    transform: rotate(-45deg);
+  }
+
+  .back-btn:hover .back-text {
+    opacity: 1;
+    width: auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .back-button-wrapper:active,
+  .back-button-wrapper.touched {
+    background: rgba(151, 244, 146, 0.2);
+    transform: scale(0.95);
+    box-shadow: 0 0 10px rgba(151, 244, 146, 0.3);
+  }
+
+  .back-button-wrapper:active .back-icon,
+  .back-button-wrapper.touched .back-icon {
+    transform: rotate(-45deg);
+  }
 }
 
 @keyframes slideIn {
