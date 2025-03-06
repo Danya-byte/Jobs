@@ -59,37 +59,36 @@ const isOwner = computed(() => {
   return currentUser.value?.id?.toString() === userId.value?.toString()
 })
 
-function decrypt(encryptedData, iv) {
-  const crypto = window.crypto || window.msCrypto
-  return new Promise(async (resolve, reject) => {
-    try {
-      const keyBuffer = new TextEncoder().encode(ENCRYPTION_KEY)
-      const key = await crypto.subtle.importKey(
-        'raw',
-        keyBuffer,
-        { name: 'AES-CBC' },
-        false,
-        ['decrypt']
-      )
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) },
-        key,
-        new Uint8Array(hexToBytes(encryptedData))
-      )
-      const decoder = new TextDecoder()
-      resolve(JSON.parse(decoder.decode(decrypted)))
-    } catch (error) {
-      reject(error)
-    }
-  })
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
 }
 
-function hexToBytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2)
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
+async function decrypt(encryptedData, iv) {
+  const crypto = window.crypto || window.msCrypto;
+  try {
+    const keyBuffer = hexToBytes(ENCRYPTION_KEY); // Преобразуем hex-строку в байты
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyBuffer,
+      { name: 'AES-CBC' },
+      false,
+      ['decrypt']
+    );
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-CBC', iv: new Uint8Array(hexToBytes(iv)) },
+      key,
+      new Uint8Array(hexToBytes(encryptedData))
+    );
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(decrypted));
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw error;
   }
-  return bytes
 }
 
 const handleClickOutside = () => {

@@ -1600,3 +1600,16 @@ Please make sure your database server is running at `ep-purple-resonance-a1th4uz
 2025-03-06 23:33:00 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 0ms
 2025-03-06 23:33:00 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 0ms
 2025-03-06 23:33:00 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 0ms
+2025-03-06 23:43:01 [INFO]: Connected to Redis
+2025-03-06 23:43:01 [INFO]: Server running on port 3000
+2025-03-06 23:43:06 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-06 23:43:06 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 11ms
+2025-03-06 23:43:06 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 2ms
+2025-03-06 23:43:48 [INFO]: Connected to Redis
+2025-03-06 23:43:48 [INFO]: Server running on port 3000
+2025-03-06 23:43:53 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 11ms
+2025-03-06 23:43:53 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-06 23:43:53 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms
+2025-03-06 23:47:03 [INFO]: Request: GET /api/jobs | Status: 200 | Duration: 1ms
+2025-03-06 23:47:04 [INFO]: Request: GET /api/isAdmin | Status: 200 | Duration: 1ms
+2025-03-06 23:47:04 [INFO]: Request: GET /api/favorites | Status: 200 | Duration: 1ms

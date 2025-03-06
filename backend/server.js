@@ -12,7 +12,7 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || "your-32-char-secret-key-here", "hex"); // 32 байта для AES-256
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || "cd1f4ab91882737f02e7a109e82af74ba8f5896cb288812636753119b4277d46", "hex"); // 32 байта для AES-256
 const prisma = new PrismaClient();
 const redisClient = redis.createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
