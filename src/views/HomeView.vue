@@ -515,17 +515,20 @@ const handleClickOutside = (event) => {
 
 const toggleFavorite = async (itemId) => {
   const index = favoriteJobs.value.indexOf(itemId);
+  const isVacancyItem = vacancies.value.some(v => v.id === itemId);
   try {
     if (index === -1) {
       favoriteJobs.value.push(itemId);
       await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
         headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Вы подписались на уведомления для этой категории!");
     } else {
       favoriteJobs.value.splice(index, 1);
       await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
         headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Вы отписались от уведомлений для этой категории.");
     }
     localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
   } catch (error) {
