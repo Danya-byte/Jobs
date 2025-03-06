@@ -416,6 +416,9 @@ onMounted(() => {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
+    if (Telegram.WebApp.setHeaderColor) {
+      Telegram.WebApp.setHeaderColor('#181e29');
+    }
     if (window.Telegram.WebApp.initDataUnsafe?.user) {
       const user = Telegram.WebApp.initDataUnsafe.user;
       userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
