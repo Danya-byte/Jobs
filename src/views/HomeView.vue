@@ -526,12 +526,19 @@ const handleClickOutside = (event) => {
 
 const toggleFavorite = async (itemId) => {
   const isVacancyItem = vacancies.value.some(v => v.id === itemId);
+  const isCurrentlyFavorite = favoriteJobs.value.some(job => job.id === itemId);
+
   try {
     const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     favoriteJobs.value = response.data.favorites;
-    Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
+
+    if (isCurrentlyFavorite) {
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от уведомлений от компании!" : "Удалено из избранного!");
+    } else {
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на уведомления от компании!" : "Добавлено в избранное!");
+    }
   } catch (error) {
     console.error('Error toggling favorite:', error.response?.data || error.message);
     Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
