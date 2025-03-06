@@ -231,11 +231,28 @@ app.post("/api/jobs", async (req, res) => {
       tags,
       categories: categories || [],
       contact: "https://t.me/workiks_admin",
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     jobsData.push(newJob);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    const subscribers = Object.entries(subscriptionsData)
+      .filter(([_, positions]) => positions.includes(position))
+      .map(([userId]) => userId);
+
+    for (const subscriberId of subscribers) {
+      try {
+        await bot.api.sendMessage(
+          subscriberId,
+          `🎉 Новый фрилансер на позицию "${position}":\n\n` +
+            `📝 Описание: ${description}\n` +
+            `🔗 Контакт: ${newJob.contact}`
+        );
+      } catch (e) {
+        logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
+      }
+    }
 
     res.json({ success: true, job: newJob });
   } catch (e) {
@@ -294,8 +311,30 @@ app.post("/api/vacancies", async (req, res) => {
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const { companyUserId, companyName, position, description, requirements, tags, categories, contact, officialWebsite, verified, photoUrl } = req.body;
-    if (!companyUserId || !companyName || !position || !description || !requirements || !tags || !contact || !officialWebsite || !photoUrl) {
+    const {
+      companyUserId,
+      companyName,
+      position,
+      description,
+      requirements,
+      tags,
+      categories,
+      contact,
+      officialWebsite,
+      verified,
+      photoUrl,
+    } = req.body;
+    if (
+      !companyUserId ||
+      !companyName ||
+      !position ||
+      !description ||
+      !requirements ||
+      !tags ||
+      !contact ||
+      !officialWebsite ||
+      !photoUrl
+    ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
     const newVacancy = {
@@ -312,14 +351,13 @@ app.post("/api/vacancies", async (req, res) => {
       officialWebsite,
       verified: verified || false,
       photoUrl,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
     vacanciesData.push(newVacancy);
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
 
-    const companyId = newVacancy.companyUserId.toString();
     const subscribers = Object.entries(companySubscriptionsData)
-      .filter(([_, companies]) => companies.includes(companyId))
+      .filter(([_, companies]) => companies.includes(companyName))
       .map(([userId]) => userId);
 
     for (const subscriberId of subscribers) {
@@ -327,9 +365,9 @@ app.post("/api/vacancies", async (req, res) => {
         await bot.api.sendMessage(
           subscriberId,
           `🏢 Компания "${newVacancy.companyName}" разместила новую вакансию:\n\n` +
-          `📌 ${newVacancy.position}\n` +
-          `📝 ${newVacancy.description}\n` +
-          `🔗 ${newVacancy.contact}`
+            `📌 ${newVacancy.position}\n` +
+            `📝 ${newVacancy.description}\n` +
+            `🔗 ${newVacancy.contact}`
         );
       } catch (e) {
         logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
@@ -380,8 +418,8 @@ app.get("/api/user/:userId", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const userJob = jobsData.find(job => job.userId.toString() === userId);
-    const userVacancy = vacanciesData.find(vacancy => vacancy.companyUserId.toString() === userId);
+    const userJob = jobsData.find((job) => job.userId.toString() === userId);
+    const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
     let firstName = "Unknown";
     let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
     let responseUsername = null;
@@ -453,7 +491,7 @@ app.post("/api/unsubscribe", async (req, res) => {
     }
 
     if (subscriptionsData[userId]) {
-      subscriptionsData[userId] = subscriptionsData[userId].filter(cat => cat !== category);
+      subscriptionsData[userId] = subscriptionsData[userId].filter((cat) => cat !== category);
       if (subscriptionsData[userId].length === 0) {
         delete subscriptionsData[userId];
       }
@@ -469,6 +507,7 @@ app.post("/api/unsubscribe", async (req, res) => {
 });
 
 app.post("/api/toggleFavorite", async (req, res) => {
+  const releaseSubs = await subscriptionsMutex.acquire();
   const releaseCompanySubs = await companySubscriptionsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -484,31 +523,52 @@ app.post("/api/toggleFavorite", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const vacancy = vacanciesData.find(v => v.id === itemId);
-    if (!vacancy) {
-      return res.status(400).json({ error: "Only vacancies can be subscribed to" });
-    }
-
+    const job = jobsData.find((j) => j.id === itemId);
+    const vacancy = vacanciesData.find((v) => v.id === itemId);
     const favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
     const favoriteIndex = favoriteJobs.indexOf(itemId);
 
     if (favoriteIndex === -1) {
       favoriteJobs.push(itemId);
-      if (!companySubscriptionsData[user.id]) {
-        companySubscriptionsData[user.id] = [];
-      }
-      const companyId = vacancy.companyUserId.toString();
-      if (!companySubscriptionsData[user.id].includes(companyId)) {
-        companySubscriptionsData[user.id].push(companyId);
-        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+
+      if (vacancy) {
+        const companyName = vacancy.companyName;
+        if (!companySubscriptionsData[user.id]) {
+          companySubscriptionsData[user.id] = [];
+        }
+        if (!companySubscriptionsData[user.id].includes(companyName)) {
+          companySubscriptionsData[user.id].push(companyName);
+          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+        }
+      } else if (job) {
+        const position = job.position;
+        if (!subscriptionsData[user.id]) {
+          subscriptionsData[user.id] = [];
+        }
+        if (!subscriptionsData[user.id].includes(position)) {
+          subscriptionsData[user.id].push(position);
+          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+        }
       }
     } else {
       favoriteJobs.splice(favoriteIndex, 1);
-      const companyId = vacancy.companyUserId.toString();
-      if (companySubscriptionsData[user.id]) {
-        companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter(id => id !== companyId);
-        if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
-        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+
+      if (vacancy) {
+        const companyName = vacancy.companyName;
+        if (companySubscriptionsData[user.id]) {
+          companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter(
+            (name) => name !== companyName
+          );
+          if (companySubscriptionsData[user.id].length === 0) delete companySubscriptionsData[user.id];
+          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+        }
+      } else if (job) {
+        const position = job.position;
+        if (subscriptionsData[user.id]) {
+          subscriptionsData[user.id] = subscriptionsData[user.id].filter((pos) => pos !== position);
+          if (subscriptionsData[user.id].length === 0) delete subscriptionsData[user.id];
+          await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
+        }
       }
     }
 
@@ -517,6 +577,7 @@ app.post("/api/toggleFavorite", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
+    releaseSubs();
     releaseCompanySubs();
   }
 });
@@ -648,14 +709,15 @@ bot.on("message:successful_payment", async (ctx) => {
     try {
       const authorData = await bot.api.getChat(authorUserId);
       const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
+      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
       const escapedText = escapeMarkdownV2(text);
       const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
       const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
-      const message = `*Новый отзыв\\!*\n\n` +
-                      `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
-                      `> ${escapedText}\n\n` +
-                      `Дата: ${escapedDate}`;
+      const message =
+        `*Новый отзыв\\!*\n\n` +
+        `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
+        `> ${escapedText}\n\n` +
+        `Дата: ${escapedDate}`;
       await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
     } catch (e) {}
   } catch (e) {
@@ -699,7 +761,7 @@ Promise.all([
   initJobsFile(),
   initSubscriptionsFile(),
   initVacanciesFile(),
-  initCompanySubscriptionsFile()
+  initCompanySubscriptionsFile(),
 ])
   .then(async () => {
     await loadJobs();

@@ -1,27 +1,5 @@
 [
   {
-    "id": "1741274097504_1940359844",
-    "adminId": 1940359844,
-    "companyUserId": 6568279325,
-    "companyName": "Workiks",
-    "position": "Web dev",
-    "description": "test",
-    "requirements": [
-      "test"
-    ],
-    "tags": [
-      "test"
-    ],
-    "categories": [
-      "it"
-    ],
-    "contact": "https://t.me/GW_NEON",
-    "officialWebsite": "https://telegram.org/",
-    "verified": true,
-    "photoUrl": "https://i.postimg.cc/CxW2KR5Z/5.png",
-    "createdAt": "2025-03-06T15:14:57.504Z"
-  },
-  {
     "id": "1741277006546_1940359844",
     "adminId": 1940359844,
     "companyUserId": 1234,
