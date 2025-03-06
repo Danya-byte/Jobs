@@ -255,7 +255,7 @@ const searchInput = ref(null);
 const jobs = ref([]);
 const vacancies = ref([]);
 const isLoading = ref(true);
-const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
+const favoriteJobs = ref([]);
 const selectedCategories = ref([]);
 const showFavoritesOnly = ref(false);
 const activeTab = ref('jobs');
@@ -358,6 +358,17 @@ const fetchVacancies = async () => {
     vacancies.value = response.data;
   } catch (error) {
     console.error('Error fetching vacancies:', error);
+  }
+};
+
+const fetchFavorites = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/favorites`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    favoriteJobs.value = response.data;
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
   }
 };
 
@@ -514,23 +525,13 @@ const handleClickOutside = (event) => {
 };
 
 const toggleFavorite = async (itemId) => {
-  const index = favoriteJobs.value.indexOf(itemId);
   const isVacancyItem = vacancies.value.some(v => v.id === itemId);
   try {
-    if (index === -1) {
-      favoriteJobs.value.push(itemId);
-      await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-      });
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
-    } else {
-      favoriteJobs.value.splice(index, 1);
-      await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-      });
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
-    }
-    localStorage.setItem('favoriteJobs', JSON.stringify(favoriteJobs.value));
+    const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    favoriteJobs.value = response.data.favorites;
+    Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
   } catch (error) {
     console.error('Error toggling favorite:', error.response?.data || error.message);
     Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
@@ -563,6 +564,7 @@ onMounted(() => {
   checkAdminStatus();
   fetchJobs();
   fetchVacancies();
+  fetchFavorites();
 });
 </script>
 

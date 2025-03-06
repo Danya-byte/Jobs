@@ -241,6 +241,8 @@ app.post("/api/jobs", async (req, res) => {
       .filter(([_, positions]) => positions.includes(newJob.position))
       .map(([userId]) => userId);
 
+    logger.info(`Found ${subscribers.length} subscribers for position "${newJob.position}": ${subscribers.join(", ")}`);
+
     for (const subscriberId of subscribers) {
       try {
         await bot.api.sendMessage(
@@ -249,6 +251,7 @@ app.post("/api/jobs", async (req, res) => {
             `📝 Описание: ${newJob.description}\n` +
             `🔗 Контакт: ${newJob.contact}`
         );
+        logger.info(`Notified user ${subscriberId} about new job on position "${newJob.position}"`);
       } catch (e) {
         logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
       }
@@ -256,6 +259,7 @@ app.post("/api/jobs", async (req, res) => {
 
     res.json({ success: true, job: newJob });
   } catch (e) {
+    logger.error(`Error in POST /api/jobs: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
