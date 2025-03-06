@@ -16,16 +16,19 @@ const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
 const SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
+const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
 const subscriptionsMutex = new Mutex();
+const vacanciesMutex = new Mutex();
 
 let jobsData = [];
 let reviewsData = {};
 let subscriptionsData = {};
+let vacanciesData = [];
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -81,7 +84,6 @@ async function initReviewsFile() {
   } catch {
     await fs.writeFile(REVIEWS_FILE, "{}");
   }
-  logger.info("Reviews file initialized");
 }
 
 async function initJobsFile() {
@@ -92,7 +94,6 @@ async function initJobsFile() {
   } catch {
     await fs.writeFile(JOBS_FILE, "[]");
   }
-  logger.info("Jobs file initialized");
 }
 
 async function initSubscriptionsFile() {
@@ -103,16 +104,23 @@ async function initSubscriptionsFile() {
   } catch {
     await fs.writeFile(SUBSCRIPTIONS_FILE, "{}");
   }
-  logger.info("Subscriptions file initialized");
+}
+
+async function initVacanciesFile() {
+  try {
+    await fs.access(VACANCIES_FILE);
+    const data = await fs.readFile(VACANCIES_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(VACANCIES_FILE, "[]");
+  } catch {
+    await fs.writeFile(VACANCIES_FILE, "[]");
+  }
 }
 
 async function loadJobs() {
   try {
     const rawData = await fs.readFile(JOBS_FILE, "utf8");
     jobsData = rawData.trim() ? JSON.parse(rawData) : [];
-    logger.info(`Loaded ${jobsData.length} jobs into memory`);
   } catch (e) {
-    logger.error(`Failed to load jobs: ${e.message}`);
     jobsData = [];
   }
 }
@@ -121,9 +129,7 @@ async function loadReviews() {
   try {
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     reviewsData = rawData.trim() ? JSON.parse(rawData) : {};
-    logger.info(`Loaded ${Object.keys(reviewsData).length} reviews into memory`);
   } catch (e) {
-    logger.error(`Failed to load reviews: ${e.message}`);
     reviewsData = {};
   }
 }
@@ -132,10 +138,17 @@ async function loadSubscriptions() {
   try {
     const rawData = await fs.readFile(SUBSCRIPTIONS_FILE, "utf8");
     subscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
-    logger.info(`Loaded ${Object.keys(subscriptionsData).length} subscriptions into memory`);
   } catch (e) {
-    logger.error(`Failed to load subscriptions: ${e.message}`);
     subscriptionsData = {};
+  }
+}
+
+async function loadVacancies() {
+  try {
+    const rawData = await fs.readFile(VACANCIES_FILE, "utf8");
+    vacanciesData = rawData.trim() ? JSON.parse(rawData) : [];
+  } catch (e) {
+    vacanciesData = [];
   }
 }
 
@@ -154,7 +167,6 @@ function validateTelegramData(initData) {
     const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
     return crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex") === receivedHash;
   } catch (e) {
-    logger.error(`Error in validateTelegramData: ${e.message}`);
     return false;
   }
 }
@@ -202,7 +214,6 @@ app.post("/api/jobs", async (req, res) => {
 
     jobsData.push(newJob);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-    logger.info(`Job added by admin ${user.id}: ${newJob.id}`);
 
     if (categories && categories.length > 0) {
       for (const category of categories) {
@@ -218,17 +229,13 @@ app.post("/api/jobs", async (req, res) => {
               `📝Описание: ${description}\n` +
               `🔗Контакт: ${newJob.contact}`
             );
-            logger.info(`Notification sent to user ${subscriberId} for job ${newJob.id}`);
-          } catch (e) {
-            logger.error(`Failed to send notification to ${subscriberId}: ${e.message}`);
-          }
+          } catch (e) {}
         }
       }
     }
 
     res.json({ success: true, job: newJob });
   } catch (e) {
-    logger.error(`Error in POST /api/jobs: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -259,11 +266,82 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
 
     jobsData.splice(jobIndex, 1);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-    logger.info(`Job deleted by admin ${user.id}: ${jobId}`);
 
     res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in DELETE /api/jobs: ${e.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.get("/api/vacancies", async (req, res) => {
+  res.json(vacanciesData);
+});
+
+app.post("/api/vacancies", async (req, res) => {
+  const release = await vacanciesMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { companyUserId, companyName, position, description, requirements, tags, categories, contact, officialWebsite, verified, photoUrl } = req.body;
+    if (!companyUserId || !companyName || !position || !description || !requirements || !tags || !contact || !officialWebsite || !photoUrl) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const newVacancy = {
+      id: `${Date.now()}_${user.id}`,
+      adminId: user.id,
+      companyUserId,
+      companyName,
+      position,
+      description,
+      requirements,
+      tags,
+      categories: categories || [],
+      contact,
+      officialWebsite,
+      verified: verified || false,
+      photoUrl,
+      createdAt: new Date().toISOString()
+    };
+    vacanciesData.push(newVacancy);
+    await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
+    res.json({ success: true, vacancy: newVacancy });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.delete("/api/vacancies/:vacancyId", async (req, res) => {
+  const release = await vacanciesMutex.acquire();
+  try {
+    const { vacancyId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const vacancyIndex = vacanciesData.findIndex((vacancy) => vacancy.id === vacancyId);
+    if (vacancyIndex === -1) {
+      return res.status(404).json({ error: "Vacancy not found" });
+    }
+    vacanciesData.splice(vacancyIndex, 1);
+    await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
+    res.json({ success: true });
+  } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -280,22 +358,22 @@ app.get("/api/user/:userId", async (req, res) => {
     }
 
     const userJob = jobsData.find(job => job.userId.toString() === userId);
+    const userVacancy = vacanciesData.find(vacancy => vacancy.companyUserId.toString() === userId);
     let firstName = "Unknown";
     let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
     let responseUsername = null;
 
-    if (userJob) {
+    if (userJob || userVacancy) {
       try {
-        const userData = await bot.api.getChat(userJob.userId);
+        const userData = await bot.api.getChat(userJob ? userJob.userId : userVacancy.companyUserId);
         firstName = userData.first_name || "Unknown";
         responseUsername = userData.username || null;
         if (responseUsername) {
           photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
         }
       } catch (telegramError) {
-        logger.error(`Failed to fetch Telegram data for user ${userJob.userId}: ${telegramError.message}`);
-        firstName = userJob.nick || "Unknown";
-        responseUsername = userJob.username || null;
+        firstName = userJob ? userJob.nick : userVacancy ? userVacancy.companyName : "Unknown";
+        responseUsername = userJob ? userJob.username : userVacancy ? null : null;
         if (responseUsername) {
           photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
         }
@@ -304,7 +382,6 @@ app.get("/api/user/:userId", async (req, res) => {
 
     res.json({ firstName, username: responseUsername, photoUrl });
   } catch (e) {
-    logger.error(`Error in GET /api/user: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -329,12 +406,10 @@ app.post("/api/subscribe", async (req, res) => {
     if (!subscriptionsData[userId].includes(category)) {
       subscriptionsData[userId].push(category);
       await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
-      logger.info(`User ${userId} subscribed to category ${category}`);
     }
 
     res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in POST /api/subscribe: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -360,12 +435,10 @@ app.post("/api/unsubscribe", async (req, res) => {
         delete subscriptionsData[userId];
       }
       await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptionsData, null, 2));
-      logger.info(`User ${userId} unsubscribed from category ${category}`);
     }
 
     res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in POST /api/unsubscribe: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -391,7 +464,6 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     const payload = `${user.id}_${Date.now()}`;
     reviewsData[payload] = { text, authorUserId: user.id, targetUserId };
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-    logger.info(`Temporary review added by user ${user.id}: ${payload}`);
 
     const invoiceLink = await bot.api.createInvoiceLink(
       "Submit a Review",
@@ -404,7 +476,6 @@ app.post("/api/createInvoiceLink", async (req, res) => {
 
     res.json({ success: true, invoiceLink });
   } catch (e) {
-    logger.error(`Error in POST /api/createInvoiceLink: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -419,7 +490,6 @@ app.get("/api/reviews", async (req, res) => {
       .map(([id, review]) => ({ id, ...review }));
     res.json(reviews);
   } catch (e) {
-    logger.error(`Error in GET /api/reviews: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -447,11 +517,9 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
 
     delete reviewsData[reviewId];
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-    logger.info(`Review deleted by admin ${user.id}: ${reviewId}`);
 
     res.json({ success: true });
   } catch (e) {
-    logger.error(`Error in DELETE /api/reviews: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -475,14 +543,12 @@ app.get("/api/isAdmin", async (req, res) => {
     const isAdmin = ADMIN_IDS.includes(user.id.toString());
     res.json({ isAdmin });
   } catch (e) {
-    logger.error(`Error in GET /api/isAdmin: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
 bot.on("pre_checkout_query", async (ctx) => {
   await ctx.answerPreCheckoutQuery(true);
-  logger.info("Pre-checkout query processed");
 });
 
 bot.on("message:successful_payment", async (ctx) => {
@@ -492,7 +558,6 @@ bot.on("message:successful_payment", async (ctx) => {
 
     if (!payload || !reviewsData[payload]) {
       await ctx.reply("Ошибка: не удалось обработать платеж. Обратитесь в поддержку.");
-      logger.warn(`Payment processing failed: Invalid payload ${payload}`);
       return;
     }
 
@@ -501,18 +566,13 @@ bot.on("message:successful_payment", async (ctx) => {
     reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString() };
     delete reviewsData[payload];
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-    logger.info(`Review added from payment by user ${authorUserId}: ${reviewKey}`);
 
     await ctx.reply("Отзыв опубликован! Спасибо!");
 
     try {
       const authorData = await bot.api.getChat(authorUserId);
       const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-
-      const escapeMarkdownV2 = (str) => {
-        return str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
-      };
-
+      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
       const escapedText = escapeMarkdownV2(text);
       const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
       const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
@@ -520,14 +580,9 @@ bot.on("message:successful_payment", async (ctx) => {
                       `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
                       `> ${escapedText}\n\n` +
                       `Дата: ${escapedDate}`;
-
       await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
-      logger.info(`Review notification sent to user ${targetUserId} from ${authorUserId}`);
-    } catch (e) {
-      logger.error(`Failed to send review notification to ${targetUserId}: ${e.message}`);
-    }
+    } catch (e) {}
   } catch (e) {
-    logger.error(`Error in payment handler: ${e.message}`);
     await ctx.reply("Произошла ошибка при обработке отзыва.");
   } finally {
     release();
@@ -547,11 +602,9 @@ async function cleanOldTempReviews() {
     }
     if (cleanedCount > 0) {
       await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-      logger.info(`Cleaned ${cleanedCount} old temporary reviews`);
     }
-  } catch (e) {
-    logger.error(`Error in cleanOldTempReviews: ${e.message}`);
-  } finally {
+  } catch (e) {}
+  finally {
     release();
   }
 }
@@ -561,16 +614,15 @@ setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 async function ensureLogsDir() {
   try {
     await fs.mkdir(LOGS_DIR, { recursive: true });
-  } catch (e) {
-    logger.error(`Failed to create logs directory: ${e.message}`);
-  }
+  } catch (e) {}
 }
 
-Promise.all([ensureLogsDir(), initReviewsFile(), initJobsFile(), initSubscriptionsFile()])
+Promise.all([ensureLogsDir(), initReviewsFile(), initJobsFile(), initSubscriptionsFile(), initVacanciesFile()])
   .then(async () => {
     await loadJobs();
     await loadReviews();
     await loadSubscriptions();
+    await loadVacancies();
     app.listen(port, () => {
       bot.start();
       logger.info(`Server running on port ${port}`);

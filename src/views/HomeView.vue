@@ -8,13 +8,15 @@
             </div>
         </RouterLink>
         <button v-if="isAdmin" @click="showAddJobModal" class="add-button"><span></span> Add Jobs</button>
+        <button v-if="isAdmin" @click="showAddVacancyModal" class="add-button"><span></span> Add Vacancy</button>
         <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
     </nav>
 
     <div class="content">
         <div class="categories">
             <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
-            <RouterLink to="#"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
+            <button class="category-btn" :class="{ active: activeTab === 'companies' }" @click="activeTab = 'companies'">Companies</button>
+            <RouterLink to="/nft"><button class="category-btn" :class="{ active: activeTab === 'nft' }" @click="activeTab = 'nft'">NFT</button></RouterLink>
         </div>
 
         <div class="search-and-filter">
@@ -36,7 +38,7 @@
         </div>
 
         <div class="jobs-scroll-container">
-            <div class="jobs-list">
+            <div class="jobs-list" v-if="activeTab === 'jobs'">
                 <div v-if="isLoading" class="skeleton-container">
                     <div class="skeleton-card" v-for="n in 3" :key="n"></div>
                 </div>
@@ -54,6 +56,25 @@
                         <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
                     </div>
                     <span v-if="isNew(job)" class="new-label">new</span>
+                </button>
+            </div>
+            <div class="jobs-list" v-if="activeTab === 'companies'">
+                <div v-if="isLoading" class="skeleton-container">
+                    <div class="skeleton-card" v-for="n in 3" :key="n"></div>
+                </div>
+                <button v-else @click="showVacancyDetails(vacancy)" class="job-card" v-for="vacancy in filteredVacancies" :key="vacancy.id">
+                    <div class="card-header">
+                        <img :src="vacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
+                        <div class="job-info">
+                            <p class="nick">{{ vacancy.companyName }} <span v-if="vacancy.verified" class="verified-badge">✔</span></p>
+                            <p class="work">{{ vacancy.position }}</p>
+                            <p class="experience">{{ vacancy.description.slice(0, 50) + '...' }}</p>
+                        </div>
+                    </div>
+                    <div class="tags">
+                        <span v-for="(tag, i) in vacancy.tags" :key="i" class="tag">{{ tag }}</span>
+                    </div>
+                    <span v-if="isNew(vacancy)" class="new-label">new</span>
                 </button>
             </div>
         </div>
@@ -85,36 +106,44 @@
         <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
             <div class="modal">
                 <div class="modal-header">
-                    <h2>Add New Job</h2>
+                    <h2>{{ addMode === 'job' ? 'Add New Job' : 'Add New Vacancy' }}</h2>
                     <button class="close-btn" @click="showAddModal = false">×</button>
                 </div>
                 <div class="job-details">
-                    <input v-model="newJob.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newJob.userId && formSubmitted }">
-                    <input v-model="newJob.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newJob.nick && formSubmitted }">
-                    <input v-model="newJob.username" placeholder="Username (optional)" class="search-input">
-                    <input v-model="newJob.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newJob.position && formSubmitted }">
-                    <input v-model="newJob.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
-                    <textarea v-model="newJob.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newJob.description && formSubmitted }"></textarea>
+                    <input v-if="addMode === 'vacancy'" v-model="newItem.companyUserId" placeholder="Company User ID (e.g., 1234567890)" class="search-input" type="number" :class="{ 'invalid': !newItem.companyUserId && formSubmitted }">
+                    <input v-if="addMode === 'vacancy'" v-model="newItem.companyName" placeholder="Company Name" class="search-input" :class="{ 'invalid': !newItem.companyName && formSubmitted }">
+                    <input v-if="addMode === 'job'" v-model="newItem.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newItem.userId && formSubmitted }">
+                    <input v-if="addMode === 'job'" v-model="newItem.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newItem.nick && formSubmitted }">
+                    <input v-if="addMode === 'job'" v-model="newItem.username" placeholder="Username (optional)" class="search-input">
+                    <input v-model="newItem.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newItem.position && formSubmitted }">
+                    <input v-if="addMode === 'job'" v-model="newItem.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
+                    <textarea v-model="newItem.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newItem.description && formSubmitted }"></textarea>
                     <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
                     <ul class="requirements">
-                        <li v-for="(req, i) in newJob.requirements" :key="i">
-                            {{ req }} <button @click="newJob.requirements.splice(i, 1)" class="delete-req">×</button>
+                        <li v-for="(req, i) in newItem.requirements" :key="i">
+                            {{ req }} <button @click="newItem.requirements.splice(i, 1)" class="delete-req">×</button>
                         </li>
                     </ul>
                     <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
                     <div class="tags">
-                        <span v-for="(tag, i) in newJob.tags" :key="i" class="tag">
-                            {{ tag }} <button @click="newJob.tags.splice(i, 1)" class="delete-tag">×</button>
+                        <span v-for="(tag, i) in newItem.tags" :key="i" class="tag">
+                            {{ tag }} <button @click="newItem.tags.splice(i, 1)" class="delete-tag">×</button>
                         </span>
                     </div>
                     <div class="filter-section">
                         <h4>Categories</h4>
                         <label v-for="category in categories" :key="category.value" class="checkbox-label">
-                            <input type="checkbox" v-model="newJob.categories" :value="category.value">
+                            <input type="checkbox" v-model="newItem.categories" :value="category.value">
                             {{ category.label }}
                         </label>
                     </div>
-                    <button @click="submitJob" class="contact-btn">Submit Job</button>
+                    <input v-model="newItem.contact" placeholder="Contact (e.g., https://t.me/username)" class="search-input" :class="{ 'invalid': !newItem.contact && formSubmitted }">
+                    <input v-if="addMode === 'vacancy'" v-model="newItem.officialWebsite" placeholder="Official Website (e.g., https://company.com)" class="search-input" :class="{ 'invalid': !newItem.officialWebsite && formSubmitted }">
+                    <input v-if="addMode === 'vacancy'" v-model="newItem.photoUrl" placeholder="Photo URL" class="search-input" :class="{ 'invalid': !newItem.photoUrl && formSubmitted }">
+                    <label v-if="addMode === 'vacancy'" class="checkbox-label">
+                        <input type="checkbox" v-model="newItem.verified"> Verified
+                    </label>
+                    <button @click="submitItem" class="contact-btn">Submit</button>
                 </div>
             </div>
         </div>
@@ -124,10 +153,41 @@
         <div v-if="open" class="modal-overlay" @click.self="open = false">
             <div class="modal">
                 <div class="modal-header">
-                    <h2>{{ selectedJob.position }}</h2>
+                    <h2>{{ isVacancy ? selectedVacancy.position : selectedJob.position }}</h2>
                     <button class="close-btn" @click="open = false">×</button>
                 </div>
-                <div class="job-details">
+                <div class="job-details" v-if="isVacancy">
+                    <div class="user-info">
+                        <a :href="selectedVacancy.officialWebsite" target="_blank" class="company-link">
+                            <img :src="selectedVacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
+                            <div>
+                                <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-badge">✔</span></p>
+                            </div>
+                        </a>
+                        <button class="favorite-btn" @click="toggleFavorite(selectedVacancy.id)">
+                            <span :class="{ 'favorite': isFavorite(selectedVacancy.id) }">♥</span>
+                        </button>
+                    </div>
+                    <div class="section">
+                        <h3>Description</h3>
+                        <p class="description">{{ selectedVacancy.description }}</p>
+                    </div>
+                    <div class="section">
+                        <h3>Requirements</h3>
+                        <ul class="requirements">
+                            <li v-for="(req, i) in selectedVacancy.requirements" :key="i">{{ req }}</li>
+                        </ul>
+                    </div>
+                    <div class="section">
+                        <h3>Skills</h3>
+                        <div class="tags">
+                            <span v-for="(tag, i) in selectedVacancy.tags" :key="i" class="tag">{{ tag }}</span>
+                        </div>
+                    </div>
+                    <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
+                    <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
+                </div>
+                <div class="job-details" v-else>
                     <div class="user-info">
                         <RouterLink
                             :to="{
@@ -182,6 +242,7 @@ const open = ref(false);
 const showAddModal = ref(false);
 const showFilterModal = ref(false);
 const selectedJob = ref({});
+const selectedVacancy = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
@@ -192,12 +253,14 @@ const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.
 const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
+const vacancies = ref([]);
 const isLoading = ref(true);
 const favoriteJobs = ref(JSON.parse(localStorage.getItem('favoriteJobs')) || []);
 const selectedCategories = ref([]);
 const showFavoritesOnly = ref(false);
 const activeTab = ref('jobs');
-const newJob = ref({
+const addMode = ref('job');
+const newItem = ref({
     userId: '',
     nick: '',
     username: '',
@@ -207,11 +270,17 @@ const newJob = ref({
     requirements: [],
     tags: [],
     categories: [],
-    contact: 'https://t.me/workiks_admin'
+    contact: 'https://t.me/workiks_admin',
+    companyUserId: '',
+    companyName: '',
+    officialWebsite: '',
+    verified: false,
+    photoUrl: ''
 });
 const requirementsInput = ref('');
 const tagsInput = ref('');
 const formSubmitted = ref(false);
+const isVacancy = ref(false);
 
 const categories = [
     { label: 'IT', value: 'it' },
@@ -250,10 +319,25 @@ const filteredJobs = computed(() => {
   return filtered;
 });
 
-const isNew = (job) => {
+const filteredVacancies = computed(() => {
+  let filtered = [...vacancies.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (selectedCategories.value.length > 0) {
+    filtered = filtered.filter(vacancy => vacancy.categories.some(cat => selectedCategories.value.includes(cat)));
+  }
+  if (showFavoritesOnly.value) {
+    filtered = filtered.filter(vacancy => isFavorite(vacancy.id));
+  }
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(vacancy => vacancy.position.toLowerCase().includes(query));
+  }
+  return filtered;
+});
+
+const isNew = (item) => {
   const now = new Date();
-  const jobDate = new Date(job.createdAt);
-  const diffInDays = (now - jobDate) / (1000 * 60 * 60 * 24);
+  const itemDate = new Date(item.createdAt);
+  const diffInDays = (now - itemDate) / (1000 * 60 * 60 * 24);
   return diffInDays <= 3;
 };
 
@@ -268,13 +352,29 @@ const fetchJobs = async () => {
   }
 };
 
+const fetchVacancies = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/vacancies`, { timeout: 5000 });
+    vacancies.value = response.data;
+  } catch (error) {
+    console.error('Error fetching vacancies:', error);
+  }
+};
+
 const showJobDetails = (job) => {
   selectedJob.value = job;
+  isVacancy.value = false;
+  open.value = true;
+};
+
+const showVacancyDetails = (vacancy) => {
+  selectedVacancy.value = vacancy;
+  isVacancy.value = true;
   open.value = true;
 };
 
 const showAddJobModal = () => {
-  newJob.value = {
+  newItem.value = {
     userId: '',
     nick: '',
     username: '',
@@ -286,6 +386,25 @@ const showAddJobModal = () => {
     categories: [],
     contact: 'https://t.me/workiks_admin'
   };
+  addMode.value = 'job';
+  showAddModal.value = true;
+};
+
+const showAddVacancyModal = () => {
+  newItem.value = {
+    companyUserId: '',
+    companyName: '',
+    position: '',
+    description: '',
+    requirements: [],
+    tags: [],
+    categories: [],
+    contact: '',
+    officialWebsite: '',
+    verified: false,
+    photoUrl: ''
+  };
+  addMode.value = 'vacancy';
   showAddModal.value = true;
 };
 
@@ -301,37 +420,50 @@ const toggleFilterModal = () => {
 
 const addRequirement = () => {
   if (requirementsInput.value.trim()) {
-    newJob.value.requirements.push(requirementsInput.value.trim());
+    newItem.value.requirements.push(requirementsInput.value.trim());
     requirementsInput.value = '';
   }
 };
 
 const addTag = () => {
   if (tagsInput.value.trim()) {
-    newJob.value.tags.push(tagsInput.value.trim());
+    newItem.value.tags.push(tagsInput.value.trim());
     tagsInput.value = '';
   }
 };
 
-const submitJob = async () => {
+const submitItem = async () => {
   formSubmitted.value = true;
-  if (!newJob.value.userId || !newJob.value.position || !newJob.value.description) {
-    Telegram.WebApp.showAlert("Please fill in all required fields!");
-    return;
-  }
-  try {
-    const jobData = {
-      ...newJob.value,
-      contact: 'https://t.me/workiks_admin',
-      categories: newJob.value.categories || []
-    };
-    const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    jobs.value.push(response.data.job);
-    showAddModal.value = false;
-  } catch (error) {
-    console.error('Error submitting job:', error.response?.data || error.message);
+  if (addMode.value === 'job') {
+    if (!newItem.value.userId || !newItem.value.nick || !newItem.value.position || !newItem.value.description) {
+      Telegram.WebApp.showAlert("Please fill in all required fields!");
+      return;
+    }
+    try {
+      const jobData = { ...newItem.value, contact: 'https://t.me/workiks_admin', categories: newItem.value.categories || [] };
+      const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      });
+      jobs.value.push(response.data.job);
+      showAddModal.value = false;
+    } catch (error) {
+      console.error('Error submitting job:', error.response?.data || error.message);
+    }
+  } else {
+    if (!newItem.value.companyUserId || !newItem.value.companyName || !newItem.value.position || !newItem.value.description || !newItem.value.contact || !newItem.value.officialWebsite || !newItem.value.photoUrl) {
+      Telegram.WebApp.showAlert("Please fill in all required fields!");
+      return;
+    }
+    try {
+      const vacancyData = { ...newItem.value, categories: newItem.value.categories || [] };
+      const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      });
+      vacancies.value.push(response.data.vacancy);
+      showAddModal.value = false;
+    } catch (error) {
+      console.error('Error submitting vacancy:', error.response?.data || error.message);
+    }
   }
 };
 
@@ -344,6 +476,18 @@ const deleteJob = async (jobId) => {
     open.value = false;
   } catch (error) {
     console.error('Error deleting job:', error.response?.data || error.message);
+  }
+};
+
+const deleteVacancy = async (vacancyId) => {
+  try {
+    await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
+    open.value = false;
+  } catch (error) {
+    console.error('Error deleting vacancy:', error.response?.data || error.message);
   }
 };
 
@@ -369,9 +513,9 @@ const handleClickOutside = (event) => {
   if (isProfileLink) return;
 };
 
-const toggleFavorite = async (jobId) => {
-  const index = favoriteJobs.value.indexOf(jobId);
-  const job = jobs.value.find(j => j.id === jobId);
+const toggleFavorite = async (itemId) => {
+  const index = favoriteJobs.value.indexOf(itemId);
+  const job = jobs.value.find(j => j.id === itemId) || vacancies.value.find(v => v.id === itemId);
   const telegramData = window.Telegram.WebApp.initData;
 
   if (!telegramData) {
@@ -384,7 +528,7 @@ const toggleFavorite = async (jobId) => {
 
   try {
     if (index === -1) {
-      favoriteJobs.value.push(jobId);
+      favoriteJobs.value.push(itemId);
       await axios.post(`${BASE_URL}/api/subscribe`, {
         userId: user.id,
         category: job.categories[0]
@@ -409,7 +553,11 @@ const toggleFavorite = async (jobId) => {
   }
 };
 
-const isFavorite = (jobId) => favoriteJobs.value.includes(jobId);
+const isFavorite = (itemId) => favoriteJobs.value.includes(itemId);
+
+const handleImageError = (event) => {
+  event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+};
 
 onMounted(() => {
   if (window.Telegram?.WebApp) {
@@ -430,6 +578,7 @@ onMounted(() => {
   }
   checkAdminStatus();
   fetchJobs();
+  fetchVacancies();
 });
 </script>
 
@@ -462,7 +611,7 @@ onMounted(() => {
 .jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
 .job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
 .job-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); border-color: #97f492; }
-.job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
+.job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; object-fit: cover; }
 .job-icon:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(151, 244, 146, 0.5); }
 .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
 .nick { color: #97f492; font-size: 14px; margin: 0; }
@@ -489,6 +638,7 @@ onMounted(() => {
 .close-btn { background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 0 10px; }
 .job-details { display: flex; flex-direction: column; gap: 20px; }
 .user-info { display: flex; align-items: center; gap: 15px; position: relative; }
+.company-link { display: flex; align-items: center; gap: 15px; text-decoration: none; }
 .nickname { color: #97f492; margin: 0; font-size: 18px; position: relative; display: inline-block; cursor: pointer; }
 .nickname::after { content: ""; position: absolute; bottom: -2px; left: 0; width: 0; height: 2px; background: #97f492; transition: width 0.3s ease; }
 .nickname:hover::after { width: 100%; }
@@ -520,4 +670,5 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .selected-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
 .filter-pill { display: inline-flex; align-items: center; background: #2d3540; padding: 6px 12px; border-radius: 20px; color: #97f492; font-size: 14px; }
 .filter-pill button { background: none; border: none; color: #97f492; margin-left: 8px; cursor: pointer; }
+.verified-badge { color: #97f492; font-size: 14px; margin-left: 5px; }
 </style>
