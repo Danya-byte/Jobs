@@ -138,27 +138,5 @@
     ],
     "contact": "https://t.me/workiks_admin",
     "createdAt": "2025-03-05T21:16:18.920Z"
-  },
-  {
-    "id": "1741271486616_1940359844",
-    "adminId": 1940359844,
-    "userId": 2126355194,
-    "username": "test",
-    "nick": "test",
-    "position": "test",
-    "profileLink": "/profile/2126355194",
-    "experience": 12,
-    "description": "test",
-    "requirements": [
-      "test"
-    ],
-    "tags": [
-      "test"
-    ],
-    "categories": [
-      "it"
-    ],
-    "contact": "https://t.me/workiks_admin",
-    "createdAt": "2025-03-06T14:31:26.616Z"
   }
 ]
