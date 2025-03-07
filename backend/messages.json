@@ -6,5 +6,13 @@
     "targetUserId": "6629517298",
     "timestamp": "2025-03-07T22:57:38.946Z",
     "isSender": true
+  },
+  {
+    "id": "1940359844_1741389579674",
+    "text": "привет",
+    "authorUserId": 1940359844,
+    "targetUserId": "6629517298",
+    "timestamp": "2025-03-07T23:19:39.674Z",
+    "isSender": true
   }
 ]
