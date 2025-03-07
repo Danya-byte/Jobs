@@ -229,14 +229,14 @@
                             <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
                         </div>
                     </div>
-                    <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     <div v-if="isAdmin" class="pin-section">
                         <label>
                             <input type="checkbox" v-model="selectedJob.pinned" @change="togglePinned(selectedJob)">
                             Закрепить вверху
                         </label>
                     </div>
+                    <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+                    <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                 </div>
             </div>
         </div>
