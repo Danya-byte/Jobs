@@ -160,7 +160,7 @@ const checkChatStatus = async () => {
   background: none;
   border: none;
   color: #fff;
-  font-size: 25px;
+  font-size: 28px;
   cursor: pointer;
 }
 .chat-messages {
@@ -214,16 +214,16 @@ const checkChatStatus = async () => {
 .chat-input {
   display: flex;
   gap: 5px;
-  margin-top: 10px;
+  margin-top: 3px;
 }
 .message-input {
   flex-grow: 1;
-  padding: 7px;
-  border-radius: 10px;
+  padding: 10px;
+  border-radius: 12px;
   border: none;
   background: #272e38;
   color: #fff;
-  font-size: 15px;
+  font-size: 18px;
 }
 .send-btn {
   background: #97f492;
