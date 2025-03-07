@@ -878,9 +878,10 @@ onMounted(() => {
 .checkbox-label input { margin-right: 8px; }
 .apply-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 8px; width: 100%; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; font-size: 14px; }
 .apply-btn:hover { transform: translateY(-2px); }
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
-.modal { background: #181e29; width: 100%; max-width: 500px; border-radius: 20px; padding: 25px; max-height: 90vh; overflow-y: auto; transform: scale(0); animation: scale-in 0.3s ease-out forwards; scrollbar-width: none; -ms-overflow-style: none; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; }
+.modal { background: #181e29; width: 100%; border-radius: 20px 20px 0 0; padding: 25px; max-height: 90vh; overflow-y: auto; transform: translateY(100%); animation: slide-up 0.3s ease-out forwards; scrollbar-width: none; -ms-overflow-style: none; }
 .modal::-webkit-scrollbar { display: none; }
+@keyframes slide-up { to { transform: translateY(0); } }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 .modal-header h2 { color: #97f492; margin: 0; }
 .close-btn { background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 0 10px; }
@@ -923,7 +924,7 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .pin-section { margin-top: 20px; }
 .pin-section label { color: #97f492; font-size: 17px; cursor: pointer; }
 .pin-section input { margin-right: 8px; }
-.admin-selection-modal { width: 300px; background: #181e29; border-radius: 20px; padding: 20px; }
+.admin-selection-modal { width: 100%; background: #181e29; border-radius: 20px 20px 0 0; padding: 20px; }
 .selection-buttons { display: flex; flex-direction: column; gap: 15px; }
 .selection-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-size: 16px; transition: transform 0.2s; }
 .selection-btn:hover { transform: translateY(-2px); }
