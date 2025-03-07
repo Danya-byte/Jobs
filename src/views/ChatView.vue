@@ -172,7 +172,7 @@ const checkChatStatus = async () => {
 }
 .message {
   margin: 5px 0;
-  padding: 5px 5px;
+  padding: 3px 5px;
   border-radius: 8px;
   max-width: 40%;
   font-size: 15px;
@@ -214,7 +214,7 @@ const checkChatStatus = async () => {
 .chat-input {
   display: flex;
   gap: 5px;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 .message-input {
   flex-grow: 1;
