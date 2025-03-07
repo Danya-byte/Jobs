@@ -531,7 +531,7 @@ app.put("/api/tasks/:taskId/pinned", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
     const task = tasksData.find((task) => task.id === taskId);
-    Toggle pinned statusif (!task) {
+    if (!task) {
       return res.status(404).json({ error: "Task not found" });
     }
     task.pinned = pinned;

@@ -7,8 +7,7 @@
                 <span class="first-name">{{ userFirstName }}</span>
             </div>
         </RouterLink>
-        <button @click="showAdminModal" class="add-button" v-if="isAdmin"><span></span> Add Jobs</button>
-        <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
+        <button @click="handleAddJobsClick" class="add-button"><span></span> Add Jobs</button>
     </nav>
 
     <div class="content">
@@ -797,6 +796,14 @@ const isFavorite = (itemId) => favoriteJobs.value.includes(itemId);
 
 const handleImageError = (event) => {
   event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+};
+
+const handleAddJobsClick = () => {
+    if (isAdmin.value) {
+        showAdminModal.value = true;
+    } else {
+        window.open('https://t.me/workiks_admin', '_blank');
+    }
 };
 
 onMounted(() => {
