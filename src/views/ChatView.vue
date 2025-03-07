@@ -1,23 +1,20 @@
 <template>
-  <div class="chat-container">
+  <div class="chat-container" @click="hideKeyboard">
     <div class="chat-header">
       <h2>{{ nick || 'Unknown' }}</h2>
       <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
-    <div class="chat-messages" ref="messagesContainer" v-if="chatUnlocked">
+    <div class="chat-messages" ref="messagesContainer">
       <div v-for="(message, index) in messages" :key="index"
            :class="['message', message.isSender ? 'sent' : 'received']">
         <p>{{ message.text }}</p>
         <span class="timestamp">{{ formatTimestamp(message.timestamp) }}</span>
       </div>
     </div>
-    <div class="chat-locked" v-else>
-      <p>Pay 1 XTR to unlock chat</p>
-      <button class="pay-btn" @click="requestPayment">Unlock (1 XTR)</button>
-    </div>
-    <div class="chat-input" v-if="chatUnlocked">
+    <div class="chat-input">
       <input v-model="newMessage" placeholder="Type a message..."
-             @keyup.enter="sendMessage" class="message-input">
+             @keyup.enter="sendMessage" class="message-input"
+             ref="messageInput">
       <button @click="sendMessage" class="send-btn">
         <svg width="20" height="20" viewBox="0 0 24 24">
           <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
@@ -38,8 +35,8 @@ const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const messagesContainer = ref(null);
+const messageInput = ref(null);
 
-const chatUnlocked = ref(false);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
@@ -68,30 +65,6 @@ const fetchJobDetails = async () => {
     }
   } catch (error) {
     console.error('Error fetching job details:', error);
-  }
-};
-
-const requestPayment = async () => {
-  try {
-    const response = await axios.post(
-      `${BASE_URL}/api/createChatInvoice`,
-      { targetUserId: userId.value, jobId: jobId.value },
-      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-    );
-    if (response.data.success) {
-      window.Telegram.WebApp.openInvoice(response.data.invoiceLink, (status) => {
-        if (status === 'paid') {
-          chatUnlocked.value = true;
-          Telegram.WebApp.showAlert('Chat unlocked successfully!');
-          fetchMessages();
-        } else if (status === 'cancelled') {
-          Telegram.WebApp.showAlert('Payment cancelled.');
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error requesting payment:', error);
-    Telegram.WebApp.showAlert('Failed to initiate payment.');
   }
 };
 
@@ -136,26 +109,20 @@ const sendMessage = async () => {
   }
 };
 
+const hideKeyboard = (event) => {
+  if (event.target !== messageInput.value) {
+    messageInput.value.blur();
+  }
+};
+
 onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
   }
   fetchJobDetails();
-  checkChatStatus();
+  fetchMessages();
 });
-
-const checkChatStatus = async () => {
-  try {
-    const response = await axios.get(`${BASE_URL}/api/chat/status/${userId.value}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    chatUnlocked.value = response.data.unlocked;
-    if (chatUnlocked.value) fetchMessages();
-  } catch (error) {
-    console.error('Error checking chat status:', error);
-  }
-};
 </script>
 
 <style scoped>
@@ -238,35 +205,6 @@ const checkChatStatus = async () => {
   color: #8a8f98;
   margin-top: 0.25rem;
   display: block;
-}
-
-.chat-locked {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  text-align: center;
-  padding: clamp(1rem, 4vw, 1.5rem);
-}
-
-.chat-locked p {
-  margin: 0 0 1rem;
-  font-size: clamp(0.875rem, 3vw, 1rem);
-}
-
-.pay-btn {
-  background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
-  color: #000;
-  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem);
-  border: none;
-  border-radius: clamp(0.5rem, 2vw, 0.75rem);
-  cursor: pointer;
-  font-size: clamp(0.875rem, 3vw, 1rem);
-  transition: transform 0.2s;
-}
-
-.pay-btn:hover {
-  transform: scale(1.02);
 }
 
 .chat-input {
