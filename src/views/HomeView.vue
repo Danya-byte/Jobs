@@ -296,10 +296,7 @@
                     <div class="job-details" v-else>
                         <div class="user-info">
                             <RouterLink
-                                :to="{
-                                    path: `/profile/${selectedJob.userId}`,
-                                    query: { username: selectedJob.username }
-                                }"
+                                :to="{ path: `/profile/${selectedJob.userId}`, query: { username: selectedJob.username } }"
                                 class="profile-link"
                             >
                                 <img :src="jobIcon" class="job-icon" loading="lazy">
@@ -334,7 +331,8 @@
                                 Закрепить вверху
                             </label>
                         </div>
-                        <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+                        <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+                        <RouterLink :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username } }" class="chat-btn">Chat with Freelancer</RouterLink>
                         <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     </div>
                 </div>
@@ -898,6 +896,8 @@ onMounted(() => {
 .requirements li { margin-bottom: 8px; }
 .contact-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 20px; transition: transform 0.2s; }
 .contact-btn:hover { transform: translateY(-2px); }
+.chat-btn { background: linear-gradient(135deg, #6de06a 0%, #97f492 100%); color: #000; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 10px; display: block; transition: transform 0.2s; }
+.chat-btn:hover { transform: translateY(-2px); }
 .delete-btn { background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%); color: #fff; text-align: center; padding: 15px; border-radius: 12px; border: none; font-weight: 600; margin-top: 20px; cursor: pointer; transition: transform 0.2s; }
 .delete-btn:hover { transform: translateY(-2px); }
 .delete-req, .delete-tag { background: none; border: none; color: #ff6b6b; cursor: pointer; margin-left: 5px; font-size: 16px; }
