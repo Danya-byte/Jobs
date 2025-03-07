@@ -48,7 +48,7 @@
     ],
     "contact": "https://t.me/Danoneee777",
     "createdAt": "2023-10-02T14:30:00Z",
-    "pinned": false
+    "pinned": true
   },
   {
     "id": "1741209378920_1940359844",
@@ -72,6 +72,6 @@
     ],
     "contact": "https://t.me/workiks_admin",
     "createdAt": "2025-03-05T21:16:18.920Z",
-    "pinned": true
+    "pinned": false
   }
 ]

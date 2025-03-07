@@ -55,7 +55,7 @@
                         <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
                     </div>
                     <span v-if="isNew(job)" class="new-label">new</span>
-                    <span v-if="job.pinned" class="pinned-label">Закреплено</span>
+                    <span v-if="job.pinned" class="pinned-label">📌Pinned</span>
                 </button>
             </div>
             <div class="jobs-list" v-if="activeTab === 'companies'">
