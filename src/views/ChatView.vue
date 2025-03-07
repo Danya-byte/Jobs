@@ -270,7 +270,7 @@ const checkChatStatus = async () => {
 }
 
 .chat-input {
-  padding: 0.1rem clamp(0.5rem, 2vw, 1rem) !important;
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem) !important;
   display: flex;
   gap: clamp(0.5rem, 2vw, 0.75rem);
   background: #1a2233;
@@ -279,7 +279,7 @@ const checkChatStatus = async () => {
   bottom: 0;
   align-items: center;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-  margin-bottom: clamp(0.5rem, 2vw, 1rem);
+  min-height: clamp(3rem, 10vw, 4rem);
 }
 
 .message-input {
@@ -291,7 +291,7 @@ const checkChatStatus = async () => {
   color: #fff;
   font-size: clamp(0.875rem, 3vw, 1rem);
   outline: none;
-  min-height: 40px !important;
+  min-height: clamp(2.5rem, 8vw, 3rem) !important;
   margin-bottom: 0 !important;
 }
 
@@ -299,8 +299,8 @@ const checkChatStatus = async () => {
   background: #97f492;
   border: none;
   border-radius: 50%;
-  width: clamp(2rem, 8vw, 2.5rem);
-  height: clamp(2rem, 8vw, 2.5rem);
+  width: clamp(2.5rem, 8vw, 3rem);
+  height: clamp(2.5rem, 8vw, 3rem);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -309,8 +309,8 @@ const checkChatStatus = async () => {
 
 .send-btn svg {
   fill: #000;
-  width: clamp(1rem, 4vw, 1.25rem);
-  height: clamp(1rem, 4vw, 1.25rem);
+  width: clamp(1.25rem, 4vw, 1.5rem);
+  height: clamp(1.25rem, 4vw, 1.5rem);
 }
 
 .send-btn:hover {
