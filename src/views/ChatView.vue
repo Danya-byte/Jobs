@@ -1,7 +1,7 @@
 <template>
   <div class="chat-container">
     <div class="chat-header">
-      <h2>Chat with @{{ firstname || 'unknown' }}</h2>
+      <h2>Chat with @{{ nick || 'unknown' }}</h2>
       <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
     <div class="chat-messages" v-if="chatUnlocked">
@@ -29,7 +29,7 @@ import axios from 'axios';
 const route = useRoute();
 const router = useRouter(); // Инициализируем router для навигации
 const userId = ref(route.params.userId); // Получаем userId из params
-const username = ref(route.query.username); // Получаем username из query
+const nick = ref(route.query.nick); // Получаем username из query
 const jobId = ref(route.query.jobId); // Получаем jobId из query
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
