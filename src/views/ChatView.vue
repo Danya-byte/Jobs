@@ -218,12 +218,12 @@ const checkChatStatus = async () => {
 }
 .message-input {
   flex-grow: 1;
-  padding: 5px;
-  border-radius: 8px;
+  padding: 7px;
+  border-radius: 10px;
   border: none;
   background: #272e38;
   color: #fff;
-  font-size: 12px;
+  font-size: 15px;
 }
 .send-btn {
   background: #97f492;
