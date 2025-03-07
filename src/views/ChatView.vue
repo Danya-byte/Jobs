@@ -12,7 +12,7 @@
     </div>
     <div class="chat-input">
       <input v-model="newMessage" placeholder="Type your message..." @keyup.enter="sendMessage" class="message-input">
-      <button @click="sendMessage" class="send-btn">Send (1 XTR)</button>
+      <button @click="sendMessage" class="send-btn">Send (1★)</button>
     </div>
   </div>
 </template>
