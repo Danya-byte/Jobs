@@ -7,8 +7,7 @@
                 <span class="first-name">{{ userFirstName }}</span>
             </div>
         </RouterLink>
-        <button v-if="isAdmin" @click="showAddJobModal" class="add-button"><span></span> Add Jobs</button>
-        <button v-if="isAdmin" @click="showAddVacancyModal" class="add-button"><span></span> Add Vacancy</button>
+        <button @click="showAdminModal" class="add-button" v-if="isAdmin"><span></span> Add Jobs</button>
         <a v-else href="https://t.me/workiks_admin" class="add-button"><span></span> Add Jobs</a>
     </nav>
 
@@ -16,6 +15,7 @@
         <div class="categories">
             <button class="category-btn" :class="{ active: activeTab === 'jobs' }" @click="activeTab = 'jobs'">Jobs</button>
             <button class="category-btn" :class="{ active: activeTab === 'companies' }" @click="activeTab = 'companies'">Companies</button>
+            <button class="category-btn" :class="{ active: activeTab === 'tasks' }" @click="activeTab = 'tasks'">Tasks</button>
         </div>
 
         <div class="search-and-filter">
@@ -78,6 +78,27 @@
                     <span v-if="vacancy.pinned" class="pinned-label">📌Pinned</span>
                 </button>
             </div>
+            <div class="jobs-list" v-if="activeTab === 'tasks'">
+                <div v-if="isLoading" class="skeleton-container">
+                    <div class="skeleton-card" v-for="n in 3" :key="n"></div>
+                </div>
+                <button v-else @click="showTaskDetails(task)" class="job-card" v-for="task in filteredTasks" :key="task.id">
+                    <div class="card-header">
+                        <img class="job-icon" :src="task.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" loading="lazy">
+                        <div class="job-info">
+                            <p class="nick">{{ task.title }}</p>
+                            <p class="work">{{ task.reward }} XTR</p>
+                            <p class="experience">{{ task.deadline ? `Deadline: ${new Date(task.deadline).toLocaleDateString()}` : 'No deadline' }}</p>
+                        </div>
+                    </div>
+                    <p class="job-description">{{ task.description }}</p>
+                    <div class="tags">
+                        <span v-for="(tag, i) in task.tags" :key="i" class="tag">{{ tag }}</span>
+                    </div>
+                    <span v-if="isNew(task)" class="new-label">new</span>
+                    <span v-if="task.pinned" class="pinned-label">📌Pinned</span>
+                </button>
+            </div>
         </div>
 
         <transition name="fade">
@@ -101,146 +122,226 @@
                 </div>
             </div>
         </transition>
+
+        <transition name="fade">
+            <div v-if="showAdminModal" class="modal-overlay" @click.self="showAdminModal = false">
+                <div class="modal admin-selection-modal">
+                    <div class="modal-header">
+                        <h2>Select Item Type</h2>
+                        <button class="close-btn" @click="showAdminModal = false">×</button>
+                    </div>
+                    <div class="selection-buttons">
+                        <button @click="showAddJobModal" class="selection-btn">Add Job</button>
+                        <button @click="showAddVacancyModal" class="selection-btn">Add Vacancy</button>
+                        <button @click="showAddTaskModal" class="selection-btn">Add Task</button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <transition name="slide-up">
+            <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2>{{ addMode === 'job' ? 'Add New Job' : 'Add New Vacancy' }}</h2>
+                        <button class="close-btn" @click="showAddModal = false">×</button>
+                    </div>
+                    <div class="job-details">
+                        <input v-if="addMode === 'vacancy'" v-model="newItem.companyUserId" placeholder="Company User ID (e.g., 1234567890)" class="search-input" type="number" :class="{ 'invalid': !newItem.companyUserId && formSubmitted }">
+                        <input v-if="addMode === 'vacancy'" v-model="newItem.companyName" placeholder="Company Name" class="search-input" :class="{ 'invalid': !newItem.companyName && formSubmitted }">
+                        <input v-if="addMode === 'job'" v-model="newItem.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newItem.userId && formSubmitted }">
+                        <input v-if="addMode === 'job'" v-model="newItem.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newItem.nick && formSubmitted }">
+                        <input v-if="addMode === 'job'" v-model="newItem.username" placeholder="Username (optional)" class="search-input">
+                        <input v-model="newItem.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newItem.position && formSubmitted }">
+                        <input v-if="addMode === 'job'" v-model="newItem.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
+                        <textarea v-model="newItem.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newItem.description && formSubmitted }"></textarea>
+                        <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
+                        <ul class="requirements">
+                            <li v-for="(req, i) in newItem.requirements" :key="i">
+                                {{ req }} <button @click="newItem.requirements.splice(i, 1)" class="delete-req">×</button>
+                            </li>
+                        </ul>
+                        <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
+                        <div class="tags">
+                            <span v-for="(tag, i) in newItem.tags" :key="i" class="tag">
+                                {{ tag }} <button @click="newItem.tags.splice(i, 1)" class="delete-tag">×</button>
+                            </span>
+                        </div>
+                        <div class="filter-section">
+                            <h4>Categories</h4>
+                            <label v-for="category in categories" :key="category.value" class="checkbox-label">
+                                <input type="checkbox" v-model="newItem.categories" :value="category.value">
+                                {{ category.label }}
+                            </label>
+                        </div>
+                        <input v-model="newItem.contact" placeholder="Contact (e.g., https://t.me/username)" class="search-input" :class="{ 'invalid': !newItem.contact && formSubmitted }">
+                        <input v-if="addMode === 'vacancy'" v-model="newItem.officialWebsite" placeholder="Official Website (e.g., https://company.com)" class="search-input" :class="{ 'invalid': !newItem.officialWebsite && formSubmitted }">
+                        <input v-if="addMode === 'vacancy'" v-model="newItem.photoUrl" placeholder="Photo URL" class="search-input" :class="{ 'invalid': !newItem.photoUrl && formSubmitted }">
+                        <label v-if="addMode === 'vacancy'" class="checkbox-label">
+                            <input type="checkbox" v-model="newItem.verified"> Verified
+                        </label>
+                        <button @click="submitItem" class="contact-btn">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <transition name="slide-up">
+            <div v-if="showTaskModal" class="modal-overlay" @click.self="showTaskModal = false">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2>Add New Task</h2>
+                        <button class="close-btn" @click="showTaskModal = false">×</button>
+                    </div>
+                    <div class="job-details">
+                        <input v-model="newTask.title" placeholder="Task Title" class="search-input" :class="{ 'invalid': !newTask.title && formSubmitted }" />
+                        <input v-model="newTask.reward" placeholder="Reward (XTR)" type="number" min="1" class="search-input" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
+                        <input v-model="newTask.deadline" type="date" placeholder="Deadline" class="search-input" />
+                        <textarea v-model="newTask.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newTask.description && formSubmitted }"></textarea>
+                        <input v-model="tagsInput" @keyup.enter="addTaskTag" placeholder="Tags (Enter to add)" class="search-input" />
+                        <div class="tags">
+                            <span v-for="(tag, i) in newTask.tags" :key="i" class="tag">
+                                {{ tag }} <button @click="newTask.tags.splice(i, 1)" class="delete-tag">×</button>
+                            </span>
+                        </div>
+                        <div class="filter-section">
+                            <h4>Categories</h4>
+                            <label v-for="category in categories" :key="category.value" class="checkbox-label">
+                                <input type="checkbox" v-model="newTask.categories" :value="category.value">
+                                {{ category.label }}
+                            </label>
+                        </div>
+                        <input v-model="newTask.contact" placeholder="Contact (e.g., https://t.me/username)" class="search-input" :class="{ 'invalid': !newTask.contact && formSubmitted }" />
+                        <input v-model="newTask.photoUrl" placeholder="Photo URL (optional)" class="search-input" />
+                        <button @click="submitTask" class="contact-btn">Submit Task</button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <transition name="slide-up">
+            <div v-if="open" class="modal-overlay" @click.self="open = false">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h2>{{ isVacancy ? selectedVacancy.position : isTask ? selectedTask.title : selectedJob.position }}</h2>
+                        <button class="close-btn" @click="open = false">×</button>
+                    </div>
+                    <div class="job-details" v-if="isVacancy">
+                        <div class="user-info">
+                            <a :href="selectedVacancy.officialWebsite" target="_blank" class="company-link">
+                                <img :src="selectedVacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
+                                <div>
+                                    <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-label">Verified</span></p>
+                                </div>
+                            </a>
+                            <button class="favorite-btn" @click="toggleFavorite(selectedVacancy.id)">
+                                <span :class="{ 'favorite': isFavorite(selectedVacancy.id) }">♥</span>
+                            </button>
+                        </div>
+                        <div class="section">
+                            <h3>Description</h3>
+                            <p class="description">{{ selectedVacancy.description }}</p>
+                        </div>
+                        <div class="section">
+                            <h3>Requirements</h3>
+                            <ul class="requirements">
+                                <li v-for="(req, i) in selectedVacancy.requirements" :key="i">{{ req }}</li>
+                            </ul>
+                        </div>
+                        <div class="section">
+                            <h3>Skills</h3>
+                            <div class="tags">
+                                <span v-for="(tag, i) in selectedVacancy.tags" :key="i" class="tag">{{ tag }}</span>
+                            </div>
+                        </div>
+                        <div v-if="isAdmin" class="pin-section">
+                            <label>
+                                <input type="checkbox" v-model="selectedVacancy.pinned" @change="togglePinned(selectedVacancy)">
+                                Закрепить вверху
+                            </label>
+                        </div>
+                        <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
+                        <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
+                    </div>
+                    <div class="job-details" v-else-if="isTask">
+                        <div class="user-info">
+                            <img :src="selectedTask.photoUrl || jobIcon" class="job-icon" loading="lazy" @error="handleImageError">
+                            <div>
+                                <p class="nickname">{{ selectedTask.title }}</p>
+                                <p class="experience">{{ selectedTask.reward }} XTR</p>
+                                <p class="experience">{{ selectedTask.deadline ? `Deadline: ${new Date(selectedTask.deadline).toLocaleDateString()}` : 'No deadline' }}</p>
+                            </div>
+                            <button class="favorite-btn" @click="toggleFavorite(selectedTask.id)">
+                                <span :class="{ 'favorite': isFavorite(selectedTask.id) }">♥</span>
+                            </button>
+                        </div>
+                        <div class="section">
+                            <h3>Description</h3>
+                            <p class="description">{{ selectedTask.description }}</p>
+                        </div>
+                        <div class="section">
+                            <h3>Skills</h3>
+                            <div class="tags">
+                                <span v-for="(tag, i) in selectedTask.tags" :key="i" class="tag">{{ tag }}</span>
+                            </div>
+                        </div>
+                        <div v-if="isAdmin" class="pin-section">
+                            <label>
+                                <input type="checkbox" v-model="selectedTask.pinned" @change="togglePinned(selectedTask)">
+                                Закрепить вверху
+                            </label>
+                        </div>
+                        <a :href="selectedTask.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
+                        <button v-if="isAdmin" @click="deleteTask(selectedTask.id)" class="delete-btn">Delete Task</button>
+                    </div>
+                    <div class="job-details" v-else>
+                        <div class="user-info">
+                            <RouterLink
+                                :to="{
+                                    path: `/profile/${selectedJob.userId}`,
+                                    query: { username: selectedJob.username }
+                                }"
+                                class="profile-link"
+                            >
+                                <img :src="jobIcon" class="job-icon" loading="lazy">
+                                <div>
+                                    <p class="nickname">{{ selectedJob.nick }}</p>
+                                    <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
+                                </div>
+                            </RouterLink>
+                            <button class="favorite-btn" @click="toggleFavorite(selectedJob.id)">
+                                <span :class="{ 'favorite': isFavorite(selectedJob.id) }">♥</span>
+                            </button>
+                        </div>
+                        <div class="section">
+                            <h3>Description</h3>
+                            <p class="description">{{ selectedJob.description }}</p>
+                        </div>
+                        <div class="section">
+                            <h3>Requirements</h3>
+                            <ul class="requirements">
+                                <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
+                            </ul>
+                        </div>
+                        <div class="section">
+                            <h3>Skills</h3>
+                            <div class="tags">
+                                <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
+                            </div>
+                        </div>
+                        <div v-if="isAdmin" class="pin-section">
+                            <label>
+                                <input type="checkbox" v-model="selectedJob.pinned" @change="togglePinned(selectedJob)">
+                                Закрепить вверху
+                            </label>
+                        </div>
+                        <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+                        <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
+                    </div>
+                </div>
+            </div>
+        </transition>
     </div>
-
-    <transition name="slide-up">
-        <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>{{ addMode === 'job' ? 'Add New Job' : 'Add New Vacancy' }}</h2>
-                    <button class="close-btn" @click="showAddModal = false">×</button>
-                </div>
-                <div class="job-details">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.companyUserId" placeholder="Company User ID (e.g., 1234567890)" class="search-input" type="number" :class="{ 'invalid': !newItem.companyUserId && formSubmitted }">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.companyName" placeholder="Company Name" class="search-input" :class="{ 'invalid': !newItem.companyName && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newItem.userId && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newItem.nick && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.username" placeholder="Username (optional)" class="search-input">
-                    <input v-model="newItem.position" placeholder="Position" class="search-input" :class="{ 'invalid': !newItem.position && formSubmitted }">
-                    <input v-if="addMode === 'job'" v-model="newItem.experience" placeholder="Experience (years)" class="search-input" type="number" min="0">
-                    <textarea v-model="newItem.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newItem.description && formSubmitted }"></textarea>
-                    <input v-model="requirementsInput" @keyup.enter="addRequirement" placeholder="Requirements (Enter to add)" class="search-input">
-                    <ul class="requirements">
-                        <li v-for="(req, i) in newItem.requirements" :key="i">
-                            {{ req }} <button @click="newItem.requirements.splice(i, 1)" class="delete-req">×</button>
-                        </li>
-                    </ul>
-                    <input v-model="tagsInput" @keyup.enter="addTag" placeholder="Tags (Enter to add)" class="search-input">
-                    <div class="tags">
-                        <span v-for="(tag, i) in newItem.tags" :key="i" class="tag">
-                            {{ tag }} <button @click="newItem.tags.splice(i, 1)" class="delete-tag">×</button>
-                        </span>
-                    </div>
-                    <div class="filter-section">
-                        <h4>Categories</h4>
-                        <label v-for="category in categories" :key="category.value" class="checkbox-label">
-                            <input type="checkbox" v-model="newItem.categories" :value="category.value">
-                            {{ category.label }}
-                        </label>
-                    </div>
-                    <input v-model="newItem.contact" placeholder="Contact (e.g., https://t.me/username)" class="search-input" :class="{ 'invalid': !newItem.contact && formSubmitted }">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.officialWebsite" placeholder="Official Website (e.g., https://company.com)" class="search-input" :class="{ 'invalid': !newItem.officialWebsite && formSubmitted }">
-                    <input v-if="addMode === 'vacancy'" v-model="newItem.photoUrl" placeholder="Photo URL" class="search-input" :class="{ 'invalid': !newItem.photoUrl && formSubmitted }">
-                    <label v-if="addMode === 'vacancy'" class="checkbox-label">
-                        <input type="checkbox" v-model="newItem.verified"> Verified
-                    </label>
-                    <button @click="submitItem" class="contact-btn">Submit</button>
-                </div>
-            </div>
-        </div>
-    </transition>
-
-    <transition name="slide-up">
-        <div v-if="open" class="modal-overlay" @click.self="open = false">
-            <div class="modal">
-                <div class="modal-header">
-                    <h2>{{ isVacancy ? selectedVacancy.position : selectedJob.position }}</h2>
-                    <button class="close-btn" @click="open = false">×</button>
-                </div>
-                <div class="job-details" v-if="isVacancy">
-                    <div class="user-info">
-                        <a :href="selectedVacancy.officialWebsite" target="_blank" class="company-link">
-                            <img :src="selectedVacancy.photoUrl" class="job-icon" loading="lazy" @error="handleImageError">
-                            <div>
-                                <p class="nickname">{{ selectedVacancy.companyName }} <span v-if="selectedVacancy.verified" class="verified-label">Verified</span></p>
-                            </div>
-                        </a>
-                        <button class="favorite-btn" @click="toggleFavorite(selectedVacancy.id)">
-                            <span :class="{ 'favorite': isFavorite(selectedVacancy.id) }">♥</span>
-                        </button>
-                    </div>
-                    <div class="section">
-                        <h3>Description</h3>
-                        <p class="description">{{ selectedVacancy.description }}</p>
-                    </div>
-                    <div class="section">
-                        <h3>Requirements</h3>
-                        <ul class="requirements">
-                            <li v-for="(req, i) in selectedVacancy.requirements" :key="i">{{ req }}</li>
-                        </ul>
-                    </div>
-                    <div class="section">
-                        <h3>Skills</h3>
-                        <div class="tags">
-                            <span v-for="(tag, i) in selectedVacancy.tags" :key="i" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-                    <div v-if="isAdmin" class="pin-section">
-                        <label>
-                            <input type="checkbox" v-model="selectedVacancy.pinned" @change="togglePinned(selectedVacancy)">
-                            Закрепить вверху
-                        </label>
-                    </div>
-                    <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
-                </div>
-                <div class="job-details" v-else>
-                    <div class="user-info">
-                        <RouterLink
-                            :to="{
-                                path: `/profile/${selectedJob.userId}`,
-                                query: { username: selectedJob.username }
-                            }"
-                            class="profile-link"
-                        >
-                            <img :src="jobIcon" class="job-icon" loading="lazy">
-                            <div>
-                                <p class="nickname">{{ selectedJob.nick }}</p>
-                                <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
-                            </div>
-                        </RouterLink>
-                        <button class="favorite-btn" @click="toggleFavorite(selectedJob.id)">
-                            <span :class="{ 'favorite': isFavorite(selectedJob.id) }">♥</span>
-                        </button>
-                    </div>
-                    <div class="section">
-                        <h3>Description</h3>
-                        <p class="description">{{ selectedJob.description }}</p>
-                    </div>
-                    <div class="section">
-                        <h3>Requirements</h3>
-                        <ul class="requirements">
-                            <li v-for="(req, i) in selectedJob.requirements" :key="i">{{ req }}</li>
-                        </ul>
-                    </div>
-                    <div class="section">
-                        <h3>Skills</h3>
-                        <div class="tags">
-                            <span v-for="(tag, i) in selectedJob.tags" :key="i" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-                    <div v-if="isAdmin" class="pin-section">
-                        <label>
-                            <input type="checkbox" v-model="selectedJob.pinned" @change="togglePinned(selectedJob)">
-                            Закрепить вверху
-                        </label>
-                    </div>
-                    <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
-                </div>
-            </div>
-        </div>
-    </transition>
 </div>
 </template>
 
@@ -254,8 +355,11 @@ const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const open = ref(false);
 const showAddModal = ref(false);
 const showFilterModal = ref(false);
+const showAdminModal = ref(false);
+const showTaskModal = ref(false);
 const selectedJob = ref({});
 const selectedVacancy = ref({});
+const selectedTask = ref({});
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
@@ -267,6 +371,7 @@ const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
 const vacancies = ref([]);
+const tasks = ref([]);
 const isLoading = ref(true);
 const favoriteJobs = ref([]);
 const selectedCategories = ref([]);
@@ -290,10 +395,21 @@ const newItem = ref({
     verified: false,
     photoUrl: ''
 });
+const newTask = ref({
+    title: '',
+    reward: '',
+    deadline: '',
+    description: '',
+    tags: [],
+    categories: [],
+    contact: 'https://t.me/workiks_admin',
+    photoUrl: ''
+});
 const requirementsInput = ref('');
 const tagsInput = ref('');
 const formSubmitted = ref(false);
 const isVacancy = ref(false);
+const isTask = ref(false);
 
 const categories = [
     { label: 'IT', value: 'it' },
@@ -314,7 +430,6 @@ const sortedJobs = computed(() => {
 
 const filteredJobs = computed(() => {
   let filtered = sortedJobs.value;
-
   if (selectedCategories.value.length > 0) {
     filtered = filtered.filter(job => {
       if (job.categories && job.categories.length > 0) {
@@ -323,16 +438,13 @@ const filteredJobs = computed(() => {
       return false;
     });
   }
-
   if (showFavoritesOnly.value) {
     filtered = filtered.filter(job => isFavorite(job.id));
   }
-
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(job => job.position.toLowerCase().includes(query));
   }
-
   return filtered;
 });
 
@@ -351,6 +463,33 @@ const filteredVacancies = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(vacancy => vacancy.position.toLowerCase().includes(query));
+  }
+  return filtered;
+});
+
+const sortedTasks = computed(() => {
+  return [...tasks.value].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+});
+
+const filteredTasks = computed(() => {
+  let filtered = sortedTasks.value;
+  if (selectedCategories.value.length > 0) {
+    filtered = filtered.filter(task =>
+      task.categories.some(cat => selectedCategories.value.includes(cat))
+    );
+  }
+  if (showFavoritesOnly.value) {
+    filtered = filtered.filter(task => isFavorite(task.id));
+  }
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(task =>
+      task.title.toLowerCase().includes(query)
+    );
   }
   return filtered;
 });
@@ -382,6 +521,17 @@ const fetchVacancies = async () => {
   }
 };
 
+const fetchTasks = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/tasks`, { timeout: 5000 });
+    tasks.value = response.data;
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 const fetchFavorites = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/favorites`, {
@@ -396,16 +546,26 @@ const fetchFavorites = async () => {
 const showJobDetails = (job) => {
   selectedJob.value = job;
   isVacancy.value = false;
+  isTask.value = false;
   open.value = true;
 };
 
 const showVacancyDetails = (vacancy) => {
   selectedVacancy.value = vacancy;
   isVacancy.value = true;
+  isTask.value = false;
+  open.value = true;
+};
+
+const showTaskDetails = (task) => {
+  selectedTask.value = task;
+  isTask.value = true;
+  isVacancy.value = false;
   open.value = true;
 };
 
 const showAddJobModal = () => {
+  showAdminModal.value = false;
   newItem.value = {
     userId: '',
     nick: '',
@@ -423,6 +583,7 @@ const showAddJobModal = () => {
 };
 
 const showAddVacancyModal = () => {
+  showAdminModal.value = false;
   newItem.value = {
     companyUserId: '',
     companyName: '',
@@ -438,6 +599,21 @@ const showAddVacancyModal = () => {
   };
   addMode.value = 'vacancy';
   showAddModal.value = true;
+};
+
+const showAddTaskModal = () => {
+  showAdminModal.value = false;
+  newTask.value = {
+    title: '',
+    reward: '',
+    deadline: '',
+    description: '',
+    tags: [],
+    categories: [],
+    contact: 'https://t.me/workiks_admin',
+    photoUrl: ''
+  };
+  showTaskModal.value = true;
 };
 
 const toggleFilterModal = () => {
@@ -460,6 +636,13 @@ const addRequirement = () => {
 const addTag = () => {
   if (tagsInput.value.trim()) {
     newItem.value.tags.push(tagsInput.value.trim());
+    tagsInput.value = '';
+  }
+};
+
+const addTaskTag = () => {
+  if (tagsInput.value.trim()) {
+    newTask.value.tags.push(tagsInput.value.trim());
     tagsInput.value = '';
   }
 };
@@ -499,6 +682,24 @@ const submitItem = async () => {
   }
 };
 
+const submitTask = async () => {
+  formSubmitted.value = true;
+  if (!newTask.value.title || !newTask.value.reward || !newTask.value.description || !newTask.value.contact) {
+    Telegram.WebApp.showAlert("Please fill in all required fields!");
+    return;
+  }
+  try {
+    const taskData = { ...newTask.value, categories: newTask.value.categories || [] };
+    const response = await axios.post(`${BASE_URL}/api/tasks`, taskData, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    tasks.value.push(response.data.task);
+    showTaskModal.value = false;
+  } catch (error) {
+    console.error('Error submitting task:', error.response?.data || error.message);
+  }
+};
+
 const deleteJob = async (jobId) => {
   try {
     await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
@@ -523,14 +724,29 @@ const deleteVacancy = async (vacancyId) => {
   }
 };
 
+const deleteTask = async (taskId) => {
+  try {
+    await axios.delete(`${BASE_URL}/api/tasks/${taskId}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    tasks.value = tasks.value.filter(task => task.id !== taskId);
+    open.value = false;
+  } catch (error) {
+    console.error('Error deleting task:', error.response?.data || error.message);
+  }
+};
+
 const togglePinned = async (item) => {
   try {
-    const endpoint = item.companyUserId ? `/api/vacancies/${item.id}/pinned` : `/api/jobs/${item.id}/pinned`;
+    const endpoint = item.companyUserId ? `/api/vacancies/${item.id}/pinned` :
+                    item.userId ? `/api/jobs/${item.id}/pinned` :
+                    `/api/tasks/${item.id}/pinned`;
     await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned }, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     fetchJobs();
     fetchVacancies();
+    fetchTasks();
     Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
   } catch (error) {
     console.error('Ошибка при изменении статуса закрепления:', error);
@@ -552,11 +768,9 @@ const checkAdminStatus = async () => {
 
 const handleClickOutside = (event) => {
   const isProfileLink = event.target.closest('.profile-link') !== null;
-
   if (searchInput.value && !searchInput.value.contains(event.target)) {
     searchInput.value.blur();
   }
-
   if (isProfileLink) return;
 };
 
@@ -605,6 +819,7 @@ onMounted(() => {
   checkAdminStatus();
   fetchJobs();
   fetchVacancies();
+  fetchTasks();
   fetchFavorites();
 });
 </script>
@@ -702,4 +917,8 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .pin-section { margin-top: 20px; }
 .pin-section label { color: #97f492; font-size: 17px; cursor: pointer; }
 .pin-section input { margin-right: 8px; }
+.admin-selection-modal { width: 300px; background: #181e29; border-radius: 20px; padding: 20px; }
+.selection-buttons { display: flex; flex-direction: column; gap: 15px; }
+.selection-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-size: 16px; transition: transform 0.2s; }
+.selection-btn:hover { transform: translateY(-2px); }
 </style>

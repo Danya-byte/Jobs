@@ -18,6 +18,7 @@ const JOBS_FILE = path.join(__dirname, "jobs.json");
 const FREELANCER_SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
 const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
 const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
+const TASKS_FILE = path.join(__dirname, "tasks.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
@@ -26,12 +27,14 @@ const reviewsMutex = new Mutex();
 const freelancerSubscriptionsMutex = new Mutex();
 const vacanciesMutex = new Mutex();
 const companySubscriptionsMutex = new Mutex();
+const tasksMutex = new Mutex();
 
 let jobsData = [];
 let reviewsData = {};
 let freelancerSubscriptionsData = {};
 let vacanciesData = [];
 let companySubscriptionsData = [];
+let tasksData = [];
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -55,7 +58,6 @@ const logger = winston.createLogger({
 app.use((req, res, next) => {
   const startTime = Date.now();
   const oldJson = res.json;
-
   res.json = function (data) {
     const duration = Date.now() - startTime;
     logger.info(
@@ -63,7 +65,6 @@ app.use((req, res, next) => {
     );
     return oldJson.call(this, data);
   };
-
   next();
 });
 
@@ -129,6 +130,16 @@ async function initCompanySubscriptionsFile() {
   }
 }
 
+async function initTasksFile() {
+  try {
+    await fs.access(TASKS_FILE);
+    const data = await fs.readFile(TASKS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(TASKS_FILE, "[]");
+  } catch {
+    await fs.writeFile(TASKS_FILE, "[]");
+  }
+}
+
 async function loadJobs() {
   try {
     const rawData = await fs.readFile(JOBS_FILE, "utf8");
@@ -174,18 +185,25 @@ async function loadCompanySubscriptions() {
   }
 }
 
+async function loadTasks() {
+  try {
+    const rawData = await fs.readFile(TASKS_FILE, "utf8");
+    tasksData = rawData.trim() ? JSON.parse(rawData) : [];
+  } catch (e) {
+    tasksData = [];
+  }
+}
+
 function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
     const receivedHash = params.get("hash");
     if (!receivedHash) return false;
-
     const dataCheckString = Array.from(params.entries())
       .filter(([key]) => key !== "hash")
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, val]) => `${key}=${val}`)
       .join("\n");
-
     const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
     return crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex") === receivedHash;
   } catch (e) {
@@ -204,19 +222,15 @@ app.post("/api/jobs", async (req, res) => {
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
       return res.status(403).json({ error: "Forbidden" });
     }
-
     const { userId, nick, position, experience, description, requirements, tags, categories } = req.body;
     if (!userId || !nick || !position || !description || !requirements || !tags) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-
     const newJob = {
       id: `${Date.now()}_${user.id}`,
       adminId: user.id,
@@ -234,16 +248,12 @@ app.post("/api/jobs", async (req, res) => {
       createdAt: new Date().toISOString(),
       pinned: false
     };
-
     jobsData.push(newJob);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-
     const subscribers = Object.entries(freelancerSubscriptionsData)
       .filter(([_, positions]) => positions.includes(newJob.position))
       .map(([userId]) => userId);
-
     logger.info(`Found ${subscribers.length} subscribers for position "${newJob.position}": ${subscribers.join(", ")}`);
-
     for (const subscriberId of subscribers) {
       try {
         await bot.api.sendMessage(
@@ -257,7 +267,6 @@ app.post("/api/jobs", async (req, res) => {
         logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
       }
     }
-
     res.json({ success: true, job: newJob });
   } catch (e) {
     logger.error(`Error in POST /api/jobs: ${e.message}`);
@@ -273,26 +282,20 @@ app.put("/api/jobs/:jobId/pinned", async (req, res) => {
     const { jobId } = req.params;
     const { pinned } = req.body;
     const telegramData = req.headers["x-telegram-data"];
-
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
       return res.status(403).json({ error: "Forbidden" });
     }
-
     const job = jobsData.find((job) => job.id === jobId);
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }
-
     job.pinned = pinned;
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-
     res.json({ success: true, job });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -306,26 +309,20 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
   try {
     const { jobId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
-
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
       return res.status(403).json({ error: "Forbidden" });
     }
-
     const jobIndex = jobsData.findIndex((job) => job.id === jobId);
     if (jobIndex === -1) {
       return res.status(404).json({ error: "Job not found" });
     }
-
     jobsData.splice(jobIndex, 1);
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
-
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -395,11 +392,9 @@ app.post("/api/vacancies", async (req, res) => {
     };
     vacanciesData.push(newVacancy);
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
-
     const subscribers = Object.entries(companySubscriptionsData)
       .filter(([_, companies]) => companies.includes(newVacancy.companyName))
       .map(([userId]) => userId);
-
     for (const subscriberId of subscribers) {
       try {
         await bot.api.sendMessage(
@@ -413,7 +408,6 @@ app.post("/api/vacancies", async (req, res) => {
         logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
       }
     }
-
     res.json({ success: true, vacancy: newVacancy });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -428,26 +422,20 @@ app.put("/api/vacancies/:vacancyId/pinned", async (req, res) => {
     const { vacancyId } = req.params;
     const { pinned } = req.body;
     const telegramData = req.headers["x-telegram-data"];
-
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
       return res.status(403).json({ error: "Forbidden" });
     }
-
     const vacancy = vacanciesData.find((vacancy) => vacancy.id === vacancyId);
     if (!vacancy) {
       return res.status(404).json({ error: "Vacancy not found" });
     }
-
     vacancy.pinned = pinned;
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
-
     res.json({ success: true, vacancy });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -483,176 +471,72 @@ app.delete("/api/vacancies/:vacancyId", async (req, res) => {
   }
 });
 
-app.get("/api/user/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const userJob = jobsData.find((job) => job.userId.toString() === userId);
-    const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
-    let firstName = "Unknown";
-    let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
-    let responseUsername = null;
-
-    if (userJob || userVacancy) {
-      try {
-        const userData = await bot.api.getChat(userJob ? userJob.userId : userVacancy.companyUserId);
-        firstName = userData.first_name || "Unknown";
-        responseUsername = userData.username || null;
-        if (responseUsername) {
-          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-        }
-      } catch (telegramError) {
-        firstName = userJob ? userJob.nick : userVacancy ? userVacancy.companyName : "Unknown";
-        responseUsername = userJob ? userJob.username : userVacancy ? null : null;
-        if (responseUsername) {
-          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-        }
-      }
-    }
-
-    res.json({ firstName, username: responseUsername, photoUrl });
-  } catch (e) {
-    res.status(500).json({ error: "Internal server error" });
-  }
+app.get("/api/tasks", async (req, res) => {
+  res.json(tasksData);
 });
 
-app.post("/api/toggleFavorite", async (req, res) => {
-  const releaseFreelancer = await freelancerSubscriptionsMutex.acquire();
-  const releaseCompany = await companySubscriptionsMutex.acquire();
+app.post("/api/tasks", async (req, res) => {
+  const release = await tasksMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-    const { itemId } = req.body;
-
-    if (!user.id || !itemId) {
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { title, reward, deadline, description, tags, categories, contact, photoUrl } = req.body;
+    if (!title || !reward || !description || !contact) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-
-    const job = jobsData.find((j) => j.id === itemId);
-    const vacancy = vacanciesData.find((v) => v.id === itemId);
-
-    let favoriteJobs = [];
-    try {
-      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
-    } catch {
-      favoriteJobs = [];
-    }
-
-    const favoriteIndex = favoriteJobs.indexOf(itemId);
-    const userId = user.id.toString();
-
-    if (favoriteIndex === -1) {
-      favoriteJobs.push(itemId);
-
-      if (vacancy) {
-        if (!companySubscriptionsData[userId]) {
-          companySubscriptionsData[userId] = [];
-        }
-        if (!companySubscriptionsData[userId].includes(vacancy.companyName)) {
-          companySubscriptionsData[userId].push(vacancy.companyName);
-          await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
-        }
-      } else if (job) {
-        if (!freelancerSubscriptionsData[userId]) {
-          freelancerSubscriptionsData[userId] = [];
-        }
-        if (!freelancerSubscriptionsData[userId].includes(job.position)) {
-          freelancerSubscriptionsData[userId].push(job.position);
-          await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
-        }
-      }
-    } else {
-      favoriteJobs.splice(favoriteIndex, 1);
-
-      if (vacancy && companySubscriptionsData[userId]) {
-        companySubscriptionsData[userId] = companySubscriptionsData[userId].filter(
-          (name) => name !== vacancy.companyName
-        );
-        if (companySubscriptionsData[userId].length === 0) {
-          delete companySubscriptionsData[userId];
-        }
-        await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
-      } else if (job && freelancerSubscriptionsData[userId]) {
-        freelancerSubscriptionsData[userId] = freelancerSubscriptionsData[userId].filter(
-          (pos) => pos !== job.position
-        );
-        if (freelancerSubscriptionsData[userId].length === 0) {
-          delete freelancerSubscriptionsData[userId];
-        }
-        await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
-      }
-    }
-
-    await fs.writeFile(path.join(__dirname, "favoriteJobs.json"), JSON.stringify(favoriteJobs, null, 2));
-    res.json({ success: true, favorites: favoriteJobs });
+    const newTask = {
+      id: `${Date.now()}_${user.id}`,
+      adminId: user.id,
+      title,
+      reward,
+      deadline: deadline || null,
+      description,
+      tags: tags || [],
+      categories: categories || [],
+      contact,
+      photoUrl: photoUrl || "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp",
+      createdAt: new Date().toISOString(),
+      pinned: false
+    };
+    tasksData.push(newTask);
+    await fs.writeFile(TASKS_FILE, JSON.stringify(tasksData, null, 2));
+    res.json({ success: true, task: newTask });
   } catch (e) {
+    logger.error(`Error in POST /api/tasks: ${e.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
-    releaseFreelancer();
-    releaseCompany();
+    release();
   }
 });
 
-app.get("/api/favorites", async (req, res) => {
+app.put("/api/tasks/:taskId/pinned", async (req, res) => {
+  const release = await tasksMutex.acquire();
   try {
+    const { taskId } = req.params;
+    const { pinned } = req.body;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
-    let favoriteJobs = [];
-    try {
-      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
-    } catch {
-      favoriteJobs = [];
-    }
-
-    res.json(favoriteJobs);
-  } catch (e) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.post("/api/createInvoiceLink", async (req, res) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
     const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-    const { text, targetUserId } = req.body;
-
-    if (!user?.id || !targetUserId || !text) {
-      return res.status(400).json({ error: "Invalid data" });
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
     }
-
-    const payload = `${user.id}_${Date.now()}`;
-    reviewsData[payload] = { text, authorUserId: user.id, targetUserId };
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-    const invoiceLink = await bot.api.createInvoiceLink(
-      "Submit a Review",
-      "Pay 1 Telegram Star to submit a review",
-      payload,
-      "",
-      "XTR",
-      [{ label: "Review Submission", amount: 1 }]
-    );
-
-    res.json({ success: true, invoiceLink });
+    const task = tasksData.find((task) => task.id === taskId);
+    Toggle pinned statusif (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+    task.pinned = pinned;
+    await fs.writeFile(TASKS_FILE, JSON.stringify(tasksData, null, 2));
+    res.json({ success: true, task });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
@@ -660,42 +544,25 @@ app.post("/api/createInvoiceLink", async (req, res) => {
   }
 });
 
-app.get("/api/reviews", async (req, res) => {
+app.delete("/api/tasks/:taskId", async (req, res) => {
+  const release = await tasksMutex.acquire();
   try {
-    const { targetUserId } = req.query;
-    const reviews = Object.entries(reviewsData)
-      .filter(([_, review]) => review.targetUserId === targetUserId && review.date)
-      .map(([id, review]) => ({ id, ...review }));
-    res.json(reviews);
-  } catch (e) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.delete("/api/reviews/:reviewId", async (req, res) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const { reviewId } = req.params;
+    const { taskId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
-
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-
+    const user = JSON.parse(params.get("user") || "{}");
     if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
       return res.status(403).json({ error: "Forbidden" });
     }
-
-    if (!reviewsData[reviewId]) {
-      return res.status(404).json({ error: "Review not found" });
+    const taskIndex = tasksData.findIndex((task) => task.id === taskId);
+    if (taskIndex === -1) {
+      return res.status(404).json({ error: "Task not found" });
     }
-
-    delete reviewsData[reviewId];
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
+    tasksData.splice(taskIndex, 1);
+    await fs.writeFile(TASKS_FILE, JSON.stringify(tasksData, null, 2));
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
@@ -704,121 +571,277 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
   }
 });
 
-app.get("/api/isAdmin", async (req, res) => {
+app.get("/api/reviews/:userId", async (req, res) => {
+  const { userId } = req.params;
+  res.json(reviewsData[userId] || []);
+});
+
+app.post("/api/reviews", async (req, res) => {
+  const release = await reviewsMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-
     if (!user.id) {
-      return res.status(400).json({ error: "Invalid user data" });
+      return res.status(403).json({ error: "Forbidden" });
     }
-
-    const isAdmin = ADMIN_IDS.includes(user.id.toString());
-    res.json({ isAdmin });
+    const { reviewedUserId, rating, comment } = req.body;
+    if (!reviewedUserId || !rating || !comment) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    if (!reviewsData[reviewedUserId]) reviewsData[reviewedUserId] = [];
+    const newReview = {
+      id: `${Date.now()}_${user.id}`,
+      reviewerId: user.id,
+      reviewerUsername: user.username || "anonymous",
+      rating: Math.max(1, Math.min(5, rating)),
+      comment,
+      createdAt: new Date().toISOString(),
+    };
+    reviewsData[reviewedUserId].push(newReview);
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+    res.json({ success: true, review: newReview });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-bot.on("pre_checkout_query", async (ctx) => {
-  await ctx.answerPreCheckoutQuery(true);
-});
-
-bot.on("message:successful_payment", async (ctx) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const payload = ctx.message.successful_payment.invoice_payload;
-
-    if (!payload || !reviewsData[payload]) {
-      await ctx.reply("Ошибка: не удалось обработать платеж. Обратитесь в поддержку.");
-      return;
-    }
-
-    const { authorUserId, targetUserId, text } = reviewsData[payload];
-    const reviewKey = `${authorUserId}_${Date.now()}`;
-    reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString() };
-    delete reviewsData[payload];
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-    await ctx.reply("Отзыв опубликован! Спасибо!");
-
-    try {
-      const authorData = await bot.api.getChat(authorUserId);
-      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
-      const escapedText = escapeMarkdownV2(text);
-      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
-      const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
-      const message =
-        `*Новый отзыв\\!*\n\n` +
-        `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
-        `> ${escapedText}\n\n` +
-        `Дата: ${escapedDate}`;
-      await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
-    } catch (e) {}
-  } catch (e) {
-    await ctx.reply("Произошла ошибка при обработке отзыва.");
   } finally {
     release();
   }
 });
 
-async function cleanOldTempReviews() {
-  const release = await reviewsMutex.acquire();
+app.get("/api/subscriptions", async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+  if (!user.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  res.json(freelancerSubscriptionsData[user.id] || []);
+});
+
+app.post("/api/subscriptions", async (req, res) => {
+  const release = await freelancerSubscriptionsMutex.acquire();
   try {
-    const now = Date.now();
-    let cleanedCount = 0;
-    for (const [key, review] of Object.entries(reviewsData)) {
-      if (!review.date && now - parseInt(key.split("_")[1]) > 60 * 60 * 1000) {
-        delete reviewsData[key];
-        cleanedCount++;
-      }
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
-    if (cleanedCount > 0) {
-      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id) {
+      return res.status(403).json({ error: "Forbidden" });
     }
-  } catch (e) {}
-  finally {
+    const { position } = req.body;
+    if (!position) {
+      return res.status(400).json({ error: "Missing position" });
+    }
+    if (!freelancerSubscriptionsData[user.id]) {
+      freelancerSubscriptionsData[user.id] = [];
+    }
+    if (!freelancerSubscriptionsData[user.id].includes(position)) {
+      freelancerSubscriptionsData[user.id].push(position);
+      await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
+    }
+    res.json({ success: true, subscriptions: freelancerSubscriptionsData[user.id] });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
     release();
   }
-}
+});
 
-setInterval(cleanOldTempReviews, 10 * 60 * 1000);
-
-async function ensureLogsDir() {
+app.delete("/api/subscriptions", async (req, res) => {
+  const release = await freelancerSubscriptionsMutex.acquire();
   try {
-    await fs.mkdir(LOGS_DIR, { recursive: true });
-  } catch (e) {}
-}
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { position } = req.body;
+    if (!position) {
+      return res.status(400).json({ error: "Missing position" });
+    }
+    if (freelancerSubscriptionsData[user.id]) {
+      freelancerSubscriptionsData[user.id] = freelancerSubscriptionsData[user.id].filter((pos) => pos !== position);
+      await fs.writeFile(FREELANCER_SUBSCRIPTIONS_FILE, JSON.stringify(freelancerSubscriptionsData, null, 2));
+    }
+    res.json({ success: true, subscriptions: freelancerSubscriptionsData[user.id] || [] });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.get("/api/companySubscriptions", async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+  if (!user.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  res.json(companySubscriptionsData[user.id] || []);
+});
+
+app.post("/api/companySubscriptions", async (req, res) => {
+  const release = await companySubscriptionsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { companyName } = req.body;
+    if (!companyName) {
+      return res.status(400).json({ error: "Missing companyName" });
+    }
+    if (!companySubscriptionsData[user.id]) {
+      companySubscriptionsData[user.id] = [];
+    }
+    if (!companySubscriptionsData[user.id].includes(companyName)) {
+      companySubscriptionsData[user.id].push(companyName);
+      await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+    }
+    res.json({ success: true, subscriptions: companySubscriptionsData[user.id] });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.delete("/api/companySubscriptions", async (req, res) => {
+  const release = await companySubscriptionsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { companyName } = req.body;
+    if (!companyName) {
+      return res.status(400).json({ error: "Missing companyName" });
+    }
+    if (companySubscriptionsData[user.id]) {
+      companySubscriptionsData[user.id] = companySubscriptionsData[user.id].filter((comp) => comp !== companyName);
+      await fs.writeFile(COMPANY_SUBSCRIPTIONS_FILE, JSON.stringify(companySubscriptionsData, null, 2));
+    }
+    res.json({ success: true, subscriptions: companySubscriptionsData[user.id] || [] });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.get("/api/favorites", async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+  if (!user.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  const favoritesFile = path.join(__dirname, `favorites_${user.id}.json`);
+  try {
+    await fs.access(favoritesFile);
+    const data = await fs.readFile(favoritesFile, "utf8");
+    res.json(JSON.parse(data));
+  } catch {
+    res.json([]);
+  }
+});
+
+app.post("/api/toggleFavorite", async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+  if (!user.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  const { itemId } = req.body;
+  if (!itemId) {
+    return res.status(400).json({ error: "Missing itemId" });
+  }
+  const favoritesFile = path.join(__dirname, `favorites_${user.id}.json`);
+  let favorites = [];
+  try {
+    await fs.access(favoritesFile);
+    const data = await fs.readFile(favoritesFile, "utf8");
+    favorites = JSON.parse(data);
+  } catch {
+    favorites = [];
+  }
+  const index = favorites.indexOf(itemId);
+  if (index === -1) {
+    favorites.push(itemId);
+  } else {
+    favorites.splice(index, 1);
+  }
+  await fs.writeFile(favoritesFile, JSON.stringify(favorites, null, 2));
+  res.json({ success: true, favorites });
+});
+
+app.get("/api/isAdmin", async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+  if (!user.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  const isAdmin = ADMIN_IDS.includes(user.id.toString());
+  res.json({ isAdmin });
+});
 
 Promise.all([
-  ensureLogsDir(),
   initReviewsFile(),
   initJobsFile(),
   initFreelancerSubscriptionsFile(),
   initVacanciesFile(),
   initCompanySubscriptionsFile(),
-])
-  .then(async () => {
-    await loadJobs();
-    await loadReviews();
-    await loadFreelancerSubscriptions();
-    await loadVacancies();
-    await loadCompanySubscriptions();
-    app.listen(port, () => {
-      bot.start();
-      logger.info(`Server running on port ${port}`);
-    });
-  })
-  .catch((e) => {
-    logger.error(`Failed to start server: ${e.message}`);
-    process.exit(1);
+  initTasksFile(),
+]).then(async () => {
+  await loadReviews();
+  await loadJobs();
+  await loadFreelancerSubscriptions();
+  await loadVacancies();
+  await loadCompanySubscriptions();
+  await loadTasks();
+  app.listen(port, () => {
+    logger.info(`Server running on port ${port}`);
   });
+}).catch((e) => {
+  logger.error(`Failed to initialize server: ${e.message}`);
+  process.exit(1);
+});
 
-process.on("uncaughtException", (err) => logger.error(`Uncaught Exception: ${err.message}`));
-process.on("unhandledRejection", (reason) => logger.error(`Unhandled Rejection: ${reason}`));
+bot.start();
