@@ -149,7 +149,7 @@ const checkChatStatus = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .chat-header h2 {
   color: #97f492;
@@ -160,7 +160,7 @@ const checkChatStatus = async () => {
   background: none;
   border: none;
   color: #fff;
-  font-size: 20px;
+  font-size: 25px;
   cursor: pointer;
 }
 .chat-messages {
