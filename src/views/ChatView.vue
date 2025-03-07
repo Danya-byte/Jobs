@@ -32,7 +32,7 @@ const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
-const chatUnlocked = ref(false);
+const chatUnlocked = ref(true);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');

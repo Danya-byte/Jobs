@@ -21,6 +21,7 @@ const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
 const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
 const TASKS_FILE = path.join(__dirname, "tasks.json");
 const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
+const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
@@ -40,6 +41,7 @@ let vacanciesData = [];
 let companySubscriptionsData = [];
 let tasksData = [];
 let chatUnlocksData = {};
+let pendingMessagesData = {};
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -167,6 +169,16 @@ async function initChatUnlocksFile() {
   }
 }
 
+async function initPendingMessagesFile() {
+  try {
+    await fs.access(PENDING_MESSAGES_FILE);
+    const data = await fs.readFile(PENDING_MESSAGES_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(PENDING_MESSAGES_FILE, "{}");
+  } catch {
+    await fs.writeFile(PENDING_MESSAGES_FILE, "{}");
+  }
+}
+
 async function loadJobs() {
   try {
     const rawData = await fs.readFile(JOBS_FILE, "utf8");
@@ -188,8 +200,15 @@ async function loadReviews() {
 async function loadMessages() {
   try {
     const rawData = await fs.readFile(MESSAGES_FILE, "utf8");
-    messagesData = rawData.trim() ? JSON.parse(rawData) : [];
-  } catch {
+    const parsedData = rawData.trim() ? JSON.parse(rawData) : [];
+    if (!Array.isArray(parsedData)) {
+      console.error("Data in messages.json is not an array, resetting to empty array.");
+      messagesData = [];
+    } else {
+      messagesData = parsedData;
+    }
+  } catch (error) {
+    console.error("Error loading messages:", error);
     messagesData = [];
   }
 }
@@ -236,6 +255,15 @@ async function loadChatUnlocks() {
     chatUnlocksData = rawData.trim() ? JSON.parse(rawData) : {};
   } catch {
     chatUnlocksData = {};
+  }
+}
+
+async function loadPendingMessages() {
+  try {
+    const rawData = await fs.readFile(PENDING_MESSAGES_FILE, "utf8");
+    pendingMessagesData = rawData.trim() ? JSON.parse(rawData) : {};
+  } catch {
+    pendingMessagesData = {};
   }
 }
 
@@ -835,7 +863,7 @@ app.post("/api/createInvoiceLink", async (req, res) => {
 });
 
 app.post("/api/createMessageInvoice", async (req, res) => {
-  const release = await reviewsMutex.acquire();
+  const release = await messagesMutex.acquire();
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
@@ -851,8 +879,8 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     }
 
     const payload = `${user.id}_${Date.now()}`;
-    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, jobId, type: "message" };
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+    pendingMessagesData[payload] = { text, authorUserId: user.id, targetUserId, jobId, type: "message" };
+    await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
       "Send a Message",
@@ -864,7 +892,8 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     );
 
     res.json({ success: true, invoiceLink });
-  } catch {
+  } catch (error) {
+    console.error("Error creating message invoice:", error);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -1036,14 +1065,16 @@ bot.on("message:successful_payment", async (ctx) => {
   try {
     const payload = ctx.message.successful_payment.invoice_payload;
 
-    if (!payload || !reviewsData[payload]) {
+    if (!payload) {
       await ctx.reply("Ошибка: не удалось обработать платеж. Обратитесь в поддержку.");
       return;
     }
 
-    const { authorUserId, targetUserId, text, type, jobId } = reviewsData[payload];
+    const pendingMessage = pendingMessagesData[payload];
+    const reviewData = reviewsData[payload];
 
-    if (type === "message") {
+    if (pendingMessage && pendingMessage.type === "message") {
+      const { authorUserId, targetUserId, text, jobId } = pendingMessage;
       const message = {
         id: `${authorUserId}_${Date.now()}`,
         text,
@@ -1053,10 +1084,16 @@ bot.on("message:successful_payment", async (ctx) => {
         timestamp: new Date().toISOString(),
         isSender: true
       };
+
+      if (!Array.isArray(messagesData)) {
+        console.error("messagesData is not an array, resetting to empty array.");
+        messagesData = [];
+      }
+
       messagesData.push(message);
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-      delete reviewsData[payload];
-      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+      delete pendingMessagesData[payload];
+      await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
       await ctx.reply("Сообщение отправлено фрилансеру! Спасибо!");
 
@@ -1074,13 +1111,15 @@ bot.on("message:successful_payment", async (ctx) => {
         `Дата: ${escapedDate}\n` +
         `[Открыть чат](https://t.me/${targetData.username || 'workiks_admin'}?start=chat_${authorUserId})`;
       await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
-    } else if (type === "chat_unlock") {
+    } else if (reviewData && reviewData.type === "chat_unlock") {
+      const { authorUserId, targetUserId } = reviewData;
       chatUnlocksData[`${authorUserId}_${targetUserId}`] = true;
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
       delete reviewsData[payload];
       await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
       await ctx.reply("Чат успешно разблокирован!");
-    } else {
+    } else if (reviewData) {
+      const { authorUserId, targetUserId, text } = reviewData;
       const reviewKey = `${authorUserId}_${Date.now()}`;
       reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString(), type: "review" };
       delete reviewsData[payload];
@@ -1100,6 +1139,8 @@ bot.on("message:successful_payment", async (ctx) => {
         `> ${escapedText}\n\n` +
         `Дата: ${escapedDate}`;
       await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
+    } else {
+      await ctx.reply("Ошибка: данные платежа не найдены.");
     }
   } catch (error) {
     console.error('Error processing payment:', error);
@@ -1129,7 +1170,29 @@ async function cleanOldTempReviews() {
   }
 }
 
+async function cleanOldTempMessages() {
+  const release = await messagesMutex.acquire();
+  try {
+    const now = Date.now();
+    let cleanedCount = 0;
+    for (const [key, message] of Object.entries(pendingMessagesData)) {
+      if (now - parseInt(key.split("_")[1]) > 60 * 60 * 1000) {
+        delete pendingMessagesData[key];
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
+    }
+  } catch (error) {
+    console.error("Error cleaning old temp messages:", error);
+  } finally {
+    release();
+  }
+}
+
 setInterval(cleanOldTempReviews, 10 * 60 * 1000);
+setInterval(cleanOldTempMessages, 10 * 60 * 1000);
 
 async function ensureLogsDir() {
   try {
@@ -1147,6 +1210,7 @@ Promise.all([
   initTasksFile(),
   initCompanySubscriptionsFile(),
   initChatUnlocksFile(),
+  initPendingMessagesFile(),
 ])
   .then(async () => {
     await loadJobs();
@@ -1157,6 +1221,7 @@ Promise.all([
     await loadTasks();
     await loadCompanySubscriptions();
     await loadChatUnlocks();
+    await loadPendingMessages();
     app.listen(port, () => {
       bot.start();
       logger.info(`Server running on port ${port}`);
