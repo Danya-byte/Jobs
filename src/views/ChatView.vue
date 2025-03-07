@@ -316,7 +316,6 @@ const checkChatStatus = async () => {
 .send-btn:hover {
   background: #6de06a;
 }
-
 @media (max-width: 768px) {
   .chat-container {
     max-width: 100%;
