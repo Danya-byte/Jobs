@@ -32,7 +32,7 @@ const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
-const chatUnlocked = ref(true);
+const chatUnlocked = ref(false);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
@@ -141,7 +141,7 @@ const checkChatStatus = async () => {
 .chat-container {
   background: linear-gradient(45deg, #101622, #1a2233);
   min-height: 100vh;
-  padding: 20px;
+  padding: 15px;
   display: flex;
   flex-direction: column;
 }
@@ -149,31 +149,33 @@ const checkChatStatus = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 .chat-header h2 {
   color: #97f492;
   margin: 0;
+  font-size: 20px;
 }
 .close-btn {
   background: none;
   border: none;
   color: #fff;
-  font-size: 28px;
+  font-size: 24px;
   cursor: pointer;
 }
 .chat-messages {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 8px;
   background: #181e29;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 .message {
-  margin: 10px 0;
-  padding: 10px 15px;
-  border-radius: 12px;
-  max-width: 70%;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  max-width: 60%;
+  font-size: 14px;
 }
 .sent {
   background: #97f492;
@@ -185,10 +187,10 @@ const checkChatStatus = async () => {
   color: #fff;
 }
 .timestamp {
-  font-size: 12px;
+  font-size: 10px;
   color: #8a8f98;
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
 }
 .chat-locked {
   flex-grow: 1;
@@ -197,35 +199,39 @@ const checkChatStatus = async () => {
   justify-content: center;
   align-items: center;
   color: #fff;
+  font-size: 14px;
 }
 .pay-btn {
   background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
   color: #000;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  margin-top: 20px;
+  margin-top: 15px;
+  font-size: 14px;
 }
 .chat-input {
   display: flex;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-top: 15px;
 }
 .message-input {
   flex-grow: 1;
-  padding: 10px;
-  border-radius: 12px;
+  padding: 8px;
+  border-radius: 10px;
   border: none;
   background: #272e38;
   color: #fff;
+  font-size: 14px;
 }
 .send-btn {
   background: #97f492;
   color: #000;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
+  font-size: 14px;
 }
 </style>
