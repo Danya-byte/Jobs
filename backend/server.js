@@ -1061,6 +1061,7 @@ bot.on("message:successful_payment", async (ctx) => {
       await ctx.reply("Сообщение отправлено фрилансеру! Спасибо!");
 
       const authorData = await bot.api.getChat(authorUserId);
+      const targetData = await bot.api.getChat(targetUserId);
       const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
       const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
       const escapedText = escapeMarkdownV2(text);
@@ -1070,7 +1071,8 @@ bot.on("message:successful_payment", async (ctx) => {
         `*Новое сообщение\\!*\n\n` +
         `Пользователь *${escapedAuthorUsername}* отправил вам сообщение:\n` +
         `> ${escapedText}\n\n` +
-        `Дата: ${escapedDate}`;
+        `Дата: ${escapedDate}\n` +
+        `[Открыть чат](https://t.me/${targetData.username || 'workiks_admin'}?start=chat_${authorUserId})`;
       await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
     } else if (type === "chat_unlock") {
       chatUnlocksData[`${authorUserId}_${targetUserId}`] = true;
@@ -1099,7 +1101,8 @@ bot.on("message:successful_payment", async (ctx) => {
         `Дата: ${escapedDate}`;
       await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
     }
-  } catch {
+  } catch (error) {
+    console.error('Error processing payment:', error);
     await ctx.reply("Произошла ошибка при обработке платежа.");
   } finally {
     releaseReviews();

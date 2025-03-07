@@ -32,7 +32,7 @@ const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
-const chatUnlocked = ref(true);
+const chatUnlocked = ref(false);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
@@ -64,6 +64,8 @@ const requestPayment = async () => {
           chatUnlocked.value = true;
           Telegram.WebApp.showAlert('Chat unlocked successfully!');
           fetchMessages();
+        } else if (status === 'cancelled') {
+          Telegram.WebApp.showAlert('Payment cancelled.');
         }
       });
     }
@@ -78,7 +80,10 @@ const fetchMessages = async () => {
     const response = await axios.get(`${BASE_URL}/api/chat/${userId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    messages.value = response.data.messages;
+    messages.value = response.data.messages.map(msg => ({
+      ...msg,
+      isSender: msg.authorUserId === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id
+    }));
   } catch (error) {
     console.error('Error fetching messages:', error);
   }
@@ -98,12 +103,15 @@ const sendMessage = async () => {
           fetchMessages();
           newMessage.value = '';
           Telegram.WebApp.showAlert('Message sent successfully!');
+        } else if (status === 'cancelled') {
+          Telegram.WebApp.showAlert('Payment cancelled.');
+          newMessage.value = '';
         }
       });
     }
   } catch (error) {
     console.error('Error sending message:', error);
-    Telegram.WebApp.showAlert('Failed to send message.');
+    Telegram.WebApp.showAlert('Failed to initiate payment.');
   }
 };
 
