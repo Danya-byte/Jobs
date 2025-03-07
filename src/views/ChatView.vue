@@ -279,6 +279,7 @@ const checkChatStatus = async () => {
   bottom: 0;
   align-items: center;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  margin-bottom: clamp(0.5rem, 2vw, 1rem);
 }
 
 .message-input {
