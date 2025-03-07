@@ -168,6 +168,8 @@ const checkChatStatus = async () => {
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -268,14 +270,15 @@ const checkChatStatus = async () => {
 }
 
 .chat-input {
-  padding: 0.25rem clamp(0.5rem, 2vw, 1rem) 0;
+  padding: 0.1rem clamp(0.5rem, 2vw, 1rem) !important;
   display: flex;
   gap: clamp(0.5rem, 2vw, 0.75rem);
-  background: inherit;
+  background: #1a2233;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   position: sticky;
   bottom: 0;
   align-items: center;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
 }
 
 .message-input {
@@ -287,8 +290,8 @@ const checkChatStatus = async () => {
   color: #fff;
   font-size: clamp(0.875rem, 3vw, 1rem);
   outline: none;
-  min-height: 2rem;
-  margin-bottom: env(safe-area-inset-bottom, 0.25rem);
+  min-height: 40px !important;
+  margin-bottom: 0 !important;
 }
 
 .send-btn {
@@ -318,6 +321,7 @@ const checkChatStatus = async () => {
     max-width: 100%;
     border-radius: 0;
     box-shadow: none;
+    height: 100dvh;
   }
 
   .chat-header {
@@ -333,8 +337,8 @@ const checkChatStatus = async () => {
   }
 
   .message-input {
-    min-height: 1.5rem;
-    margin-bottom: 0;
+    min-height: 36px !important;
+    padding: 8px 12px !important;
   }
 }
 
@@ -358,13 +362,13 @@ const checkChatStatus = async () => {
   }
 
   .message-input {
-    min-height: 1.2rem;
-    padding: 0.25rem 0.75rem;
+    min-height: 38px !important;
+    padding: 8px 16px !important;
   }
 
   .send-btn {
-    width: 2rem;
-    height: 2rem;
+    width: 40px !important;
+    height: 40px !important;
   }
 }
 
