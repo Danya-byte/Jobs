@@ -162,13 +162,16 @@ const checkChatStatus = async () => {
 .chat-container {
   background: linear-gradient(45deg, #101622, #1a2233);
   height: 100vh;
+  max-width: 800px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
 }
 
 .chat-header {
-  padding: 10px 15px;
+  padding: 0.8rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
@@ -182,32 +185,36 @@ const checkChatStatus = async () => {
 .chat-header h2 {
   color: #97f492;
   margin: 0;
-  font-size: clamp(16px, 4vw, 20px);
+  font-size: clamp(1rem, 3.5vw, 1.25rem);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
 }
 
 .close-btn {
   background: none;
   border: none;
   color: #fff;
-  font-size: clamp(24px, 6vw, 28px);
+  font-size: clamp(1.5rem, 5vw, 1.75rem);
   cursor: pointer;
-  padding: 0 10px;
+  padding: 0 0.5rem;
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 15px;
+  padding: clamp(0.5rem, 2vw, 1rem);
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
 
 .message {
-  margin: 8px 0;
-  padding: 10px 15px;
-  border-radius: 16px;
-  max-width: 75%;
+  margin: 0.5rem 0;
+  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2.5vw, 1rem);
+  border-radius: clamp(0.75rem, 3vw, 1rem);
+  max-width: clamp(70%, 75vw, 75%);
   word-wrap: break-word;
   animation: slideIn 0.2s ease-out;
 }
@@ -224,9 +231,9 @@ const checkChatStatus = async () => {
 }
 
 .timestamp {
-  font-size: clamp(10px, 2.5vw, 12px);
+  font-size: clamp(0.625rem, 2vw, 0.75rem);
   color: #8a8f98;
-  margin-top: 4px;
+  margin-top: 0.25rem;
   display: block;
 }
 
@@ -236,17 +243,22 @@ const checkChatStatus = async () => {
   place-items: center;
   color: #fff;
   text-align: center;
-  padding: 20px;
+  padding: clamp(1rem, 4vw, 1.5rem);
+}
+
+.chat-locked p {
+  margin: 0 0 1rem;
+  font-size: clamp(0.875rem, 3vw, 1rem);
 }
 
 .pay-btn {
   background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
   color: #000;
-  padding: 10px 20px;
+  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem);
   border: none;
-  border-radius: 12px;
+  border-radius: clamp(0.5rem, 2vw, 0.75rem);
   cursor: pointer;
-  font-size: clamp(14px, 3.5vw, 16px);
+  font-size: clamp(0.875rem, 3vw, 1rem);
   transition: transform 0.2s;
 }
 
@@ -255,9 +267,9 @@ const checkChatStatus = async () => {
 }
 
 .chat-input {
-  padding: 10px;
+  padding: clamp(0.5rem, 2vw, 0.75rem);
   display: flex;
-  gap: 10px;
+  gap: clamp(0.5rem, 2vw, 0.75rem);
   background: inherit;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   position: sticky;
@@ -266,12 +278,12 @@ const checkChatStatus = async () => {
 
 .message-input {
   flex: 1;
-  padding: 12px 15px;
-  border-radius: 20px;
+  padding: clamp(0.75rem, 2.5vw, 0.875rem) clamp(0.875rem, 3vw, 1rem);
+  border-radius: clamp(1rem, 4vw, 1.25rem);
   border: none;
   background: #272e38;
   color: #fff;
-  font-size: clamp(14px, 3.5vw, 16px);
+  font-size: clamp(0.875rem, 3vw, 1rem);
   outline: none;
 }
 
@@ -279,8 +291,8 @@ const checkChatStatus = async () => {
   background: #97f492;
   border: none;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: clamp(2rem, 8vw, 2.5rem);
+  height: clamp(2rem, 8vw, 2.5rem);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -289,23 +301,49 @@ const checkChatStatus = async () => {
 
 .send-btn svg {
   fill: #000;
+  width: clamp(1rem, 4vw, 1.25rem);
+  height: clamp(1rem, 4vw, 1.25rem);
 }
 
 .send-btn:hover {
   background: #6de06a;
 }
 
-@media (max-width: 480px) {
-  .chat-messages {
-    padding: 10px;
+/* Mobile devices */
+@media (max-width: 768px) {
+  .chat-container {
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .chat-header {
+    padding: 0.5rem;
   }
 
   .message {
     max-width: 85%;
   }
+}
+
+/* Desktop devices */
+@media (min-width: 769px) {
+  .chat-container {
+    border-radius: 12px;
+    margin: 1rem auto;
+    height: calc(100vh - 2rem);
+  }
+
+  .chat-messages {
+    padding: 1.5rem;
+  }
+
+  .message {
+    max-width: 70%;
+  }
 
   .chat-input {
-    padding: 8px;
+    padding: 1rem;
   }
 }
 
