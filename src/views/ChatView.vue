@@ -174,8 +174,8 @@ const checkChatStatus = async () => {
   margin: 5px 0;
   padding: 5px 8px;
   border-radius: 8px;
-  max-width: 50%;
-  font-size: 12px;
+  max-width: 40%;
+  font-size: 15px;
 }
 .sent {
   background: #97f492;
