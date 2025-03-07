@@ -1,7 +1,7 @@
 <template>
   <div class="chat-container">
     <div class="chat-header">
-      <h2>Chat with @{{ username || 'unknown' }}</h2>
+      <h2>Chat with @{{ firstname || 'unknown' }}</h2>
       <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
     <div class="chat-messages" v-if="chatUnlocked">
