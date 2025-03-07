@@ -689,7 +689,7 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .skeleton-card { background: linear-gradient(90deg, #181e29 25%, #272e38 50%, #181e29 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s infinite; border-radius: 20px; padding: 20px; height: 150px; }
 @keyframes skeleton-wave { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .new-label { position: absolute; top: 10px; right: 10px; background: #97f492; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-.pinned-label { position: absolute; top: 10px; right: 10px; background: #6de06a; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+.pinned-label { position: absolute; top: 10px; right: 10px; background: #6de06a; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 .favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 3px; }
 .favorite-btn span { color: #8a8f98; transition: color 0.3s; }
 .favorite-btn .favorite { color: #97f492; }
@@ -700,6 +700,6 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .filter-pill button { background: none; border: none; color: #97f492; margin-left: 8px; cursor: pointer; }
 .verified-label { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; font-weight: 600; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .pin-section { margin-top: 20px; }
-.pin-section label { color: #97f492; font-size: 15px; cursor: pointer; }
+.pin-section label { color: #97f492; font-size: 17px; cursor: pointer; }
 .pin-section input { margin-right: 8px; }
 </style>
