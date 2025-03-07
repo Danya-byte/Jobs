@@ -268,7 +268,7 @@ const checkChatStatus = async () => {
 }
 
 .chat-input {
-  padding: 0.25rem clamp(0.5rem, 2vw, 1rem);
+  padding: 0.25rem clamp(0.5rem, 2vw, 1rem) 0;
   display: flex;
   gap: clamp(0.5rem, 2vw, 0.75rem);
   background: inherit;
@@ -313,7 +313,6 @@ const checkChatStatus = async () => {
   background: #6de06a;
 }
 
-/* Mobile devices */
 @media (max-width: 768px) {
   .chat-container {
     max-width: 100%;
@@ -330,16 +329,15 @@ const checkChatStatus = async () => {
   }
 
   .chat-input {
-    padding: 0.25rem clamp(0.5rem, 2vw, 1rem);
-    margin-bottom: env(safe-area-inset-bottom, 0.25rem); /* Fine-tuned for mobile */
+    padding: 0.1rem clamp(0.5rem, 2vw, 1rem);
   }
 
   .message-input {
-    min-height: 1.75rem; /* Further reduced for mobile */
+    min-height: 1.5rem;
+    margin-bottom: 0;
   }
 }
 
-/* Desktop devices */
 @media (min-width: 769px) {
   .chat-container {
     border-radius: 12px;
@@ -356,14 +354,17 @@ const checkChatStatus = async () => {
   }
 
   .chat-input {
-    padding: 0.1rem clamp(0.5rem, 2vw, 1rem); /* Уменьшили padding, чтобы поднять поле ввода */
-    margin-bottom: env(safe-area-inset-bottom, 0.1rem); /* Уменьшили отступ снизу, чтобы поднять выше */
+    padding: 0.1rem clamp(0.5rem, 2vw, 1rem);
   }
 
   .message-input {
-    min-height: 1.5rem; /* Уменьшили высоту поля ввода, чтобы сделать его компактнее */
-    padding: 0.3rem 0.5rem; /* Уменьшили внутренние отступы для компактности */
-    margin-bottom: env(safe-area-inset-bottom, 0.1rem); /* Уменьшили отступ снизу */
+    min-height: 1.2rem;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .send-btn {
+    width: 2rem;
+    height: 2rem;
   }
 }
 
