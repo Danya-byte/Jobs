@@ -23,13 +23,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router'; // Добавляем useRouter для навигации
 import axios from 'axios';
 
 const route = useRoute();
-const userId = route.params.userId;
-const username = route.query.username;
-const jobId = route.query.jobId;
+const router = useRouter(); // Инициализируем router для навигации
+const userId = ref(route.params.userId); // Получаем userId из params
+const username = ref(route.query.username); // Получаем username из query
+const jobId = ref(route.query.jobId); // Получаем jobId из query
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
 const chatUnlocked = ref(false);
@@ -40,7 +41,7 @@ const requestPayment = async () => {
   try {
     const response = await axios.post(
       `${BASE_URL}/api/createChatInvoice`,
-      { targetUserId: userId, jobId },
+      { targetUserId: userId.value, jobId: jobId.value },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
     if (response.data.success) {
@@ -60,7 +61,7 @@ const requestPayment = async () => {
 
 const fetchMessages = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/chat/${userId}`, {
+    const response = await axios.get(`${BASE_URL}/api/chat/${userId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     messages.value = response.data.messages;
@@ -73,13 +74,13 @@ const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
     const response = await axios.post(
-      `${BASE_URL}/api/chat/${userId}`,
+      `${BASE_URL}/api/chat/${userId.value}`,
       { text: newMessage.value },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
     messages.value.push(response.data.message);
-    newMessage.value = '';
     await notifyFreelancer();
+    newMessage.value = '';
   } catch (error) {
     console.error('Error sending message:', error);
     Telegram.WebApp.showAlert('Failed to send message.');
@@ -90,7 +91,7 @@ const notifyFreelancer = async () => {
   try {
     await axios.post(
       `${BASE_URL}/api/notifyFreelancer`,
-      { targetUserId: userId, text: newMessage.value },
+      { targetUserId: userId.value, text: newMessage.value },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
   } catch (error) {
@@ -108,7 +109,7 @@ onMounted(() => {
 
 const checkChatStatus = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/chat/status/${userId}`, {
+    const response = await axios.get(`${BASE_URL}/api/chat/status/${userId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     chatUnlocked.value = response.data.unlocked;
@@ -120,6 +121,7 @@ const checkChatStatus = async () => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .chat-container {
   background: linear-gradient(45deg, #101622, #1a2233);
   min-height: 100vh;
