@@ -123,7 +123,7 @@
         </transition>
 
         <transition name="fade">
-            <div v-if="showAdminModal" class="admin-modal-overlay" @click.self="showAdminModal = false">
+            <div v-if="showAdminModal" class="modal-overlay" @click.self="showAdminModal = false">
                 <div class="modal admin-selection-modal">
                     <div class="modal-header">
                         <h2>Select Item Type</h2>
@@ -707,7 +707,7 @@ const deleteJob = async (jobId) => {
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
   } catch (error) {
-    console.error('Error deleting job:', error);
+    console.error('Error deleting job:', error.response?.data || error.message);
   }
 };
 
@@ -716,10 +716,10 @@ const deleteVacancy = async (vacancyId) => {
     await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    vacancies.value = vacancies.value.filter(v => v.id !== vacancyId);
+    vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
     open.value = false;
   } catch (error) {
-    console.error('Error deleting vacancy:', error);
+    console.error('Error deleting vacancy:', error.response?.data || error.message);
   }
 };
 
@@ -728,53 +728,28 @@ const deleteTask = async (taskId) => {
     await axios.delete(`${BASE_URL}/api/tasks/${taskId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    tasks.value = tasks.value.filter(t => t.id !== taskId);
+    tasks.value = tasks.value.filter(task => task.id !== taskId);
     open.value = false;
   } catch (error) {
-    console.error('Error deleting task:', error);
+    console.error('Error deleting task:', error.response?.data || error.message);
   }
 };
 
 const togglePinned = async (item) => {
-  const url = item.companyName
-    ? `${BASE_URL}/api/vacancies/${item.id}/pinned`
-    : item.title
-    ? `${BASE_URL}/api/tasks/${item.id}/pinned`
-    : `${BASE_URL}/api/jobs/${item.id}/pinned`;
   try {
-    await axios.put(url, { pinned: item.pinned }, {
+    const endpoint = item.companyUserId ? `/api/vacancies/${item.id}/pinned` :
+                    item.userId ? `/api/jobs/${item.id}/pinned` :
+                    `/api/tasks/${item.id}/pinned`;
+    await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned }, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
+    fetchJobs();
+    fetchVacancies();
+    fetchTasks();
+    Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
   } catch (error) {
-    console.error('Error toggling pinned:', error);
-    item.pinned = !item.pinned;
-  }
-};
-
-const isFavorite = (itemId) => {
-  return favoriteJobs.value.includes(itemId);
-};
-
-const toggleFavorite = async (itemId) => {
-  try {
-    const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    favoriteJobs.value = response.data.favorites;
-  } catch (error) {
-    console.error('Error toggling favorite:', error);
-  }
-};
-
-const handleImageError = (event) => {
-  event.target.src = jobIcon;
-};
-
-const handleAddJobsClick = () => {
-  if (isAdmin.value) {
-    showAdminModal.value = true;
-  } else {
-    Telegram.WebApp.showAlert("You don't have permission to add jobs.");
+    console.error('Ошибка при изменении статуса закрепления:', error);
+    Telegram.WebApp.showAlert('Не удалось изменить статус закрепления');
   }
 };
 
@@ -786,588 +761,170 @@ const checkAdminStatus = async () => {
     isAdmin.value = response.data.isAdmin;
   } catch (error) {
     console.error('Error checking admin status:', error);
+    isAdmin.value = false;
   }
 };
 
 const handleClickOutside = (event) => {
-  if (showFilterModal.value && !event.target.closest('.filter-modal') && !event.target.closest('.filter-icon')) {
-    showFilterModal.value = false;
+  const isProfileLink = event.target.closest('.profile-link') !== null;
+  if (searchInput.value && !searchInput.value.contains(event.target)) {
+    searchInput.value.blur();
   }
-  if (showAdminModal.value && !event.target.closest('.admin-selection-modal') && !event.target.closest('.add-button')) {
-    showAdminModal.value = false;
+  if (isProfileLink) return;
+};
+
+const toggleFavorite = async (itemId) => {
+  const isVacancyItem = vacancies.value.some(v => v.id === itemId);
+  const wasFavorite = favoriteJobs.value.includes(itemId);
+  try {
+    const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    favoriteJobs.value = response.data.favorites;
+    if (wasFavorite) {
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
+    } else {
+      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
+    }
+  } catch (error) {
+    console.error('Error toggling favorite:', error.response?.data || error.message);
+    Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
   }
 };
 
+const isFavorite = (itemId) => favoriteJobs.value.includes(itemId);
+
+const handleImageError = (event) => {
+  event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+};
+
+const handleAddJobsClick = () => {
+    if (isAdmin.value) {
+        showAdminModal.value = true;
+    } else {
+        window.open('https://t.me/workiks_admin', '_blank');
+    }
+};
+
 onMounted(() => {
+  if (window.Telegram?.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+    Telegram.WebApp.disableVerticalSwipes();
+    if (Telegram.WebApp.setHeaderColor) {
+      Telegram.WebApp.setHeaderColor('#97f492');
+    }
+    if (window.Telegram.WebApp.initDataUnsafe?.user) {
+      const user = Telegram.WebApp.initDataUnsafe.user;
+      userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
+      userFirstName.value = user.first_name || '';
+      userLastName.value = user.last_name || '';
+      currentUserId.value = user.id;
+      currentUsername.value = user.username;
+    }
+  }
+  checkAdminStatus();
   fetchJobs();
   fetchVacancies();
   fetchTasks();
   fetchFavorites();
-  checkAdminStatus();
-
-  const telegram = window.Telegram.WebApp;
-  telegram.ready();
-  const user = telegram.initDataUnsafe.user;
-  if (user) {
-    userPhoto.value = user.photo_url || '';
-    userFirstName.value = user.first_name || '';
-    userLastName.value = user.last_name || '';
-    currentUserId.value = user.id || '';
-    currentUsername.value = user.username || '';
-  }
 });
 </script>
 
 <style scoped>
-.container {
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 10px;
-  background: #121212;
-  min-height: 100vh;
-  color: #fff;
-  overflow: hidden;
-}
-
-.nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #333;
-}
-
-.profile-link {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: #fff;
-}
-
-.profile-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin-right: 10px;
-}
-
-.user-name {
-  display: flex;
-  flex-direction: column;
-}
-
-.first-name {
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.add-button {
-  background: #1e1e1e;
-  border: 1px solid #97f492;
-  color: #97f492;
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-}
-
-.add-button span {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  background: #97f492;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-.content {
-  padding-top: 20px;
-}
-
-.categories {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 20px;
-}
-
-.category-btn {
-  background: #1e1e1e;
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.category-btn.active {
-  background: #97f492;
-  color: #121212;
-}
-
-.search-and-filter {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.search-container {
-  flex-grow: 1;
-  position: relative;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #333;
-  border-radius: 20px;
-  background: #1e1e1e;
-  color: #fff;
-  font-size: 14px;
-}
-
-.search-input.invalid {
-  border-color: #ff5555;
-}
-
-.filter-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: 10px;
-}
-
-.jobs-scroll-container {
-  max-height: calc(100vh - 250px);
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.jobs-scroll-container::-webkit-scrollbar {
-  display: none;
-}
-
-.jobs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.job-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 15px;
-  text-align: left;
-  color: #fff;
-  cursor: pointer;
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.job-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  margin-right: 10px;
-}
-
-.job-info {
-  flex-grow: 1;
-}
-
-.nick {
-  font-size: 16px;
-  font-weight: bold;
-  margin: 0;
-}
-
-.work {
-  font-size: 14px;
-  color: #97f492;
-  margin: 5px 0;
-}
-
-.experience {
-  font-size: 12px;
-  color: #888;
-  margin: 0;
-}
-
-.job-description {
-  font-size: 14px;
-  color: #ccc;
-  margin: 10px 0;
-}
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.tag {
-  background: #333;
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-  color: #fff;
-}
-
-.new-label {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #97f492;
-  color: #121212;
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-}
-
-.pinned-label {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #ff9800;
-  color: #fff;
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-}
-
-.verified-label {
-  background: #4caf50;
-  color: #fff;
-  padding: 2px 5px;
-  border-radius: 10px;
-  font-size: 10px;
-  margin-left: 5px;
-}
-
-.skeleton-container {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.skeleton-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 10px;
-  height: 150px;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { background-color: #1e1e1e; }
-  50% { background-color: #252525; }
-  100% { background-color: #1e1e1e; }
-}
-
-.filter-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.filter-modal {
-  background: #1e1e1e;
-  padding: 20px;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.filter-section {
-  margin-bottom: 20px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  margin: 10px 0;
-  color: #fff;
-}
-
-.checkbox-label input {
-  margin-right: 10px;
-}
-
-.apply-btn {
-  background: #97f492;
-  border: none;
-  padding: 10px;
-  border-radius: 20px;
-  color: #121212;
-  cursor: pointer;
-  width: 100%;
-}
-
-.admin-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: #1e1e1e;
-  padding: 20px;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  position: relative;
-}
-
-.admin-selection-modal {
-  max-width: 300px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.selection-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.selection-btn {
-  background: #97f492;
-  border: none;
-  padding: 10px;
-  border-radius: 20px;
-  color: #121212;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.job-details {
-  color: #fff;
-}
-
-.job-details input,
-.job-details textarea {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  border: 1px solid #333;
-  border-radius: 5px;
-  background: #252525;
-  color: #fff;
-}
-
-.requirements {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 10px;
-}
-
-.requirements li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-}
-
-.delete-req,
-.delete-tag {
-  background: #ff5555;
-  border: none;
-  color: #fff;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-}
-
-.contact-btn {
-  background: #97f492;
-  border: none;
-  padding: 10px;
-  border-radius: 20px;
-  color: #121212;
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-  text-decoration: none;
-  display: block;
-  margin-top: 10px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-  justify-content: space-between;
-}
-
-.company-link {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: #fff;
-}
-
-.nickname {
-  font-size: 16px;
-  font-weight: bold;
-  margin: 0;
-}
-
-.section {
-  margin-bottom: 20px;
-}
-
-.section h3 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-}
-
-.description {
-  font-size: 14px;
-  color: #ccc;
-  margin: 0;
-}
-
-.favorite-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #888;
-}
-
-.favorite-btn .favorite {
-  color: #ff5555;
-}
-
-.pin-section {
-  margin-top: 20px;
-}
-
-.pin-section label {
-  display: flex;
-  align-items: center;
-  color: #fff;
-}
-
-.pin-section input {
-  margin-right: 10px;
-}
-
-.delete-btn {
-  background: #ff5555;
-  border: none;
-  padding: 10px;
-  border-radius: 20px;
-  color: #fff;
-  cursor: pointer;
-  width: 100%;
-  margin-top: 10px;
-}
-
-.selected-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 15px;
-}
-
-.filter-pill {
-  background: #333;
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-}
-
-.filter-pill button {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-  margin-left: 5px;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: transform 0.3s, opacity 0.3s;
-}
-
-.slide-up-enter-from,
-.slide-up-leave-to {
-  transform: translateY(100%);
-  opacity: 0;
-}
+.container { background: linear-gradient(45deg, #101622, #1a2233); min-height: 100vh; padding: 20px; overflow: hidden; position: relative; }
+.nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.profile-link { display: flex; align-items: center; gap: 10px; text-decoration: none; position: relative; transition: all 0.3s ease; }
+.profile-link:hover::after { content: "View Profile"; position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #97f492; padding: 4px 8px; border-radius: 6px; font-size: 12px; white-space: nowrap; animation: fade-in 0.3s ease; }
+.profile-icon { width: 47px; height: 47px; border-radius: 50%; border: 2px solid #97f492; position: relative; overflow: hidden; animation: pulse-border 2s infinite; }
+@keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(151, 244, 146, 0); } 100% { box-shadow: 0 0 0 0 rgba(151, 244, 146, 0); } }
+.user-name { display: flex; flex-direction: column; gap: 2px; }
+.first-name { font-size: 16px; font-weight: 600; animation: fade-in 0.5s ease-in-out, color-change 5s infinite; }
+@keyframes color-change { 0% { color: #97f492; } 50% { color: #6de06a; } 100% { color: #97f492; } }
+.add-button { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); padding: 8px 20px; border-radius: 30px; color: #000; font-weight: 400; box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3); transition: 0.3s; font-size: 14px; text-decoration: none; animation: pulse 2s infinite; }
+.add-button:hover { transform: translateY(-2px); }
+.categories { display: flex; gap: 15px; margin-bottom: 20px; flex-shrink: 0; }
+.category-btn { background: #272e38; color: #fff; border: none; padding: 10px 25px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 14px; font-weight: 600; }
+.category-btn.active { background: #97f492; color: #000; animation: pulse 2s infinite; }
+.content { display: flex; flex-direction: column; height: calc(100vh - 100px); }
+.search-and-filter { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+.search-container { flex: 1; }
+.search-input { width: 100%; padding: 12px 20px; border-radius: 12px; border: none; background: #272e38; color: #fff; font-size: 14px; transition: all 0.3s; }
+.search-input:focus { outline: none; box-shadow: 0 0 0 2px #97f492; }
+.search-input::placeholder { color: #6b7280; }
+.filter-icon { background: #272e38; border: none; padding: 7px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+.filter-icon:hover { background: #97f492; }
+.filter-icon:hover svg { stroke: #000; }
+.jobs-scroll-container { flex-grow: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.jobs-scroll-container::-webkit-scrollbar { display: none; }
+.jobs-list { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding-bottom: 20px; }
+.job-card { background: #181e29; width: auto; min-width: 300px; border-radius: 20px; padding: 20px; border: 1px solid #2d3540; transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; text-align: left; box-sizing: border-box; position: relative; }
+.job-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); border-color: #97f492; }
+.job-icon { width: 40px; height: 40px; border-radius: 10px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; object-fit: cover; }
+.job-icon:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(151, 244, 146, 0.5); }
+.card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
+.nick { color: #97f492; font-size: 14px; margin: 0; }
+.work { color: #fff; font-size: 18px; margin: 0; }
+.job-description { color: #8a8f98; font-size: 14px; line-height: 1.5; }
+.tags { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; max-width: 100%; }
+.tag { background: #2d3540; color: #97f492; padding: 5px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+.filter-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
+.filter-modal { background: #181e29; width: 300px; border-radius: 20px; padding: 15px; transform: scale(0); animation: scale-in 0.3s ease-out forwards; }
+@keyframes scale-in { to { transform: scale(1); } }
+.filter-modal h3 { color: #97f492; margin: 0 0 10px 0; font-size: 16px; }
+.filter-section { margin-bottom: 15px; }
+.filter-section h4 { color: #fff; margin: 0 0 8px 0; font-size: 14px; }
+.checkbox-label { display: block; color: #c2c6cf; margin-bottom: 8px; cursor: pointer; font-size: 14px; }
+.checkbox-label input { margin-right: 8px; }
+.apply-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 8px; width: 100%; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; font-size: 14px; }
+.apply-btn:hover { transform: translateY(-2px); }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
+.modal { background: #181e29; width: 100%; max-width: 500px; border-radius: 20px; padding: 25px; max-height: 90vh; overflow-y: auto; transform: scale(0); animation: scale-in 0.3s ease-out forwards; scrollbar-width: none; -ms-overflow-style: none; }
+.modal::-webkit-scrollbar { display: none; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.modal-header h2 { color: #97f492; margin: 0; }
+.close-btn { background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 0 10px; }
+.job-details { display: flex; flex-direction: column; gap: 20px; }
+.user-info { display: flex; align-items: center; gap: 15px; position: relative; }
+.company-link { display: flex; align-items: center; gap: 15px; text-decoration: none; }
+.nickname { color: #97f492; margin: 0; font-size: 18px; position: relative; display: inline-block; cursor: pointer; }
+.nickname::after { content: ""; position: absolute; bottom: -2px; left: 0; width: 0; height: 2px; background: #97f492; transition: width 0.3s ease; }
+.nickname:hover::after { width: 100%; }
+.experience { color: #8a8f98; margin: 0; font-size: 14px; }
+.section h3 { color: #fff; margin: 0 0 10px 0; font-size: 16px; }
+.description { color: #c2c6cf; line-height: 1.5; margin: 0; }
+.requirements { padding-left: 20px; margin: 0; color: #c2c6cf; }
+.requirements li { margin-bottom: 8px; }
+.contact-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 20px; transition: transform 0.2s; }
+.contact-btn:hover { transform: translateY(-2px); }
+.delete-btn { background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%); color: #fff; text-align: center; padding: 15px; border-radius: 12px; border: none; font-weight: 600; margin-top: 20px; cursor: pointer; transition: transform 0.2s; }
+.delete-btn:hover { transform: translateY(-2px); }
+.delete-req, .delete-tag { background: none; border: none; color: #ff6b6b; cursor: pointer; margin-left: 5px; font-size: 16px; }
+textarea.search-input { min-height: 100px; resize: vertical; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.slide-up-enter-active, .slide-up-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(100%); }
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+.skeleton-container { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.skeleton-card { background: linear-gradient(90deg, #181e29 25%, #272e38 50%, #181e29 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s infinite; border-radius: 20px; padding: 20px; height: 150px; }
+@keyframes skeleton-wave { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.new-label { position: absolute; top: 10px; right: 10px; background: #97f492; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+.pinned-label { position: absolute; top: 10px; right: 10px; background: #6de06a; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+.favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 3px; }
+.favorite-btn span { color: #8a8f98; transition: color 0.3s; }
+.favorite-btn .favorite { color: #97f492; }
+.invalid { border: 2px solid #ff6b6b; animation: shake 0.5s; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.selected-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.filter-pill { display: inline-flex; align-items: center; background: #2d3540; padding: 6px 12px; border-radius: 20px; color: #97f492; font-size: 14px; }
+.filter-pill button { background: none; border: none; color: #97f492; margin-left: 8px; cursor: pointer; }
+.verified-label { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; font-weight: 600; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.pin-section { margin-top: 20px; }
+.pin-section label { color: #97f492; font-size: 17px; cursor: pointer; }
+.pin-section input { margin-right: 8px; }
+.admin-selection-modal { width: 300px; background: #181e29; border-radius: 20px; padding: 20px; }
+.selection-buttons { display: flex; flex-direction: column; gap: 15px; }
+.selection-btn { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-size: 16px; transition: transform 0.2s; }
+.selection-btn:hover { transform: translateY(-2px); }
 </style>
