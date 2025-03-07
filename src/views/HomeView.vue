@@ -75,7 +75,7 @@
                         <span v-for="(tag, i) in vacancy.tags" :key="i" class="tag">{{ tag }}</span>
                     </div>
                     <span v-if="isNew(vacancy)" class="new-label">new</span>
-                    <span v-if="vacancy.pinned" class="pinned-label">Закреплено</span>
+                    <span v-if="vacancy.pinned" class="pinned-label">📌Pinned</span>
                 </button>
             </div>
         </div>
