@@ -15,7 +15,7 @@ const router = createRouter({
     },
     {
       path: '/profile/:userId',
-      name: 'profile',
+      name: 'profileWithId',
       component: () => import('../views/ProfileView.vue'),
       props: (route) => ({
         userId: route.params.userId,
@@ -27,6 +27,16 @@ const router = createRouter({
       name: 'nft',
       component: () => import('../views/NftView.vue'),
     },
+    {
+      path: '/chat/:userId',
+      name: 'chat',
+      component: () => import('../views/ChatView.vue'),
+      props: (route) => ({
+        userId: route.params.userId,
+        username: route.query.username,
+        jobId: route.query.jobId
+      })
+    }
   ],
 })
 
