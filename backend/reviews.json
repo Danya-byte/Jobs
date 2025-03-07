@@ -264,10 +264,9 @@
     "date": "2025-03-06T17:41:07.247Z",
     "type": "review"
   },
-  "1940359844_1741387529951": {
-    "text": "ку",
-    "authorUserId": 1940359844,
+  "5164023566_1741391304745": {
+    "authorUserId": 5164023566,
     "targetUserId": "6629517298",
-    "type": "message"
+    "type": "chat_unlock"
   }
 }

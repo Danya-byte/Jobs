@@ -334,12 +334,23 @@ const checkChatStatus = async () => {
   }
 
   .chat-input {
-    padding: 0.1rem clamp(0.5rem, 2vw, 1rem);
+    padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.5rem, 2vw, 1rem);
+    min-height: 4rem;
   }
 
   .message-input {
-    min-height: 36px !important;
-    padding: 8px 12px !important;
+    min-height: 3.5rem !important;
+    padding: 12px 12px !important;
+  }
+
+  .send-btn {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .send-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 }
 
@@ -359,17 +370,18 @@ const checkChatStatus = async () => {
   }
 
   .chat-input {
-    padding: 0.1rem clamp(0.5rem, 2vw, 1rem);
+    padding: clamp(0.75rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
+    min-height: 4rem;
   }
 
   .message-input {
-    min-height: 38px !important;
+    min-height: 3rem !important;
     padding: 8px 16px !important;
   }
 
   .send-btn {
-    width: 40px !important;
-    height: 40px !important;
+    width: 3rem !important;
+    height: 3rem !important;
   }
 }
 
