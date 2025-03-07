@@ -185,14 +185,14 @@
                             <span v-for="(tag, i) in selectedVacancy.tags" :key="i" class="tag">{{ tag }}</span>
                         </div>
                     </div>
-                    <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
-                    <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
                     <div v-if="isAdmin" class="pin-section">
                         <label>
                             <input type="checkbox" v-model="selectedVacancy.pinned" @change="togglePinned(selectedVacancy)">
                             Закрепить вверху
                         </label>
                     </div>
+                    <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
+                    <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
                 </div>
                 <div class="job-details" v-else>
                     <div class="user-info">
