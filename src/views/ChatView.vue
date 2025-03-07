@@ -1,28 +1,34 @@
 <template>
   <div class="chat-container">
     <div class="chat-header">
-      <h2>Chat with {{ nick || 'Unknown' }}</h2>
+      <h2>{{ nick || 'Unknown' }}</h2>
       <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
-    <div class="chat-messages" v-if="chatUnlocked">
-      <div v-for="(message, index) in messages" :key="index" :class="['message', message.isSender ? 'sent' : 'received']">
+    <div class="chat-messages" ref="messagesContainer" v-if="chatUnlocked">
+      <div v-for="(message, index) in messages" :key="index"
+           :class="['message', message.isSender ? 'sent' : 'received']">
         <p>{{ message.text }}</p>
-        <span class="timestamp">{{ new Date(message.timestamp).toLocaleTimeString() }}</span>
+        <span class="timestamp">{{ formatTimestamp(message.timestamp) }}</span>
       </div>
     </div>
     <div class="chat-locked" v-else>
-      <p>Pay 1 XTR to unlock chat with this freelancer.</p>
-      <button class="pay-btn" @click="requestPayment">Unlock Chat (1 XTR)</button>
+      <p>Pay 1 XTR to unlock chat</p>
+      <button class="pay-btn" @click="requestPayment">Unlock (1 XTR)</button>
     </div>
     <div class="chat-input" v-if="chatUnlocked">
-      <input v-model="newMessage" placeholder="Type your message..." @keyup.enter="sendMessage" class="message-input">
-      <button @click="sendMessage" class="send-btn">Send</button>
+      <input v-model="newMessage" placeholder="Type a message..."
+             @keyup.enter="sendMessage" class="message-input">
+      <button @click="sendMessage" class="send-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -31,11 +37,25 @@ const router = useRouter();
 const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
+const messagesContainer = ref(null);
 
 const chatUnlocked = ref(false);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
+
+const formatTimestamp = (timestamp) => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  });
+};
 
 const fetchJobDetails = async () => {
   try {
@@ -84,6 +104,7 @@ const fetchMessages = async () => {
       ...msg,
       isSender: msg.authorUserId === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id
     }));
+    scrollToBottom();
   } catch (error) {
     console.error('Error fetching messages:', error);
   }
@@ -140,98 +161,162 @@ const checkChatStatus = async () => {
 <style scoped>
 .chat-container {
   background: linear-gradient(45deg, #101622, #1a2233);
-  min-height: 100vh;
-  padding: 10px;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+
 .chat-header {
+  padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
 }
+
 .chat-header h2 {
   color: #97f492;
   margin: 0;
-  font-size: 18px;
+  font-size: clamp(16px, 4vw, 20px);
+  font-weight: 600;
 }
+
 .close-btn {
   background: none;
   border: none;
   color: #fff;
-  font-size: 28px;
+  font-size: clamp(24px, 6vw, 28px);
   cursor: pointer;
+  padding: 0 10px;
 }
+
 .chat-messages {
-  flex-grow: 1;
+  flex: 1;
   overflow-y: auto;
-  padding: 5px;
-  background: #181e29;
-  border-radius: 8px;
+  padding: 15px;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
+
 .message {
-  margin: 5px 0;
-  padding: 3px 5px;
-  border-radius: 8px;
-  max-width: 40%;
-  font-size: 15px;
+  margin: 8px 0;
+  padding: 10px 15px;
+  border-radius: 16px;
+  max-width: 75%;
+  word-wrap: break-word;
+  animation: slideIn 0.2s ease-out;
 }
+
 .sent {
   background: #97f492;
   color: #000;
   margin-left: auto;
 }
+
 .received {
   background: #2d3540;
   color: #fff;
 }
+
 .timestamp {
-  font-size: 8px;
+  font-size: clamp(10px, 2.5vw, 12px);
   color: #8a8f98;
+  margin-top: 4px;
   display: block;
-  margin-top: 2px;
 }
+
 .chat-locked {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  flex: 1;
+  display: grid;
+  place-items: center;
   color: #fff;
-  font-size: 12px;
+  text-align: center;
+  padding: 20px;
 }
+
 .pay-btn {
   background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
   color: #000;
-  padding: 5px 10px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 10px;
-  font-size: 12px;
-}
-.chat-input {
-  display: flex;
-  gap: 5px;
-  margin-top: 2px;
-}
-.message-input {
-  flex-grow: 1;
-  padding: 10px;
   border-radius: 12px;
+  cursor: pointer;
+  font-size: clamp(14px, 3.5vw, 16px);
+  transition: transform 0.2s;
+}
+
+.pay-btn:hover {
+  transform: scale(1.02);
+}
+
+.chat-input {
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  background: inherit;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  bottom: 0;
+}
+
+.message-input {
+  flex: 1;
+  padding: 12px 15px;
+  border-radius: 20px;
   border: none;
   background: #272e38;
   color: #fff;
-  font-size: 18px;
+  font-size: clamp(14px, 3.5vw, 16px);
+  outline: none;
 }
+
 .send-btn {
   background: #97f492;
-  color: #000;
-  padding: 5px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
   cursor: pointer;
-  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.send-btn svg {
+  fill: #000;
+}
+
+.send-btn:hover {
+  background: #6de06a;
+}
+
+@media (max-width: 480px) {
+  .chat-messages {
+    padding: 10px;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+
+  .chat-input {
+    padding: 8px;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
