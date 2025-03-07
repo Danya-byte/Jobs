@@ -141,7 +141,7 @@ const checkChatStatus = async () => {
 .chat-container {
   background: linear-gradient(45deg, #101622, #1a2233);
   min-height: 100vh;
-  padding: 15px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
 }
@@ -149,33 +149,33 @@ const checkChatStatus = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 .chat-header h2 {
   color: #97f492;
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 .close-btn {
   background: none;
   border: none;
   color: #fff;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
 }
 .chat-messages {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 5px;
   background: #181e29;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 .message {
-  margin: 8px 0;
-  padding: 8px 12px;
-  border-radius: 10px;
-  max-width: 60%;
-  font-size: 14px;
+  margin: 5px 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  max-width: 50%;
+  font-size: 12px;
 }
 .sent {
   background: #97f492;
@@ -187,10 +187,10 @@ const checkChatStatus = async () => {
   color: #fff;
 }
 .timestamp {
-  font-size: 10px;
+  font-size: 8px;
   color: #8a8f98;
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .chat-locked {
   flex-grow: 1;
@@ -199,39 +199,39 @@ const checkChatStatus = async () => {
   justify-content: center;
   align-items: center;
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
 }
 .pay-btn {
   background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
   color: #000;
-  padding: 8px 16px;
+  padding: 5px 10px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  margin-top: 15px;
-  font-size: 14px;
+  margin-top: 10px;
+  font-size: 12px;
 }
 .chat-input {
   display: flex;
-  gap: 8px;
-  margin-top: 15px;
+  gap: 5px;
+  margin-top: 10px;
 }
 .message-input {
   flex-grow: 1;
-  padding: 8px;
-  border-radius: 10px;
+  padding: 5px;
+  border-radius: 8px;
   border: none;
   background: #272e38;
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
 }
 .send-btn {
   background: #97f492;
   color: #000;
-  padding: 8px 16px;
+  padding: 5px 10px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
 }
 </style>
