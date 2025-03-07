@@ -33,7 +33,7 @@ const nick = ref(route.query.nick); // Получаем username из query
 const jobId = ref(route.query.jobId); // Получаем jobId из query
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 
-const chatUnlocked = ref(false);
+const chatUnlocked = ref(true);
 const messages = ref([]);
 const newMessage = ref('');
 
