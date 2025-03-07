@@ -14,16 +14,19 @@ const app = express();
 const port = process.env.PORT || 3000;
 const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
+const MESSAGES_FILE = path.join(__dirname, "messages.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
 const FREELANCER_SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json");
 const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
 const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
 const TASKS_FILE = path.join(__dirname, "tasks.json");
+const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
+const messagesMutex = new Mutex();
 const freelancerSubscriptionsMutex = new Mutex();
 const vacanciesMutex = new Mutex();
 const companySubscriptionsMutex = new Mutex();
@@ -31,10 +34,12 @@ const tasksMutex = new Mutex();
 
 let jobsData = [];
 let reviewsData = {};
+let messagesData = [];
 let freelancerSubscriptionsData = {};
 let vacanciesData = [];
 let companySubscriptionsData = [];
 let tasksData = [];
+let chatUnlocksData = {};
 
 const bot = new Bot(BOT_TOKEN);
 bot.api.config.use(hydrateFiles(bot.token));
@@ -92,6 +97,16 @@ async function initReviewsFile() {
   }
 }
 
+async function initMessagesFile() {
+  try {
+    await fs.access(MESSAGES_FILE);
+    const data = await fs.readFile(MESSAGES_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(MESSAGES_FILE, "[]");
+  } catch {
+    await fs.writeFile(MESSAGES_FILE, "[]");
+  }
+}
+
 async function initJobsFile() {
   try {
     await fs.access(JOBS_FILE);
@@ -142,11 +157,21 @@ async function initCompanySubscriptionsFile() {
   }
 }
 
+async function initChatUnlocksFile() {
+  try {
+    await fs.access(CHAT_UNLOCKS_FILE);
+    const data = await fs.readFile(CHAT_UNLOCKS_FILE, "utf8");
+    if (!data.trim()) await fs.writeFile(CHAT_UNLOCKS_FILE, "{}");
+  } catch {
+    await fs.writeFile(CHAT_UNLOCKS_FILE, "{}");
+  }
+}
+
 async function loadJobs() {
   try {
     const rawData = await fs.readFile(JOBS_FILE, "utf8");
     jobsData = rawData.trim() ? JSON.parse(rawData) : [];
-  } catch (e) {
+  } catch {
     jobsData = [];
   }
 }
@@ -155,8 +180,17 @@ async function loadReviews() {
   try {
     const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
     reviewsData = rawData.trim() ? JSON.parse(rawData) : {};
-  } catch (e) {
+  } catch {
     reviewsData = {};
+  }
+}
+
+async function loadMessages() {
+  try {
+    const rawData = await fs.readFile(MESSAGES_FILE, "utf8");
+    messagesData = rawData.trim() ? JSON.parse(rawData) : [];
+  } catch {
+    messagesData = [];
   }
 }
 
@@ -164,7 +198,7 @@ async function loadFreelancerSubscriptions() {
   try {
     const rawData = await fs.readFile(FREELANCER_SUBSCRIPTIONS_FILE, "utf8");
     freelancerSubscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
-  } catch (e) {
+  } catch {
     freelancerSubscriptionsData = {};
   }
 }
@@ -173,7 +207,7 @@ async function loadVacancies() {
   try {
     const rawData = await fs.readFile(VACANCIES_FILE, "utf8");
     vacanciesData = rawData.trim() ? JSON.parse(rawData) : [];
-  } catch (e) {
+  } catch {
     vacanciesData = [];
   }
 }
@@ -182,7 +216,7 @@ async function loadTasks() {
   try {
     const rawData = await fs.readFile(TASKS_FILE, "utf8");
     tasksData = rawData.trim() ? JSON.parse(rawData) : [];
-  } catch (e) {
+  } catch {
     tasksData = [];
   }
 }
@@ -191,8 +225,17 @@ async function loadCompanySubscriptions() {
   try {
     const rawData = await fs.readFile(COMPANY_SUBSCRIPTIONS_FILE, "utf8");
     companySubscriptionsData = rawData.trim() ? JSON.parse(rawData) : {};
-  } catch (e) {
+  } catch {
     companySubscriptionsData = {};
+  }
+}
+
+async function loadChatUnlocks() {
+  try {
+    const rawData = await fs.readFile(CHAT_UNLOCKS_FILE, "utf8");
+    chatUnlocksData = rawData.trim() ? JSON.parse(rawData) : {};
+  } catch {
+    chatUnlocksData = {};
   }
 }
 
@@ -210,7 +253,7 @@ function validateTelegramData(initData) {
 
     const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
     return crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex") === receivedHash;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -264,8 +307,6 @@ app.post("/api/jobs", async (req, res) => {
       .filter(([_, positions]) => positions.includes(newJob.position))
       .map(([userId]) => userId);
 
-    logger.info(`Found ${subscribers.length} subscribers for position "${newJob.position}": ${subscribers.join(", ")}`);
-
     for (const subscriberId of subscribers) {
       try {
         await bot.api.sendMessage(
@@ -274,15 +315,11 @@ app.post("/api/jobs", async (req, res) => {
             `📝 Описание: ${newJob.description}\n` +
             `🔗 Контакт: ${newJob.contact}`
         );
-        logger.info(`Notified user ${subscriberId} about new job on position "${newJob.position}"`);
-      } catch (e) {
-        logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
-      }
+      } catch {}
     }
 
     res.json({ success: true, job: newJob });
-  } catch (e) {
-    logger.error(`Error in POST /api/jobs: ${e.message}`);
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -316,7 +353,7 @@ app.put("/api/jobs/:jobId/pinned", async (req, res) => {
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
 
     res.json({ success: true, job });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -349,7 +386,7 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
     await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
 
     res.json({ success: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -431,13 +468,11 @@ app.post("/api/vacancies", async (req, res) => {
             `📝 Описание: ${newVacancy.description}\n` +
             `🔗 Контакт: ${newVacancy.contact}`
         );
-      } catch (e) {
-        logger.error(`Failed to notify user ${subscriberId}: ${e.message}`);
-      }
+      } catch {}
     }
 
     res.json({ success: true, vacancy: newVacancy });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -471,7 +506,7 @@ app.put("/api/vacancies/:vacancyId/pinned", async (req, res) => {
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
 
     res.json({ success: true, vacancy });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -498,7 +533,7 @@ app.delete("/api/vacancies/:vacancyId", async (req, res) => {
     vacanciesData.splice(vacancyIndex, 1);
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
     res.json({ success: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -548,8 +583,7 @@ app.post("/api/tasks", async (req, res) => {
     await fs.writeFile(TASKS_FILE, JSON.stringify(tasksData, null, 2));
 
     res.json({ success: true, task: newTask });
-  } catch (e) {
-    logger.error(`Error in POST /api/tasks: ${e.message}`);
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -583,7 +617,7 @@ app.put("/api/tasks/:taskId/pinned", async (req, res) => {
     await fs.writeFile(TASKS_FILE, JSON.stringify(tasksData, null, 2));
 
     res.json({ success: true, task });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -616,7 +650,7 @@ app.delete("/api/tasks/:taskId", async (req, res) => {
     await fs.writeFile(TASKS_FILE, JSON.stringify(tasksData, null, 2));
 
     res.json({ success: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -646,7 +680,7 @@ app.get("/api/user/:userId", async (req, res) => {
         if (responseUsername) {
           photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
         }
-      } catch (telegramError) {
+      } catch {
         firstName = userJob ? userJob.nick : userVacancy ? userVacancy.companyName : "Unknown";
         responseUsername = userJob ? userJob.username : userVacancy ? null : null;
         if (responseUsername) {
@@ -656,7 +690,7 @@ app.get("/api/user/:userId", async (req, res) => {
     }
 
     res.json({ firstName, username: responseUsername, photoUrl });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -735,7 +769,7 @@ app.post("/api/toggleFavorite", async (req, res) => {
 
     await fs.writeFile(path.join(__dirname, "favoriteJobs.json"), JSON.stringify(favoriteJobs, null, 2));
     res.json({ success: true, favorites: favoriteJobs });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     releaseFreelancer();
@@ -758,7 +792,7 @@ app.get("/api/favorites", async (req, res) => {
     }
 
     res.json(favoriteJobs);
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -780,7 +814,7 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     }
 
     const payload = `${user.id}_${Date.now()}`;
-    reviewsData[payload] = { text, authorUserId: user.id, targetUserId };
+    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, type: "review" };
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
@@ -793,7 +827,81 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     );
 
     res.json({ success: true, invoiceLink });
-  } catch (e) {
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.post("/api/createMessageInvoice", async (req, res) => {
+  const release = await reviewsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+    const { targetUserId, text, jobId } = req.body;
+
+    if (!user?.id || !targetUserId || !text) {
+      return res.status(400).json({ error: "Invalid data" });
+    }
+
+    const payload = `${user.id}_${Date.now()}`;
+    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, jobId, type: "message" };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    const invoiceLink = await bot.api.createInvoiceLink(
+      "Send a Message",
+      "Pay 1 Telegram Star to send a message to the freelancer",
+      payload,
+      "",
+      "XTR",
+      [{ label: "Message Sending", amount: 1 }]
+    );
+
+    res.json({ success: true, invoiceLink });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.post("/api/createChatInvoice", async (req, res) => {
+  const release = await reviewsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+    const { targetUserId, jobId } = req.body;
+
+    if (!user?.id || !targetUserId) {
+      return res.status(400).json({ error: "Invalid data" });
+    }
+
+    const payload = `${user.id}_${Date.now()}`;
+    reviewsData[payload] = { authorUserId: user.id, targetUserId, jobId, type: "chat_unlock" };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    const invoiceLink = await bot.api.createInvoiceLink(
+      "Unlock Chat",
+      "Pay 1 Telegram Star to unlock chat with the freelancer",
+      payload,
+      "",
+      "XTR",
+      [{ label: "Chat Unlock", amount: 1 }]
+    );
+
+    res.json({ success: true, invoiceLink });
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -804,10 +912,63 @@ app.get("/api/reviews", async (req, res) => {
   try {
     const { targetUserId } = req.query;
     const reviews = Object.entries(reviewsData)
-      .filter(([_, review]) => review.targetUserId === targetUserId && review.date)
+      .filter(([_, review]) => review.targetUserId === targetUserId && review.date && review.type === "review")
       .map(([id, review]) => ({ id, ...review }));
     res.json(reviews);
-  } catch (e) {
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/chat/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    const userMessages = messagesData.filter(
+      (msg) => (msg.authorUserId === user.id && msg.targetUserId === userId) || (msg.authorUserId === userId && msg.targetUserId === user.id)
+    );
+    res.json({ messages: userMessages });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/chat/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { text } = req.body;
+  const telegramData = req.headers["x-telegram-data"];
+
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user"));
+
+  if (!user.id || !text) {
+    return res.status(400).json({ error: "Invalid data" });
+  }
+
+  res.status(403).json({ error: "Payment required" });
+});
+
+app.get("/api/chat/status/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    const unlocked = chatUnlocksData[`${user.id}_${userId}`] || false;
+    res.json({ unlocked });
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -837,7 +998,7 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
     await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
     res.json({ success: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -860,7 +1021,7 @@ app.get("/api/isAdmin", async (req, res) => {
 
     const isAdmin = ADMIN_IDS.includes(user.id.toString());
     res.json({ isAdmin });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -870,7 +1031,8 @@ bot.on("pre_checkout_query", async (ctx) => {
 });
 
 bot.on("message:successful_payment", async (ctx) => {
-  const release = await reviewsMutex.acquire();
+  const releaseReviews = await reviewsMutex.acquire();
+  const releaseMessages = await messagesMutex.acquire();
   try {
     const payload = ctx.message.successful_payment.invoice_payload;
 
@@ -879,15 +1041,51 @@ bot.on("message:successful_payment", async (ctx) => {
       return;
     }
 
-    const { authorUserId, targetUserId, text } = reviewsData[payload];
-    const reviewKey = `${authorUserId}_${Date.now()}`;
-    reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString() };
-    delete reviewsData[payload];
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+    const { authorUserId, targetUserId, text, type, jobId } = reviewsData[payload];
 
-    await ctx.reply("Отзыв опубликован! Спасибо!");
+    if (type === "message") {
+      const message = {
+        id: `${authorUserId}_${Date.now()}`,
+        text,
+        authorUserId,
+        targetUserId,
+        jobId,
+        timestamp: new Date().toISOString(),
+        isSender: true
+      };
+      messagesData.push(message);
+      await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+      delete reviewsData[payload];
+      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
 
-    try {
+      await ctx.reply("Сообщение отправлено фрилансеру! Спасибо!");
+
+      const authorData = await bot.api.getChat(authorUserId);
+      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
+      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+      const escapedText = escapeMarkdownV2(text);
+      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
+      const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
+      const notification =
+        `*Новое сообщение\\!*\n\n` +
+        `Пользователь *${escapedAuthorUsername}* отправил вам сообщение:\n` +
+        `> ${escapedText}\n\n` +
+        `Дата: ${escapedDate}`;
+      await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
+    } else if (type === "chat_unlock") {
+      chatUnlocksData[`${authorUserId}_${targetUserId}`] = true;
+      await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
+      delete reviewsData[payload];
+      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+      await ctx.reply("Чат успешно разблокирован!");
+    } else {
+      const reviewKey = `${authorUserId}_${Date.now()}`;
+      reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString(), type: "review" };
+      delete reviewsData[payload];
+      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+      await ctx.reply("Отзыв опубликован! Спасибо!");
+
       const authorData = await bot.api.getChat(authorUserId);
       const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
       const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
@@ -900,11 +1098,12 @@ bot.on("message:successful_payment", async (ctx) => {
         `> ${escapedText}\n\n` +
         `Дата: ${escapedDate}`;
       await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
-    } catch (e) {}
-  } catch (e) {
-    await ctx.reply("Произошла ошибка при обработке отзыва.");
+    }
+  } catch {
+    await ctx.reply("Произошла ошибка при обработке платежа.");
   } finally {
-    release();
+    releaseReviews();
+    releaseMessages();
   }
 });
 
@@ -922,8 +1121,7 @@ async function cleanOldTempReviews() {
     if (cleanedCount > 0) {
       await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
     }
-  } catch (e) {
-  } finally {
+  } catch {} finally {
     release();
   }
 }
@@ -933,32 +1131,36 @@ setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 async function ensureLogsDir() {
   try {
     await fs.mkdir(LOGS_DIR, { recursive: true });
-  } catch (e) {}
+  } catch {}
 }
 
 Promise.all([
   ensureLogsDir(),
   initReviewsFile(),
+  initMessagesFile(),
   initJobsFile(),
   initFreelancerSubscriptionsFile(),
   initVacanciesFile(),
   initTasksFile(),
   initCompanySubscriptionsFile(),
+  initChatUnlocksFile(),
 ])
   .then(async () => {
     await loadJobs();
     await loadReviews();
+    await loadMessages();
     await loadFreelancerSubscriptions();
     await loadVacancies();
     await loadTasks();
     await loadCompanySubscriptions();
+    await loadChatUnlocks();
     app.listen(port, () => {
       bot.start();
       logger.info(`Server running on port ${port}`);
     });
   })
-  .catch((e) => {
-    logger.error(`Failed to start server: ${e.message}`);
+  .catch(() => {
+    logger.error(`Failed to start server`);
     process.exit(1);
   });
 
