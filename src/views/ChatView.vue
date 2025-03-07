@@ -276,7 +276,6 @@ const checkChatStatus = async () => {
   position: sticky;
   bottom: 0;
   align-items: center;
-  margin-bottom: 0; /* Removed margin-bottom to avoid extra space */
 }
 
 .message-input {
@@ -288,8 +287,8 @@ const checkChatStatus = async () => {
   color: #fff;
   font-size: clamp(0.875rem, 3vw, 1rem);
   outline: none;
-  min-height: 2rem; /* Reduced height for better mobile fit */
-  margin-bottom: env(safe-area-inset-bottom, 0.25rem); /* Adjusted for safe area on mobile */
+  min-height: 2rem;
+  margin-bottom: env(safe-area-inset-bottom, 0.25rem);
 }
 
 .send-btn {
@@ -357,11 +356,14 @@ const checkChatStatus = async () => {
   }
 
   .chat-input {
-    padding: 0.75rem clamp(0.75rem, 2vw, 1rem);
+    padding: 0.1rem clamp(0.5rem, 2vw, 1rem); /* Уменьшили padding, чтобы поднять поле ввода */
+    margin-bottom: env(safe-area-inset-bottom, 0.1rem); /* Уменьшили отступ снизу, чтобы поднять выше */
   }
 
   .message-input {
-    min-height: 2.25rem; /* Slightly larger for desktop comfort */
+    min-height: 1.5rem; /* Уменьшили высоту поля ввода, чтобы сделать его компактнее */
+    padding: 0.3rem 0.5rem; /* Уменьшили внутренние отступы для компактности */
+    margin-bottom: env(safe-area-inset-bottom, 0.1rem); /* Уменьшили отступ снизу */
   }
 }
 
