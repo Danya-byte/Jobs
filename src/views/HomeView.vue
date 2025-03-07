@@ -55,6 +55,7 @@
                         <span v-for="(tag, i) in job.tags" :key="i" class="tag">{{ tag }}</span>
                     </div>
                     <span v-if="isNew(job)" class="new-label">new</span>
+                    <span v-if="job.pinned" class="pinned-label">Закреплено</span>
                 </button>
             </div>
             <div class="jobs-list" v-if="activeTab === 'companies'">
@@ -74,6 +75,7 @@
                         <span v-for="(tag, i) in vacancy.tags" :key="i" class="tag">{{ tag }}</span>
                     </div>
                     <span v-if="isNew(vacancy)" class="new-label">new</span>
+                    <span v-if="vacancy.pinned" class="pinned-label">Закреплено</span>
                 </button>
             </div>
         </div>
@@ -185,6 +187,12 @@
                     </div>
                     <a :href="selectedVacancy.contact" class="contact-btn" target="_blank">Contact via Telegram</a>
                     <button v-if="isAdmin" @click="deleteVacancy(selectedVacancy.id)" class="delete-btn">Delete Vacancy</button>
+                    <div v-if="isAdmin" class="pin-section">
+                        <label>
+                            <input type="checkbox" v-model="selectedVacancy.pinned" @change="togglePinned(selectedVacancy)">
+                            Закрепить вверху
+                        </label>
+                    </div>
                 </div>
                 <div class="job-details" v-else>
                     <div class="user-info">
@@ -223,6 +231,12 @@
                     </div>
                     <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                     <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
+                    <div v-if="isAdmin" class="pin-section">
+                        <label>
+                            <input type="checkbox" v-model="selectedJob.pinned" @change="togglePinned(selectedJob)">
+                            Закрепить вверху
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -291,7 +305,11 @@ const categories = [
 ];
 
 const sortedJobs = computed(() => {
-  return [...jobs.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return [...jobs.value].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
 });
 
 const filteredJobs = computed(() => {
@@ -319,7 +337,11 @@ const filteredJobs = computed(() => {
 });
 
 const filteredVacancies = computed(() => {
-  let filtered = [...vacancies.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  let filtered = [...vacancies.value].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
   if (selectedCategories.value.length > 0) {
     filtered = filtered.filter(vacancy => vacancy.categories.some(cat => selectedCategories.value.includes(cat)));
   }
@@ -501,6 +523,21 @@ const deleteVacancy = async (vacancyId) => {
   }
 };
 
+const togglePinned = async (item) => {
+  try {
+    const endpoint = item.companyUserId ? `/api/vacancies/${item.id}/pinned` : `/api/jobs/${item.id}/pinned`;
+    await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned }, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    fetchJobs();
+    fetchVacancies();
+    Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
+  } catch (error) {
+    console.error('Ошибка при изменении статуса закрепления:', error);
+    Telegram.WebApp.showAlert('Не удалось изменить статус закрепления');
+  }
+};
+
 const checkAdminStatus = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
@@ -652,6 +689,7 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .skeleton-card { background: linear-gradient(90deg, #181e29 25%, #272e38 50%, #181e29 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s infinite; border-radius: 20px; padding: 20px; height: 150px; }
 @keyframes skeleton-wave { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .new-label { position: absolute; top: 10px; right: 10px; background: #97f492; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+.pinned-label { position: absolute; top: 10px; right: 10px; background: #6de06a; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 .favorite-btn { background: none; border: none; font-size: 30px; cursor: pointer; padding: 0; position: absolute; right: 10px; top: 3px; }
 .favorite-btn span { color: #8a8f98; transition: color 0.3s; }
 .favorite-btn .favorite { color: #97f492; }
@@ -661,4 +699,7 @@ textarea.search-input { min-height: 100px; resize: vertical; }
 .filter-pill { display: inline-flex; align-items: center; background: #2d3540; padding: 6px 12px; border-radius: 20px; color: #97f492; font-size: 14px; }
 .filter-pill button { background: none; border: none; color: #97f492; margin-left: 8px; cursor: pointer; }
 .verified-label { background: linear-gradient(135deg, #97f492 0%, #6de06a 100%); color: #000; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; font-weight: 600; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.pin-section { margin-top: 20px; }
+.pin-section label { color: #97f492; font-size: 14px; cursor: pointer; }
+.pin-section input { margin-right: 8px; }
 </style>

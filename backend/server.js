@@ -19,7 +19,7 @@ const FREELANCER_SUBSCRIPTIONS_FILE = path.join(__dirname, "subscriptions.json")
 const VACANCIES_FILE = path.join(__dirname, "vacancies.json");
 const COMPANY_SUBSCRIPTIONS_FILE = path.join(__dirname, "companySubscriptions.json");
 const LOGS_DIR = path.join(__dirname, "logs");
-const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325"];
+const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
@@ -232,6 +232,7 @@ app.post("/api/jobs", async (req, res) => {
       categories: categories || [],
       contact: "https://t.me/workiks_admin",
       createdAt: new Date().toISOString(),
+      pinned: false
     };
 
     jobsData.push(newJob);
@@ -260,6 +261,40 @@ app.post("/api/jobs", async (req, res) => {
     res.json({ success: true, job: newJob });
   } catch (e) {
     logger.error(`Error in POST /api/jobs: ${e.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.put("/api/jobs/:jobId/pinned", async (req, res) => {
+  const release = await jobsMutex.acquire();
+  try {
+    const { jobId } = req.params;
+    const { pinned } = req.body;
+    const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const job = jobsData.find((job) => job.id === jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    job.pinned = pinned;
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+
+    res.json({ success: true, job });
+  } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -356,6 +391,7 @@ app.post("/api/vacancies", async (req, res) => {
       verified: verified || false,
       photoUrl,
       createdAt: new Date().toISOString(),
+      pinned: false
     };
     vacanciesData.push(newVacancy);
     await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
@@ -379,6 +415,40 @@ app.post("/api/vacancies", async (req, res) => {
     }
 
     res.json({ success: true, vacancy: newVacancy });
+  } catch (e) {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+
+app.put("/api/vacancies/:vacancyId/pinned", async (req, res) => {
+  const release = await vacanciesMutex.acquire();
+  try {
+    const { vacancyId } = req.params;
+    const { pinned } = req.body;
+    const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const vacancy = vacanciesData.find((vacancy) => vacancy.id === vacancyId);
+    if (!vacancy) {
+      return res.status(404).json({ error: "Vacancy not found" });
+    }
+
+    vacancy.pinned = pinned;
+    await fs.writeFile(VACANCIES_FILE, JSON.stringify(vacanciesData, null, 2));
+
+    res.json({ success: true, vacancy });
   } catch (e) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
