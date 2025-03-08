@@ -133,14 +133,37 @@ const loadProfileData = async () => {
 
 const loadReviews = async () => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`);
-    const data = await response.json();
-    const filteredAndSortedReviews = data
-      .filter(review => review.date)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-    allReviews.value = filteredAndSortedReviews;
+    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`, {
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
+      }
+    });
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.error('Endpoint /api/reviews не найден на сервере');
+        allReviews.value = [];
+      } else if (response.status === 401) {
+        console.error('Не авторизован: проверьте Telegram WebApp initData');
+        allReviews.value = [];
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ошибка! Статус: ${response.status}`);
+      }
+    } else {
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        console.error('Ответ от /api/reviews не является массивом:', data);
+        allReviews.value = [];
+      } else {
+        const filteredAndSortedReviews = data
+          .filter(review => review.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        allReviews.value = filteredAndSortedReviews;
+      }
+    }
   } catch (error) {
-    console.error('Error loading reviews:', error);
+    console.error('Ошибка загрузки отзывов:', error);
+    allReviews.value = [];
   }
 };
 
