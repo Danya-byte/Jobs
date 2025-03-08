@@ -160,38 +160,14 @@ const loadReviews = async () => {
         allReviews.value = [];
       } else {
         const filteredAndSortedReviews = data
-          .filter(review => review.reviewId)
-          .sort((a, b) => {
-            if (!a.date || !b.date) return 0;
-            return new Date(b.date) - new Date(a.date);
-          });
+          .filter(review => review.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
         allReviews.value = filteredAndSortedReviews;
       }
     }
   } catch (error) {
     console.error('Ошибка загрузки отзывов:', error);
     allReviews.value = [];
-  }
-};
-
-const deleteReview = async (reviewId) => {
-  if (!reviewId) {
-    Telegram.WebApp.showAlert('Ошибка: ID отзыва отсутствует');
-    console.error('Попытка удалить отзыв с undefined reviewId');
-    return;
-  }
-  try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/${reviewId}`, {
-      method: 'DELETE',
-      headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData
-      }
-    });
-    if (!response.ok) throw new Error('Ошибка удаления');
-    await loadReviews();
-    Telegram.WebApp.showAlert('Отзыв удалён!');
-  } catch (error) {
-    Telegram.WebApp.showAlert(error.message);
   }
 };
 
