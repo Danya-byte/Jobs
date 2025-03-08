@@ -107,8 +107,9 @@ const handleTouchEnd = () => {
 const loadProfileData = async () => {
   console.log('Current user:', currentUser.value);
   console.log('User ID:', userId.value);
+
   if (userId.value === currentUser.value?.id?.toString()) {
-    profileData.firstName = currentUser.value.first_name || 'Без имени';
+    profileData.firstName = currentUser.value.first_name || 'Unknown';
     profileData.username = currentUser.value.username || '';
     avatarSrc.value = currentUser.value.photo_url || (currentUser.value.username ? `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
   } else {
@@ -119,13 +120,13 @@ const loadProfileData = async () => {
         }
       });
       const data = await response.json();
-      profileData.firstName = data.firstName || 'Без имени';
+      profileData.firstName = data.nick || 'Unknown';
       profileData.username = data.username || '';
       avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     } catch (error) {
       console.error('Ошибка загрузки профиля:', error);
+      profileData.firstName = 'Unknown';
       avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-      profileData.firstName = 'Без имени';
     }
   }
   loaded.value = true;
