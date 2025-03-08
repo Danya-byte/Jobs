@@ -10,13 +10,13 @@
       </div>
       <div v-else v-for="group in chatGroups" :key="group.userId" class="chat-group">
         <RouterLink
-          :to="{ path: `/chat/${group.userId}`, query: { username: group.authorUsername, jobId: group.jobId } }"
+          :to="{ path: `/chat/${group.userId}`, query: { username: group.authorUsername, jobId: jobId } }"
           class="chat-link"
         >
           <div class="chat-preview">
             <p class="author">{{ group.authorName || 'Unknown' }}</p>
-            <p class="last-message">{{ group.lastMessage || 'No messages' }}</p>
-            <span class="timestamp">{{ group.timestamp ? formatTimestamp(group.timestamp) : '' }}</span>
+            <p class="last-message">{{ group.messages[group.messages.length - 1]?.text || 'No messages' }}</p>
+            <span class="timestamp">{{ group.messages[group.messages.length - 1]?.timestamp ? formatTimestamp(group.messages[group.messages.length - 1].timestamp) : '' }}</span>
           </div>
         </RouterLink>
       </div>
@@ -31,6 +31,7 @@ import axios from 'axios';
 
 const route = useRoute();
 const userId = ref(route.params.userId);
+const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const chatGroups = ref([]);
 
