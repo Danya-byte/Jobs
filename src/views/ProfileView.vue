@@ -197,16 +197,17 @@ const initiatePayment = async () => {
     const { invoiceLink } = await response.json();
     Telegram.WebApp.openInvoice(invoiceLink, async (status) => {
       if (status === 'cancelled') {
-        reviewText.value = ''
-        Telegram.WebApp.showAlert('Платёж отменён. Отзыв сохранён как черновик.');
+        reviewText.value = '';
+        Telegram.WebApp.showAlert('The payment is canceled. The review is not saved.');
       }
       if (status === 'paid') {
         await loadReviews();
         reviewText.value = '';
-        Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
+        Telegram.WebApp.showAlert('The review is successfully sent!');
       }
       if (status === 'failed') {
-        Telegram.WebApp.showAlert('Ошибка оплаты. Попробуйте снова.');
+        reviewText.value = '';
+        Telegram.WebApp.showAlert('Payment error. Try it again.');
       }
     });
   } catch (error) {
