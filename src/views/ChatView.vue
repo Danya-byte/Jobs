@@ -43,7 +43,6 @@ const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const messagesContainer = ref(null);
 const messageInput = ref(null);
-const chatInput = ref(null);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
@@ -51,6 +50,7 @@ const userPhoto = ref('');
 const currentUserId = ref('');
 const isOwner = ref(false);
 const isInputFocused = ref(false);
+const isMobile = ref(window.innerWidth <= 768);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -60,9 +60,7 @@ const formatTimestamp = (timestamp) => {
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesContainer.value) {
-      const wrapper = messagesContainer.value;
-      const inner = wrapper.querySelector('.chat-messages');
-      wrapper.scrollTop = inner.scrollHeight;
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
     }
   });
 };
@@ -149,18 +147,26 @@ const sendMessage = async () => {
 };
 
 const handleInputFocus = () => {
-  isInputFocused.value = true;
+  if (isMobile.value) {
+    isInputFocused.value = true;
+  }
 };
 
 const handleInputBlur = () => {
-  isInputFocused.value = false;
-  messageInput.value.blur();
+  if (isMobile.value) {
+    isInputFocused.value = false;
+    messageInput.value.blur();
+  }
 };
 
 const hideKeyboard = (event) => {
-  if (messageInput.value && event.target !== messageInput.value) {
+  if (messageInput.value && event.target !== messageInput.value && isMobile.value) {
     handleInputBlur();
   }
+};
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768;
 };
 
 watch(() => route.params.userId, (newUserId) => {
@@ -192,6 +198,7 @@ onMounted(() => {
   fetchMessages();
   messageInput.value.addEventListener('focus', handleInputFocus);
   messageInput.value.addEventListener('blur', handleInputBlur);
+  window.addEventListener('resize', handleResize);
 });
 </script>
 
@@ -205,12 +212,6 @@ onMounted(() => {
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
 }
 
 .chat-header {
@@ -271,19 +272,16 @@ onMounted(() => {
   padding: 0 0.5rem;
 }
 
-.chat-messages-wrapper {
+.chat-messages {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-}
-
-.chat-messages-wrapper::-webkit-scrollbar {
-  display: none;
-}
-
-.chat-messages {
   padding: clamp(0.5rem, 2vw, 1rem);
+}
+
+.chat-messages::-webkit-scrollbar {
+  display: none;
 }
 
 .message {
@@ -324,13 +322,15 @@ onMounted(() => {
   align-items: center;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   min-height: clamp(3rem, 10vw, 4rem);
-  transition: transform 0.3s ease;
   position: relative;
   z-index: 2;
 }
 
-.chat-input.focused {
-  transform: translateY(-50vh);
+@media (max-width: 768px) {
+  .chat-input.focused {
+    transform: translateY(-50vh);
+    transition: transform 0.3s ease;
+  }
 }
 
 .message-input {
