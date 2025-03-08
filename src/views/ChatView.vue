@@ -1,7 +1,7 @@
 <template>
   <div class="chat-view">
     <div class="chat-header">
-      <button class="close-btn" @click="$router.push(`/owner-chats/${userId.value}`)">×</button>
+      <button v-if="isOwner" class="close-btn" @click="$router.push(`/owner-chats/${userId.value}`)">×</button>
       <h2>{{ username }}</h2>
     </div>
     <div class="messages" ref="messagesContainer">
@@ -30,6 +30,19 @@ const username = ref(route.query.username);
 const messages = ref([]);
 const newMessage = ref('');
 const messagesContainer = ref(null);
+const isOwner = ref(false);
+
+const checkOwnership = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/vacancies`);
+    const vacancy = response.data.find(v => v.id === jobId.value);
+    if (vacancy && vacancy.companyUserId.toString() === userId.value.toString()) {
+      isOwner.value = true;
+    }
+  } catch (error) {
+    console.error('Ошибка при проверке владельца:', error);
+  }
+};
 
 const fetchMessages = async () => {
   try {
@@ -46,8 +59,8 @@ const fetchMessages = async () => {
 
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
-  const isOwner = userId.value === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id;
-  if (isOwner) {
+  const isOwnerUser = userId.value === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id;
+  if (isOwnerUser) {
     const message = {
       id: `${userId.value}_${Date.now()}`,
       text: newMessage.value,
@@ -101,6 +114,7 @@ const formatTimestamp = (timestamp) => {
 };
 
 onMounted(() => {
+  checkOwnership();
   fetchMessages();
 });
 </script>
