@@ -332,7 +332,20 @@
                             </label>
                         </div>
                         <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
-                        <RouterLink :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }" class="chat-btn">Chat with Freelancer</RouterLink>
+                        <RouterLink
+                          v-if="isOwner(selectedJob.userId)"
+                          :to="{ path: `/owner-chats/${selectedJob.userId}`, query: { jobId: selectedJob.id } }"
+                          class="chat-btn"
+                        >
+                          Open Chat
+                        </RouterLink>
+                        <RouterLink
+                          v-else
+                          :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }"
+                          class="chat-btn"
+                        >
+                          Chat with Freelancer
+                        </RouterLink>
                         <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     </div>
                 </div>
@@ -804,6 +817,10 @@ const handleAddJobsClick = () => {
     }
 };
 
+const isOwner = (userId) => {
+  return currentUserId.value === userId.toString();
+};
+
 onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
@@ -817,7 +834,7 @@ onMounted(() => {
       userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
       userFirstName.value = user.first_name || '';
       userLastName.value = user.last_name || '';
-      currentUserId.value = user.id;
+      currentUserId.value = user.id.toString();
       currentUsername.value = user.username;
     }
   }
