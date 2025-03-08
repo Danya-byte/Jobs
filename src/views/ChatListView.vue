@@ -37,7 +37,7 @@ const fetchChats = async () => {
     });
     const ownedJobs = jobsResponse.data.filter((job) => job.userId.toString() === currentUserId.value);
 
-    const messagesResponse = await axios.get(`${BASE_URL}/api/chat/${currentUserId.value}`, {
+    const messagesResponse = await axios.get(`${BASE_URL}/api/chats`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     const messages = messagesResponse.data;
@@ -45,21 +45,21 @@ const fetchChats = async () => {
     const chatMap = new Map();
     messages.forEach((msg) => {
       if (msg.jobId && (msg.targetUserId === currentUserId.value || msg.authorUserId === currentUserId.value)) {
-        const key = `${msg.jobId}_${msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId}`;
-        if (!chatMap.has(key)) {
-          const job = ownedJobs.find((j) => j.id === msg.jobId);
-          if (job) {
+        const job = ownedJobs.find((j) => j.id === msg.jobId);
+        if (job) {
+          const key = `${msg.jobId}_${msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId}`;
+          if (!chatMap.has(key)) {
             chatMap.set(key, {
               jobId: msg.jobId,
               targetUserId: msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId,
               messages: [],
               nick: job.nick,
-              username: job.username,
+              username: job.username || '',
               photoUrl: job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : defaultPhoto,
             });
           }
+          chatMap.get(key).messages.push(msg);
         }
-        chatMap.get(key).messages.push(msg);
       }
     });
 

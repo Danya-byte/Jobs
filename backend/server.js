@@ -864,7 +864,23 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     release();
   }
 });
+app.get("/api/chats", async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
 
+    const userMessages = messagesData.filter(
+      (msg) => msg.authorUserId.toString() === user.id.toString() || msg.targetUserId.toString() === user.id.toString()
+    );
+    res.json(userMessages);
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 app.get("/api/chat/:targetUserId", async (req, res) => {
   try {
     const { targetUserId } = req.params;
