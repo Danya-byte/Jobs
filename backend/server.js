@@ -949,6 +949,42 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     release();
   }
 });
+app.post("/api/createInvoiceLink", async (req, res) => {
+  const release = await reviewsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+    const { text, targetUserId } = req.body;
+
+    if (!user?.id || !targetUserId || !text) {
+      return res.status(400).json({ error: "Invalid data" });
+    }
+
+    const payload = `${user.id}_${Date.now()}`;
+    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, type: "review" };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    const invoiceLink = await bot.api.createInvoiceLink(
+      "Submit a Review",
+      "Pay 1 Telegram Star to submit a review",
+      payload,
+      "",
+      "XTR",
+      [{ label: "Review Submission", amount: 1 }]
+    );
+
+    res.json({ success: true, invoiceLink });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
 app.get("/api/chats", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
