@@ -190,7 +190,6 @@ onMounted(() => {
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  position: relative;
   overflow: hidden;
 }
 
@@ -200,8 +199,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   background: inherit;
   z-index: 1;
 }
@@ -253,12 +251,19 @@ onMounted(() => {
   padding: 0 0.5rem;
 }
 
-.chat-messages {
+.chat-messages-wrapper {
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-messages-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-messages {
   padding: clamp(0.5rem, 2vw, 1rem);
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
 }
 
 .message {
@@ -290,13 +295,12 @@ onMounted(() => {
 }
 
 .chat-input {
-  padding: clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem) !important;
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
   display: flex;
   gap: clamp(0.5rem, 2vw, 0.75rem);
   background: #1a2233;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   align-items: center;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   min-height: clamp(3rem, 10vw, 4rem);
@@ -311,8 +315,8 @@ onMounted(() => {
   color: #fff;
   font-size: clamp(0.875rem, 3vw, 1rem);
   outline: none;
-  min-height: clamp(2.5rem, 8vw, 3rem) !important;
-  margin-bottom: 0 !important;
+  min-height: clamp(2.5rem, 8vw, 3rem);
+  margin-bottom: 0;
 }
 
 .send-btn {
@@ -359,8 +363,8 @@ onMounted(() => {
   }
 
   .message-input {
-    min-height: 3.5rem !important;
-    padding: 12px 12px !important;
+    min-height: 3.5rem;
+    padding: 12px 12px;
   }
 
   .send-btn {
@@ -395,13 +399,13 @@ onMounted(() => {
   }
 
   .message-input {
-    min-height: 3rem !important;
-    padding: 8px 16px !important;
+    min-height: 3rem;
+    padding: 8px 16px;
   }
 
   .send-btn {
-    width: 3rem !important;
-    height: 3rem !important;
+    width: 3rem;
+    height: 3rem;
   }
 }
 

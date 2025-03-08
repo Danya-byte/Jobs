@@ -123,17 +123,19 @@ onMounted(() => {
 <style scoped>
 .container {
   background: linear-gradient(45deg, #101622, #1a2233);
-  min-height: 100vh;
+  height: 100vh;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  position: relative;
 }
 
 .nav-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 h1 {
@@ -160,9 +162,21 @@ h1 {
 }
 
 .chat-list {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  overflow: hidden;
+}
+
+.chat-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-list-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 .chat-item {
@@ -175,6 +189,7 @@ h1 {
   text-decoration: none;
   border: 1px solid #2d3540;
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  margin-bottom: 10px;
 }
 
 .chat-item:hover {
@@ -210,6 +225,7 @@ h1 {
   color: #8a8f98;
   font-size: 16px;
   text-align: center;
+  padding: 20px;
 }
 
 @keyframes pulse {
