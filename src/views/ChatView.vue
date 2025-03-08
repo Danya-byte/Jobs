@@ -255,16 +255,10 @@ onMounted(() => {
 
 .chat-messages {
   flex: 1;
-  overflow-y: scroll;
+  overflow-y: auto;
   padding: clamp(0.5rem, 2vw, 1rem);
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.chat-messages::-webkit-scrollbar {
-  display: none;
 }
 
 .message {

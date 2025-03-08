@@ -123,12 +123,10 @@ onMounted(() => {
 <style scoped>
 .container {
   background: linear-gradient(45deg, #101622, #1a2233);
-  height: 100vh;
+  min-height: 100vh;
   padding: 20px;
   overflow: hidden;
   position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
 .nav-bar {
@@ -136,7 +134,6 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
-  flex-shrink: 0;
 }
 
 h1 {
@@ -163,15 +160,9 @@ h1 {
 }
 
 .chat-list {
-  flex: 1;
-  overflow-y: scroll;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding-bottom: 20px;
-}
-
-.chat-list::-webkit-scrollbar {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .chat-item {
