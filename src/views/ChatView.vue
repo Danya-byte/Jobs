@@ -32,7 +32,7 @@ import axios from 'axios';
 const route = useRoute();
 const router = useRouter();
 const userId = ref(route.params.userId);
-const nick = ref(route.query.nick);
+const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const messagesContainer = ref(null);
 const messageInput = ref(null);
