@@ -195,22 +195,23 @@ const initiatePayment = async () => {
     });
     if (!response.ok) throw new Error('Ошибка создания платежа');
     const { invoiceLink } = await response.json();
-    Telegram.WebApp.openInvoice(invoiceLink, (status) => {
+    Telegram.WebApp.openInvoice(invoiceLink, async (status) => {
       if (status === 'cancelled') {
-        reviewText.value = '';
-        Telegram.WebApp.showAlert('Вы не подтвердили платеж!');
+        Telegram.WebApp.showAlert('Платёж отменён. Отзыв сохранён как черновик.');
       }
       if (status === 'paid') {
-        loadReviews();
+        await loadReviews();
         reviewText.value = '';
         Telegram.WebApp.showAlert('Отзыв успешно отправлен!');
+      }
+      if (status === 'failed') {
+        Telegram.WebApp.showAlert('Ошибка оплаты. Попробуйте снова.');
       }
     });
   } catch (error) {
     Telegram.WebApp.showAlert(error.message);
   }
 };
-
 
 const checkAdminStatus = async () => {
   try {

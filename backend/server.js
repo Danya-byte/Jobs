@@ -23,7 +23,7 @@ const TASKS_FILE = path.join(__dirname, "tasks.json");
 const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
-const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(",") : ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
+const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
@@ -710,6 +710,47 @@ app.get("/api/reviews", async (req, res) => {
     res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 });
+app.post("/api/createInvoiceLink", async (req, res) => {
+  const release = await reviewsMutex.acquire();
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
+    const { text, targetUserId } = req.body;
+
+    if (!user?.id || !targetUserId || !text) {
+      return res.status(400).json({ error: "Invalid data" });
+    }
+
+    const payload = `${user.id}_${Date.now()}`;
+    reviewsData[payload] = {
+      text,
+      authorUserId: user.id,
+      targetUserId,
+      type: "review"
+    };
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    const invoiceLink = await bot.api.createInvoiceLink(
+      "Submit a Review",
+      "Pay 1 Telegram Star to submit a review",
+      payload,
+      "",
+      "XTR",
+      [{ label: "Review Submission", amount: 1 }]
+    );
+
+    res.json({ success: true, invoiceLink });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -753,17 +794,6 @@ app.get("/api/user/:userId", async (req, res) => {
     return res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 });
-
-app.use((req, res, next) => {
-  logger.warn(`Маршрут не найден: ${req.method} ${req.path}`);
-  res.status(404).json({ error: "Ресурс не найден" });
-});
-
-app.use((err, req, res, next) => {
-  logger.error(`Необработанная ошибка: ${err.stack}`);
-  res.status(500).json({ error: "Внутренняя ошибка сервера" });
-});
-
 app.get("/api/profile/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -937,7 +967,7 @@ app.post("/api/createMessageInvoice", async (req, res) => {
       "Send a Message",
       "Pay 1 Telegram Star to send a message to the freelancer",
       payload,
-      process.env.TELEGRAM_PROVIDER_TOKEN || "",
+      "",
       "XTR",
       [{ label: "Message Sending", amount: 100 }]
     );
@@ -949,42 +979,7 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     release();
   }
 });
-app.post("/api/createInvoiceLink", async (req, res) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
 
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-    const { text, targetUserId } = req.body;
-
-    if (!user?.id || !targetUserId || !text) {
-      return res.status(400).json({ error: "Invalid data" });
-    }
-
-    const payload = `${user.id}_${Date.now()}`;
-    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, type: "review" };
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-    const invoiceLink = await bot.api.createInvoiceLink(
-      "Submit a Review",
-      "Pay 1 Telegram Star to submit a review",
-      payload,
-      "",
-      "XTR",
-      [{ label: "Review Submission", amount: 1 }]
-    );
-
-    res.json({ success: true, invoiceLink });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
 app.get("/api/chats", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -1117,6 +1112,7 @@ bot.on("pre_checkout_query", async (ctx) => {
 
 bot.on("message:successful_payment", async (ctx) => {
   const releaseMessages = await messagesMutex.acquire();
+  const releaseReviews = await reviewsMutex.acquire();
   try {
     const payload = ctx.message.successful_payment.invoice_payload;
 
@@ -1126,6 +1122,7 @@ bot.on("message:successful_payment", async (ctx) => {
     }
 
     const pendingMessage = pendingMessagesData[payload];
+    const pendingReview = reviewsData[payload];
 
     if (pendingMessage && pendingMessage.type === "message") {
       const { authorUserId, targetUserId, text, jobId } = pendingMessage;
@@ -1162,13 +1159,44 @@ bot.on("message:successful_payment", async (ctx) => {
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
         await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
       } catch {}
-    } else {
+    }
+
+    else if (pendingReview && pendingReview.type === "review") {
+      const { text, authorUserId, targetUserId } = pendingReview;
+      const review = {
+        id: `${authorUserId}_${Date.now()}`,
+        text,
+        authorUserId,
+        targetUserId,
+        date: new Date().toISOString()
+      };
+
+      reviewsData[review.id] = review;
+      delete reviewsData[payload];
+      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+      await ctx.reply("Review submitted successfully! Thank you!");
+
+      try {
+        const authorData = await bot.api.getChat(authorUserId);
+        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+        const notification =
+          `*New Review\\!*\n\n` +
+          `User *${escapeMarkdownV2(authorData.first_name || "Unknown")}* left you a review:\n` +
+          `> ${escapeMarkdownV2(text)}\n\n` +
+          `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
+        await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
+      } catch {}
+    }
+
+    else {
       await ctx.reply("Error: Payment data not found.");
     }
   } catch {
     await ctx.reply("Error processing payment.");
   } finally {
     releaseMessages();
+    releaseReviews();
   }
 });
 
@@ -1198,6 +1226,17 @@ async function ensureLogsDir() {
     await fs.mkdir(LOGS_DIR, { recursive: true });
   } catch {}
 }
+app.use((req, res, next) => {
+  logger.warn(`Маршрут не найден: ${req.method} ${req.path}`);
+  res.status(404).json({ error: "Ресурс не найден" });
+});
+
+app.use((err, req, res, next) => {
+  logger.error(`Необработанная ошибка: ${err.stack}`);
+  res.status(500).json({ error: "Внутренняя ошибка сервера" });
+});
+
+
 
 Promise.all([
   ensureLogsDir(),
