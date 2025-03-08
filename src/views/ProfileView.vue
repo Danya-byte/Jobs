@@ -112,6 +112,7 @@ const loadProfileData = async () => {
     profileData.firstName = currentUser.value.first_name || 'Unknown';
     profileData.username = currentUser.value.username || '';
     avatarSrc.value = currentUser.value.photo_url || (currentUser.value.username ? `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
+    console.log('Using current user data:', profileData);
   } else {
     try {
       const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
@@ -121,9 +122,10 @@ const loadProfileData = async () => {
       });
       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
       const data = await response.json();
-      profileData.firstName = data.nick || 'Unknown';
+      profileData.firstName = data.firstName || 'Unknown';
       profileData.username = data.username || '';
       avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      console.log('Loaded from API:', profileData);
     } catch (error) {
       console.error('Ошибка загрузки профиля:', error);
       profileData.firstName = 'Unknown';
@@ -233,6 +235,7 @@ const checkAdminStatus = async () => {
 };
 
 onMounted(async () => {
+  console.log('Telegram initData:', Telegram.WebApp.initData);
   currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
   userId.value = route.params.userId || currentUser.value?.id?.toString();
   if (!userId.value) {
@@ -240,7 +243,7 @@ onMounted(async () => {
     return;
   }
   if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
+    Telegram.WebApp.setHeaderColor('#97f492');
   }
   await checkAdminStatus();
   await loadProfileData();
