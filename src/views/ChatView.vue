@@ -1,7 +1,15 @@
 <template>
   <div class="chat-container" @click="hideKeyboard">
     <div class="chat-header">
-      <h2>{{ nick || 'Unknown' }}</h2>
+      <button class="back-btn" @click="$router.push('/')">
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
+      <div class="user-info">
+        <img :src="userPhoto || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" class="user-avatar" loading="lazy">
+        <h2>{{ nick || 'Unknown' }}</h2>
+      </div>
       <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
     <div class="chat-messages" ref="messagesContainer">
@@ -25,21 +33,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted, nextTick, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import axios from 'axios';
 
 const route = useRoute();
-const router = useRouter();
-const userId = ref(route.params.userId);
+const targetUserId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const messagesContainer = ref(null);
 const messageInput = ref(null);
-
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
+const userPhoto = ref('');
+const currentUserId = ref('');
+const isOwner = ref(false);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -54,84 +63,112 @@ const scrollToBottom = () => {
   });
 };
 
-const fetchJobDetails = async () => {
-  if (!jobId.value) {
-    console.warn('jobId не указан в URL');
-    return;
+const fetchUserDetails = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/profile/${targetUserId.value}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    nick.value = response.data.nick || 'Unknown';
+    userPhoto.value = response.data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  } catch (error) {
+    console.error(error);
   }
+};
+
+const fetchJobDetails = async () => {
+  if (!jobId.value) return;
   try {
     const response = await axios.get(`${BASE_URL}/api/jobs`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    const job = response.data.find(job => job.id === jobId.value);
-    if (job && job.nick) {
-      nick.value = job.nick;
-    } else {
-      console.warn('Вакансия не найдена или поле nick отсутствует');
+    const job = response.data.find(j => j.id === jobId.value);
+    if (job) {
+      nick.value = job.nick || 'Unknown';
+      isOwner.value = currentUserId.value === job.userId.toString();
     }
   } catch (error) {
-    console.error('Ошибка при загрузке данных вакансии:', error);
+    console.error(error);
   }
 };
 
 const fetchMessages = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/chat/${userId.value}`, {
+    const response = await axios.get(`${BASE_URL}/api/chat/${targetUserId.value}?jobId=${jobId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    messages.value = response.data.messages.map(msg => ({
+    messages.value = response.data.map(msg => ({
       ...msg,
-      isSender: msg.authorUserId === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id
+      isSender: msg.authorUserId === currentUserId.value
     }));
     scrollToBottom();
   } catch (error) {
-    console.error('Ошибка при загрузке сообщений:', error);
+    console.error(error);
   }
 };
 
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
-    const response = await axios.post(
-      `${BASE_URL}/api/createMessageInvoice`,
-      { targetUserId: userId.value, text: newMessage.value, jobId: jobId.value },
-      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-    );
-    if (response.data.success) {
-      window.Telegram.WebApp.openInvoice(response.data.invoiceLink, (status) => {
-        if (status === 'paid') {
-          fetchMessages();
-          newMessage.value = '';
-          Telegram.WebApp.showAlert('Сообщение успешно отправлено!');
-        } else if (status === 'cancelled') {
-          Telegram.WebApp.showAlert('Платёж отменён.');
-          newMessage.value = '';
-        }
-      });
+    if (isOwner.value) {
+      await axios.post(
+        `${BASE_URL}/api/chat/${targetUserId.value}`,
+        { text: newMessage.value, jobId: jobId.value },
+        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+      );
+      fetchMessages();
+      newMessage.value = '';
+    } else {
+      const invoiceResponse = await axios.post(
+        `${BASE_URL}/api/createMessageInvoice`,
+        { targetUserId: targetUserId.value, text: newMessage.value, jobId: jobId.value },
+        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+      );
+      if (invoiceResponse.data.success) {
+        window.Telegram.WebApp.openInvoice(invoiceResponse.data.invoiceLink, (status) => {
+          if (status === 'paid') {
+            fetchMessages();
+            newMessage.value = '';
+            Telegram.WebApp.showAlert('Message sent successfully!');
+          } else if (status === 'cancelled') {
+            Telegram.WebApp.showAlert('Payment cancelled.');
+          }
+        });
+      }
     }
   } catch (error) {
-    console.error('Ошибка при отправке сообщения:', error);
-    Telegram.WebApp.showAlert('Не удалось инициировать платёж.');
+    console.error(error);
+    Telegram.WebApp.showAlert('Failed to send message.');
   }
 };
 
 const hideKeyboard = (event) => {
-  console.log('hideKeyboard вызван, messageInput.value:', messageInput.value);
   if (messageInput.value && event.target !== messageInput.value) {
     messageInput.value.blur();
   }
 };
 
+watch(() => route.params.userId, (newUserId) => {
+  targetUserId.value = newUserId;
+  fetchUserDetails();
+  fetchMessages();
+});
+
+watch(() => route.query.jobId, (newJobId) => {
+  jobId.value = newJobId;
+  fetchJobDetails();
+  fetchMessages();
+});
+
 onMounted(() => {
-  console.log('Компонент смонтирован');
-  console.log('messageInput.value:', messageInput.value);
-  if (!window.Telegram?.WebApp?.initData) {
-    console.error('Telegram WebApp не инициализирован');
-    Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+    currentUserId.value = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
+  } else {
+    Telegram.WebApp.showAlert('Please open the app via Telegram.');
     return;
   }
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
+  fetchUserDetails();
   fetchJobDetails();
   fetchMessages();
 });
@@ -161,6 +198,33 @@ onMounted(() => {
   top: 0;
   background: inherit;
   z-index: 1;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+.back-btn svg {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .chat-header h2 {

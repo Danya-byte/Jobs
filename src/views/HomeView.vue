@@ -200,7 +200,7 @@
                         <input v-model="tagsInput" @keyup.enter="addTaskTag" placeholder="Tags (Enter to add)" class="search-input" />
                         <div class="tags">
                             <span v-for="(tag, i) in newTask.tags" :key="i" class="tag">
-                                {{ tag }} <button @click="newTask.tags.splice(i, 1)" class="delete-tag">×</button>
+                                {{ tag }} <button @click="newTask.tags.splice(i, 1)" class="delete-tag">×</button Griffin>
                             </span>
                         </div>
                         <div class="filter-section">
@@ -333,18 +333,10 @@
                         </div>
                         <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                         <RouterLink
-                          v-if="isOwner(selectedJob.userId)"
-                          :to="{ path: `/owner-chats/${selectedJob.userId}`, query: { jobId: selectedJob.id } }"
-                          class="chat-btn"
-                        >
-                          Open Chat
-                        </RouterLink>
-                        <RouterLink
-                          v-else
                           :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }"
                           class="chat-btn"
                         >
-                          Chat with Freelancer
+                          {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
                         </RouterLink>
                         <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     </div>
@@ -516,7 +508,7 @@ const fetchJobs = async () => {
     const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
     jobs.value = response.data;
   } catch (error) {
-    console.error('Error fetching jobs:', error);
+    console.error(error);
   } finally {
     isLoading.value = false;
   }
@@ -527,7 +519,7 @@ const fetchVacancies = async () => {
     const response = await axios.get(`${BASE_URL}/api/vacancies`, { timeout: 5000 });
     vacancies.value = response.data;
   } catch (error) {
-    console.error('Error fetching vacancies:', error);
+    console.error(error);
   }
 };
 
@@ -536,7 +528,7 @@ const fetchTasks = async () => {
     const response = await axios.get(`${BASE_URL}/api/tasks`, { timeout: 5000 });
     tasks.value = response.data;
   } catch (error) {
-    console.error('Error fetching tasks:', error);
+    console.error(error);
   } finally {
     isLoading.value = false;
   }
@@ -549,7 +541,7 @@ const fetchFavorites = async () => {
     });
     favoriteJobs.value = response.data;
   } catch (error) {
-    console.error('Error fetching favorites:', error);
+    console.error(error);
   }
 };
 
@@ -588,7 +580,7 @@ const showAddJobModal = () => {
     categories: [],
     contact: 'https://t.me/workiks_admin'
   };
-  addMode.value = 'job';
+  addMode.value 'job';
   showAddModal.value = true;
 };
 
@@ -672,7 +664,7 @@ const submitItem = async () => {
       jobs.value.push(response.data.job);
       showAddModal.value = false;
     } catch (error) {
-      console.error('Error submitting job:', error.response?.data || error.message);
+      console.error(error);
     }
   } else {
     if (!newItem.value.companyUserId || !newItem.value.companyName || !newItem.value.position || !newItem.value.description || !newItem.value.contact || !newItem.value.officialWebsite || !newItem.value.photoUrl) {
@@ -687,7 +679,7 @@ const submitItem = async () => {
       vacancies.value.push(response.data.vacancy);
       showAddModal.value = false;
     } catch (error) {
-      console.error('Error submitting vacancy:', error.response?.data || error.message);
+      console.error(error);
     }
   }
 };
@@ -706,7 +698,7 @@ const submitTask = async () => {
     tasks.value.push(response.data.task);
     showTaskModal.value = false;
   } catch (error) {
-    console.error('Error submitting task:', error.response?.data || error.message);
+    console.error(error);
   }
 };
 
@@ -718,7 +710,7 @@ const deleteJob = async (jobId) => {
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
   } catch (error) {
-    console.error('Error deleting job:', error.response?.data || error.message);
+    console.error(error);
   }
 };
 
@@ -730,7 +722,7 @@ const deleteVacancy = async (vacancyId) => {
     vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
     open.value = false;
   } catch (error) {
-    console.error('Error deleting vacancy:', error.response?.data || error.message);
+    console.error(error);
   }
 };
 
@@ -742,7 +734,7 @@ const deleteTask = async (taskId) => {
     tasks.value = tasks.value.filter(task => task.id !== taskId);
     open.value = false;
   } catch (error) {
-    console.error('Error deleting task:', error.response?.data || error.message);
+    console.error(error);
   }
 };
 
@@ -759,7 +751,7 @@ const togglePinned = async (item) => {
     fetchTasks();
     Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
   } catch (error) {
-    console.error('Ошибка при изменении статуса закрепления:', error);
+    console.error(error);
     Telegram.WebApp.showAlert('Не удалось изменить статус закрепления');
   }
 };
@@ -771,7 +763,7 @@ const checkAdminStatus = async () => {
     });
     isAdmin.value = response.data.isAdmin;
   } catch (error) {
-    console.error('Error checking admin status:', error);
+    console.error(error);
     isAdmin.value = false;
   }
 };
@@ -798,7 +790,7 @@ const toggleFavorite = async (itemId) => {
       Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
     }
   } catch (error) {
-    console.error('Error toggling favorite:', error.response?.data || error.message);
+    console.error(error);
     Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
   }
 };

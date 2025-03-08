@@ -36,15 +36,6 @@ const router = createRouter({
         username: route.query.username,
         jobId: route.query.jobId
       })
-    },
-    {
-      path: '/owner-chats/:userId',
-      name: 'ownerChats',
-      component: () => import('../views/OwnerChatsView.vue'),
-      props: (route) => ({
-        userId: route.params.userId,
-        jobId: route.query.jobId
-      })
     }
   ],
 })

@@ -12,7 +12,7 @@ require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
-const BOT_TOKEN = "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const MESSAGES_FILE = path.join(__dirname, "messages.json");
 const JOBS_FILE = path.join(__dirname, "jobs.json");
@@ -23,7 +23,7 @@ const TASKS_FILE = path.join(__dirname, "tasks.json");
 const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
-const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
+const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(",") : ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
@@ -201,14 +201,8 @@ async function loadMessages() {
   try {
     const rawData = await fs.readFile(MESSAGES_FILE, "utf8");
     const parsedData = rawData.trim() ? JSON.parse(rawData) : [];
-    if (!Array.isArray(parsedData)) {
-      console.error("Data in messages.json is not an array, resetting to empty array.");
-      messagesData = [];
-    } else {
-      messagesData = parsedData;
-    }
-  } catch (error) {
-    console.error("Error loading messages:", error);
+    messagesData = Array.isArray(parsedData) ? parsedData : [];
+  } catch {
     messagesData = [];
   }
 }
@@ -685,7 +679,7 @@ app.delete("/api/tasks/:taskId", async (req, res) => {
   }
 });
 
-app.get("/api/user/:userId", async (req, res) => {
+app.get("/api/profile/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
@@ -696,28 +690,28 @@ app.get("/api/user/:userId", async (req, res) => {
 
     const userJob = jobsData.find((job) => job.userId.toString() === userId);
     const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
-    let firstName = "Unknown";
+    let nick = "Unknown";
     let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
-    let responseUsername = null;
 
-    if (userJob || userVacancy) {
-      try {
-        const userData = await bot.api.getChat(userJob ? userJob.userId : userVacancy.companyUserId);
-        firstName = userData.first_name || "Unknown";
-        responseUsername = userData.username || null;
-        if (responseUsername) {
-          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-        }
-      } catch {
-        firstName = userJob ? userJob.nick : userVacancy ? userVacancy.companyName : "Unknown";
-        responseUsername = userJob ? userJob.username : userVacancy ? null : null;
-        if (responseUsername) {
-          photoUrl = `https://t.me/i/userpic/160/${responseUsername}.jpg`;
-        }
+    if (userJob) {
+      nick = userJob.nick;
+      if (userJob.username) {
+        photoUrl = `https://t.me/i/userpic/160/${userJob.username}.jpg`;
       }
+    } else if (userVacancy) {
+      nick = userVacancy.companyName;
+      photoUrl = userVacancy.photoUrl;
+    } else {
+      try {
+        const userData = await bot.api.getChat(userId);
+        nick = userData.first_name || "Unknown";
+        if (userData.username) {
+          photoUrl = `https://t.me/i/userpic/160/${userData.username}.jpg`;
+        }
+      } catch {}
     }
 
-    res.json({ firstName, username: responseUsername, photoUrl });
+    res.json({ nick, photoUrl });
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -825,43 +819,6 @@ app.get("/api/favorites", async (req, res) => {
   }
 });
 
-app.post("/api/createInvoiceLink", async (req, res) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-    const { text, targetUserId } = req.body;
-
-    if (!user?.id || !targetUserId || !text) {
-      return res.status(400).json({ error: "Invalid data" });
-    }
-
-    const payload = `${user.id}_${Date.now()}`;
-    reviewsData[payload] = { text, authorUserId: user.id, targetUserId, type: "review" };
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-    const invoiceLink = await bot.api.createInvoiceLink(
-      "Submit a Review",
-      "Pay 1 Telegram Star to submit a review",
-      payload,
-      "",
-      "XTR",
-      [{ label: "Review Submission", amount: 1 }]
-    );
-
-    res.json({ success: true, invoiceLink });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-
 app.post("/api/createMessageInvoice", async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
@@ -878,13 +835,13 @@ app.post("/api/createMessageInvoice", async (req, res) => {
       return res.status(400).json({ error: "Invalid data" });
     }
 
-    const job = vacanciesData.find((j) => j.id === jobId);
+    const job = jobsData.find((j) => j.id === jobId);
     if (!job) {
-      return res.status(404).json({ error: "Vacancy not found" });
+      return res.status(404).json({ error: "Job not found" });
     }
 
-    if (job.companyUserId.toString() === user.id.toString()) {
-      return res.status(400).json({ error: "Владелец вакансии может отправлять сообщения бесплатно" });
+    if (job.userId.toString() === user.id.toString()) {
+      return res.status(400).json({ error: "Job owner can send messages for free" });
     }
 
     const payload = `${user.id}_${Date.now()}`;
@@ -895,47 +852,9 @@ app.post("/api/createMessageInvoice", async (req, res) => {
       "Send a Message",
       "Pay 1 Telegram Star to send a message to the freelancer",
       payload,
-      "",
+      process.env.TELEGRAM_PROVIDER_TOKEN || "",
       "XTR",
-      [{ label: "Message Sending", amount: 1 }]
-    );
-
-    res.json({ success: true, invoiceLink });
-  } catch (error) {
-    console.error("Error creating message invoice:", error);
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-
-app.post("/api/createChatInvoice", async (req, res) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-    const { targetUserId, jobId } = req.body;
-
-    if (!user?.id || !targetUserId) {
-      return res.status(400).json({ error: "Invalid data" });
-    }
-
-    const payload = `${user.id}_${Date.now()}`;
-    reviewsData[payload] = { authorUserId: user.id, targetUserId, jobId, type: "chat_unlock" };
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-    const invoiceLink = await bot.api.createInvoiceLink(
-      "Unlock Chat",
-      "Pay 1 Telegram Star to unlock chat with the freelancer",
-      payload,
-      "",
-      "XTR",
-      [{ label: "Chat Unlock", amount: 1 }]
+      [{ label: "Message Sending", amount: 100 }]
     );
 
     res.json({ success: true, invoiceLink });
@@ -946,68 +865,13 @@ app.post("/api/createChatInvoice", async (req, res) => {
   }
 });
 
-app.get("/api/reviews", async (req, res) => {
+app.get("/api/chat/:targetUserId", async (req, res) => {
   try {
-    const { targetUserId } = req.query;
-    const reviews = Object.entries(reviewsData)
-      .filter(([_, review]) => review.targetUserId === targetUserId && review.date && review.type === "review")
-      .map(([id, review]) => ({ id, ...review }));
-    res.json(reviews);
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.get("/api/owner-chats/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const telegramData = req.headers["x-telegram-data"];
-
-  if (!telegramData || !validateTelegramData(telegramData)) {
-    return res.status(401).json({ error: "Неавторизован" });
-  }
-
-  const params = new URLSearchParams(telegramData);
-  const user = JSON.parse(params.get("user") || "{}");
-
-  if (!user.id || user.id.toString() !== userId) {
-    return res.status(403).json({ error: "Доступ запрещён" });
-  }
-
-  const ownerVacancies = vacanciesData.filter((vacancy) => vacancy.companyUserId.toString() === userId);
-  const ownerVacancyIds = ownerVacancies.map((vacancy) => vacancy.id);
-  const relevantMessages = messagesData.filter((msg) => ownerVacancyIds.includes(msg.jobId) && msg.targetUserId.toString() === userId);
-
-  const chatGroups = relevantMessages.reduce((acc, msg) => {
-    const groupKey = `${msg.authorUserId}_${msg.jobId}`;
-    if (!acc[groupKey]) {
-      acc[groupKey] = {
-        userId: msg.authorUserId,
-        jobId: msg.jobId,
-        authorUsername: "Unknown",
-        messages: [],
-        lastMessage: msg
-      };
-      try {
-        const senderData = bot.api.getChat(msg.authorUserId);
-        acc[groupKey].authorUsername = senderData.username || senderData.first_name || "Unknown";
-      } catch {}
-    }
-    acc[groupKey].messages.push(msg);
-    acc[groupKey].lastMessage = msg.timestamp > acc[groupKey].lastMessage.timestamp ? msg : acc[groupKey].lastMessage;
-    return acc;
-  }, {});
-
-  const chatGroupsArray = Object.values(chatGroups).sort((a, b) => new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp));
-  res.json(chatGroupsArray);
-});
-
-app.get("/api/chat/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
+    const { targetUserId } = req.params;
     const { jobId } = req.query;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Неавторизован" });
+      return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
@@ -1015,9 +879,9 @@ app.get("/api/chat/:userId", async (req, res) => {
     const chatMessages = messagesData
       .filter(
         (msg) =>
-          msg.jobId === jobId &&
-          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === userId.toString()) ||
-           (msg.authorUserId.toString() === userId.toString() && msg.targetUserId.toString() === user.id.toString()))
+          (!jobId || msg.jobId === jobId) &&
+          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
+           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
       )
       .map((msg) => ({
         ...msg,
@@ -1027,97 +891,61 @@ app.get("/api/chat/:userId", async (req, res) => {
 
     res.json(chatMessages);
   } catch {
-    res.status(500).json({ error: "Внутренняя ошибка сервера" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.post("/api/chat/:userId", async (req, res) => {
+app.post("/api/chat/:targetUserId", async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
-    const { userId } = req.params;
+    const { targetUserId } = req.params;
     const { text, jobId } = req.body;
     const telegramData = req.headers["x-telegram-data"];
 
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Неавторизован" });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user"));
 
     if (!user.id || !text || !jobId) {
-      return res.status(400).json({ error: "Неверные данные" });
+      return res.status(400).json({ error: "Invalid data" });
     }
 
-    const vacancy = vacanciesData.find((v) => v.id === jobId);
-    if (!vacancy) {
-      return res.status(404).json({ error: "Вакансия не найдена" });
+    const job = jobsData.find((j) => j.id === jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
     }
 
-    if (vacancy.companyUserId.toString() === user.id.toString()) {
+    if (job.userId.toString() === user.id.toString()) {
       const message = {
         id: `${user.id}_${Date.now()}`,
         text,
-        authorUserId: user.id,
-        targetUserId: userId,
+        authorUserId: user.id.toString(),
+        targetUserId,
         jobId,
         timestamp: new Date().toISOString(),
         isSender: true,
       };
       messagesData.push(message);
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+
+      try {
+        const targetData = await bot.api.getChat(targetUserId);
+        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+        const notification =
+          `*New Message\\!*\n\n` +
+          `User *${escapeMarkdownV2(user.first_name || "Unknown")}* sent you a message:\n` +
+          `> ${escapeMarkdownV2(text)}\n\n` +
+          `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
+        await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
+      } catch {}
+
       res.json({ success: true, message });
     } else {
-      res.status(403).json({ error: "Требуется оплата" });
+      res.status(403).json({ error: "Payment required" });
     }
-  } catch {
-    res.status(500).json({ error: "Внутренняя ошибка сервера" });
-  } finally {
-    release();
-  }
-});
-
-app.get("/api/chat/status/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-    const unlocked = chatUnlocksData[`${user.id}_${userId}`] || false;
-    res.json({ unlocked });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.delete("/api/reviews/:reviewId", async (req, res) => {
-  const release = await reviewsMutex.acquire();
-  try {
-    const { reviewId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-
-    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    if (!reviewsData[reviewId]) {
-      return res.status(404).json({ error: "Review not found" });
-    }
-
-    delete reviewsData[reviewId];
-    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-    res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
@@ -1151,18 +979,16 @@ bot.on("pre_checkout_query", async (ctx) => {
 });
 
 bot.on("message:successful_payment", async (ctx) => {
-  const releaseReviews = await reviewsMutex.acquire();
   const releaseMessages = await messagesMutex.acquire();
   try {
     const payload = ctx.message.successful_payment.invoice_payload;
 
     if (!payload) {
-      await ctx.reply("Ошибка: не удалось обработать платеж. Обратитесь в поддержку.");
+      await ctx.reply("Error: Unable to process payment. Contact support.");
       return;
     }
 
     const pendingMessage = pendingMessagesData[payload];
-    const reviewData = reviewsData[payload];
 
     if (pendingMessage && pendingMessage.type === "message") {
       const { authorUserId, targetUserId, text, jobId } = pendingMessage;
@@ -1177,7 +1003,6 @@ bot.on("message:successful_payment", async (ctx) => {
       };
 
       if (!Array.isArray(messagesData)) {
-        console.error("messagesData is not an array, resetting to empty array.");
         messagesData = [];
       }
 
@@ -1186,80 +1011,29 @@ bot.on("message:successful_payment", async (ctx) => {
       delete pendingMessagesData[payload];
       await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
-      await ctx.reply("Сообщение отправлено фрилансеру! Спасибо!");
+      await ctx.reply("Message sent to freelancer! Thank you!");
 
-      const authorData = await bot.api.getChat(authorUserId);
-      const targetData = await bot.api.getChat(targetUserId);
-      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
-      const escapedText = escapeMarkdownV2(text);
-      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
-      const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
-      const notification =
-        `*Новое сообщение\\!*\n\n` +
-        `Пользователь *${escapedAuthorUsername}* отправил вам сообщение:\n` +
-        `> ${escapedText}\n\n` +
-        `Дата: ${escapedDate}\n` +
-        `[Открыть чат](https://t.me/${targetData.username || 'workiks_admin'}?start=chat_${authorUserId})`;
-      await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
-    } else if (reviewData && reviewData.type === "chat_unlock") {
-      const { authorUserId, targetUserId } = reviewData;
-      chatUnlocksData[`${authorUserId}_${targetUserId}`] = true;
-      await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
-      delete reviewsData[payload];
-      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-      await ctx.reply("Чат успешно разблокирован!");
-    } else if (reviewData) {
-      const { authorUserId, targetUserId, text } = reviewData;
-      const reviewKey = `${authorUserId}_${Date.now()}`;
-      reviewsData[reviewKey] = { text, authorUserId, targetUserId, date: new Date().toISOString(), type: "review" };
-      delete reviewsData[payload];
-      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-
-      await ctx.reply("Отзыв опубликован! Спасибо!");
-
-      const authorData = await bot.api.getChat(authorUserId);
-      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
-      const escapedText = escapeMarkdownV2(text);
-      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
-      const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
-      const message =
-        `*Новый отзыв\\!*\n\n` +
-        `Пользователь *${escapedAuthorUsername}* оставил вам отзыв:\n` +
-        `> ${escapedText}\n\n` +
-        `Дата: ${escapedDate}`;
-      await bot.api.sendMessage(targetUserId, message, { parse_mode: "MarkdownV2" });
+      try {
+        const authorData = await bot.api.getChat(authorUserId);
+        const targetData = await bot.api.getChat(targetUserId);
+        const authorUsername = authorData.username ? `@${authorData.username}` : "Unknown";
+        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+        const notification =
+          `*New Message\\!*\n\n` +
+          `User *${escapeMarkdownV2(authorUsername)}* sent you a message:\n` +
+          `> ${escapeMarkdownV2(text)}\n\n` +
+          `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
+        await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
+      } catch {}
     } else {
-      await ctx.reply("Ошибка: данные платежа не найдены.");
+      await ctx.reply("Error: Payment data not found.");
     }
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    await ctx.reply("Произошла ошибка при обработке платежа.");
+  } catch {
+    await ctx.reply("Error processing payment.");
   } finally {
-    releaseReviews();
     releaseMessages();
   }
 });
-
-async function cleanOldTempReviews() {
-  const release = await reviewsMutex.acquire();
-  try {
-    const now = Date.now();
-    let cleanedCount = 0;
-    for (const [key, review] of Object.entries(reviewsData)) {
-      if (!review.date && now - parseInt(key.split("_")[1]) > 60 * 60 * 1000) {
-        delete reviewsData[key];
-        cleanedCount++;
-      }
-    }
-    if (cleanedCount > 0) {
-      await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
-    }
-  } catch {} finally {
-    release();
-  }
-}
 
 async function cleanOldTempMessages() {
   const release = await messagesMutex.acquire();
@@ -1275,14 +1049,11 @@ async function cleanOldTempMessages() {
     if (cleanedCount > 0) {
       await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
     }
-  } catch (error) {
-    console.error("Error cleaning old temp messages:", error);
-  } finally {
+  } catch {} finally {
     release();
   }
 }
 
-setInterval(cleanOldTempReviews, 10 * 60 * 1000);
 setInterval(cleanOldTempMessages, 10 * 60 * 1000);
 
 async function ensureLogsDir() {
