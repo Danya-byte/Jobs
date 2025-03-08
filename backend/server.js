@@ -760,35 +760,33 @@ app.get("/api/user/:userId", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const userJob = jobsData.find((job) => job.userId.toString() === userId);
-    const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
-
     let nick = "Unknown";
     let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
 
+    try {
+      const userData = await bot.api.getChat(userId);
+      nick = userData.first_name || "Unknown";
+      photoUrl = userData.username
+        ? `https://t.me/i/userpic/160/${userData.username}.jpg`
+        : "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
+    } catch (telegramError) {
+      logger.error(`Telegram API error for user ${userId}: ${telegramError.message}`);
+    }
+
+    const userJob = jobsData.find((job) => job.userId.toString() === userId);
+    const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
+
     if (userJob) {
-      nick = userJob.nick;
+      nick = userJob.nick || nick;
       if (userJob.username) {
         photoUrl = `https://t.me/i/userpic/160/${userJob.username}.jpg`;
       }
-      return res.json({ nick, photoUrl });
     } else if (userVacancy) {
-      nick = userVacancy.companyName;
-      photoUrl = userVacancy.photoUrl;
-      return res.json({ nick, photoUrl });
-    } else {
-      try {
-        const userData = await bot.api.getChat(userId);
-        nick = userData.first_name || "Unknown";
-        photoUrl = userData.username
-          ? `https://t.me/i/userpic/160/${userData.username}.jpg`
-          : "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
-        return res.json({ nick, photoUrl });
-      } catch (telegramError) {
-        logger.error(`Telegram API error for user ${userId}: ${telegramError.message}`);
-        return res.status(404).json({ error: "Пользователь не найден" });
-      }
+      nick = userVacancy.companyName || nick;
+      photoUrl = userVacancy.photoUrl || photoUrl;
     }
+
+    return res.json({ nick, photoUrl });
   } catch (error) {
     logger.error(`Ошибка в /api/user/${req.params.userId}: ${error.message}`);
     return res.status(500).json({ error: "Внутренняя ошибка сервера" });

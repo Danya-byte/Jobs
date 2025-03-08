@@ -119,6 +119,7 @@ const loadProfileData = async () => {
           'X-Telegram-Data': Telegram.WebApp.initData
         }
       });
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
       const data = await response.json();
       profileData.firstName = data.nick || 'Unknown';
       profileData.username = data.username || '';
