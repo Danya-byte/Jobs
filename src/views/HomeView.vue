@@ -580,7 +580,7 @@ const showAddJobModal = () => {
     categories: [],
     contact: 'https://t.me/workiks_admin'
   };
-  addMode.value 'job';
+  addMode.value = 'job';
   showAddModal.value = true;
 };
 
