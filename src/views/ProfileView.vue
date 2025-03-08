@@ -210,6 +210,9 @@ onMounted(async () => {
     router.push('/');
     return;
   }
+  if (Telegram.WebApp.setHeaderColor) {
+      Telegram.WebApp.setHeaderColor('#97f492');
+  }
   await checkAdminStatus();
   await loadProfileData();
   await loadReviews();

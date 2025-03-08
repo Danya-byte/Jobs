@@ -119,6 +119,10 @@ onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+
+  if (Telegram.WebApp.setHeaderColor) {
+      Telegram.WebApp.setHeaderColor('#97f492');
+    }
   }
   fetchJobDetails();
   fetchMessages();
