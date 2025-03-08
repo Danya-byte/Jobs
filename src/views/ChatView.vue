@@ -116,12 +116,15 @@ const sendMessage = async () => {
 };
 
 const hideKeyboard = (event) => {
+  console.log('hideKeyboard вызван, messageInput.value:', messageInput.value);
   if (messageInput.value && event.target !== messageInput.value) {
     messageInput.value.blur();
   }
 };
 
 onMounted(() => {
+  console.log('Компонент смонтирован');
+  console.log('messageInput.value:', messageInput.value);
   if (!window.Telegram?.WebApp?.initData) {
     console.error('Telegram WebApp не инициализирован');
     Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
@@ -129,10 +132,8 @@ onMounted(() => {
   }
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
-  nextTick(() => {
-    fetchJobDetails();
-    fetchMessages();
-  });
+  fetchJobDetails();
+  fetchMessages();
 });
 </script>
 
