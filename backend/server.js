@@ -202,13 +202,11 @@ async function loadMessages() {
     const rawData = await fs.readFile(MESSAGES_FILE, "utf8");
     const parsedData = rawData.trim() ? JSON.parse(rawData) : [];
     if (!Array.isArray(parsedData)) {
-      console.error("Data in messages.json is not an array, resetting to empty array.");
       messagesData = [];
     } else {
       messagesData = parsedData;
     }
-  } catch (error) {
-    console.error("Error loading messages:", error);
+  } catch {
     messagesData = [];
   }
 }
@@ -475,11 +473,14 @@ app.get("/api/messages/:userId/:targetUserId", async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const userMessages = messagesData.filter(
-      (msg) =>
-        (msg.authorUserId === userId && msg.targetUserId === targetUserId) ||
-        (msg.authorUserId === targetUserId && msg.targetUserId === userId)
-    );
+    const userMessages = messagesData
+      .filter(
+        (msg) =>
+          (msg.authorUserId === userId && msg.targetUserId === targetUserId) ||
+          (msg.authorUserId === targetUserId && msg.targetUserId === userId)
+      )
+      .filter(msg => msg.timestamp)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     res.json({ messages: userMessages });
   } catch {
@@ -499,9 +500,13 @@ app.get("/api/owner-chats/:userId", async (req, res) => {
     if (user.id.toString() !== userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const userMessages = messagesData.filter(
-      (msg) => msg.authorUserId === userId || msg.targetUserId === userId
-    );
+    const userMessages = messagesData
+      .filter(
+        (msg) => msg.authorUserId === userId || msg.targetUserId === userId
+      )
+      .filter(msg => msg.timestamp)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
     const enrichedMessages = await Promise.all(userMessages.map(async (msg) => {
       try {
         const authorData = await bot.api.getChat(msg.authorUserId);
@@ -514,7 +519,22 @@ app.get("/api/owner-chats/:userId", async (req, res) => {
         return { ...msg, authorName: 'Unknown', authorUsername: '' };
       }
     }));
-    res.json({ messages: enrichedMessages });
+
+    const chatGroups = {};
+    for (const msg of enrichedMessages) {
+      const otherUserId = msg.authorUserId === userId ? msg.targetUserId : msg.authorUserId;
+      if (!chatGroups[otherUserId]) {
+        chatGroups[otherUserId] = {
+          userId: otherUserId,
+          authorName: msg.authorName,
+          authorUsername: msg.authorUsername,
+          messages: []
+        };
+      }
+      chatGroups[otherUserId].messages.push(msg);
+    }
+
+    res.json({ chatGroups: Object.values(chatGroups) });
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -545,17 +565,17 @@ app.post("/api/createMessageInvoice", async (req, res) => {
         targetUserId,
         jobId,
         timestamp: new Date().toISOString(),
-        isSender: true
+        isSender: true,
+        authorName: user.first_name || 'Unknown',
+        authorUsername: user.username || ''
       };
       messagesData.push(message);
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
-      const authorData = await bot.api.getChat(user.id);
       const targetData = await bot.api.getChat(targetUserId);
-      const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
       const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
       const escapedText = escapeMarkdownV2(text);
-      const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
+      const escapedAuthorUsername = escapeMarkdownV2(user.username ? `@${user.username}` : "Неизвестный пользователь");
       const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
       const notification =
         `*Новое сообщение\\!*\n\n` +
@@ -569,6 +589,21 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     }
 
     const payload = `${user.id}_${Date.now()}`;
+    const message = {
+      id: `${user.id}_${Date.now()}`,
+      text,
+      authorUserId: user.id,
+      targetUserId,
+      jobId,
+      isSender: true,
+      authorName: user.first_name || 'Unknown',
+      authorUsername: user.username || '',
+      paymentStatus: 'pending',
+      paymentPayload: payload
+    };
+    messagesData.push(message);
+    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+
     pendingMessagesData[payload] = { text, authorUserId: user.id, targetUserId, jobId, type: "message" };
     await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
@@ -582,8 +617,7 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     );
 
     res.json({ success: true, invoiceLink });
-  } catch (error) {
-    console.error("Error creating message invoice:", error);
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -1004,9 +1038,14 @@ app.get("/api/isAdmin", async (req, res) => {
 
 bot.on("pre_checkout_query", async (ctx) => {
   try {
+    const payload = ctx.preCheckoutQuery.invoice_payload;
+    if (!pendingMessagesData[payload]) {
+      await ctx.answerPreCheckoutQuery(false, "Invalid payload");
+      return;
+    }
     await ctx.answerPreCheckoutQuery(true);
-  } catch (error) {
-    console.error("Error answering pre-checkout query:", error);
+  } catch {
+    await ctx.answerPreCheckoutQuery(false, "Internal server error");
   }
 });
 
@@ -1023,29 +1062,26 @@ bot.on("message:successful_payment", async (ctx) => {
 
     const { text, authorUserId, targetUserId, jobId } = pendingMessage;
 
-    const message = {
-      id: `${authorUserId}_${Date.now()}`,
-      text,
-      authorUserId,
-      targetUserId,
-      jobId,
+    const messageIndex = messagesData.findIndex(msg => msg.paymentPayload === payload);
+    if (messageIndex === -1) {
+      return;
+    }
+
+    messagesData[messageIndex] = {
+      ...messagesData[messageIndex],
       timestamp: new Date().toISOString(),
-      isSender: true,
+      paymentStatus: 'paid'
     };
 
-    messagesData.push(message);
     await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
     delete pendingMessagesData[payload];
     await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
-    const authorData = await bot.api.getChat(authorUserId);
     const targetData = await bot.api.getChat(targetUserId);
-    const authorUsername = authorData.username ? `@${authorData.username}` : "Неизвестный пользователь";
-
     const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
     const escapedText = escapeMarkdownV2(text);
-    const escapedAuthorUsername = escapeMarkdownV2(authorUsername);
+    const escapedAuthorUsername = escapeMarkdownV2((await bot.api.getChat(authorUserId)).username ? `@${(await bot.api.getChat(authorUserId)).username}` : "Неизвестный пользователь");
     const escapedDate = escapeMarkdownV2(new Date().toLocaleString());
 
     const notification =
@@ -1056,12 +1092,36 @@ bot.on("message:successful_payment", async (ctx) => {
       `[Открыть чат](https://t.me/${targetData.username || 'workiks_admin'}?start=chat_${authorUserId})`;
 
     await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
-  } catch (error) {
-    console.error("Error handling successful payment:", error);
+  } catch {
   } finally {
     release();
   }
 });
+
+setInterval(async () => {
+  const release = await messagesMutex.acquire();
+  try {
+    const now = Date.now();
+    for (const payload in pendingMessagesData) {
+      const messageIndex = messagesData.findIndex(msg => msg.paymentPayload === payload);
+      if (messageIndex !== -1 && messagesData[messageIndex].paymentStatus === 'pending') {
+        const messageAge = now - parseInt(messagesData[messageIndex].id.split('_')[1]);
+        if (messageAge > 5 * 60 * 1000) {
+          messagesData[messageIndex] = {
+            ...messagesData[messageIndex],
+            paymentStatus: 'cancelled'
+          };
+          delete pendingMessagesData[payload];
+        }
+      }
+    }
+    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+    await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
+  } catch {
+  } finally {
+    release();
+  }
+}, 60 * 1000);
 
 Promise.all([
   initReviewsFile(),
@@ -1088,4 +1148,4 @@ Promise.all([
 ).then(() => {
   bot.start();
   app.listen(port, () => console.log(`Server running on port ${port}`));
-}).catch((error) => console.error("Initialization error:", error));
+}).catch(() => console.error("Initialization error:"));

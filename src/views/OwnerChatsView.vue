@@ -8,15 +8,15 @@
       <div v-if="chatGroups.length === 0" class="no-chats">
         <p>No chats yet.</p>
       </div>
-      <div v-else v-for="(group, authorId) in chatGroups" :key="authorId" class="chat-group">
+      <div v-else v-for="group in chatGroups" :key="group.userId" class="chat-group">
         <RouterLink
-          :to="{ path: `/chat/${authorId}`, query: { username: group.username, jobId: jobId } }"
+          :to="{ path: `/chat/${group.userId}`, query: { username: group.authorUsername, jobId: jobId } }"
           class="chat-link"
         >
           <div class="chat-preview">
             <p class="author">{{ group.authorName || 'Unknown' }}</p>
-            <p class="last-message">{{ group.messages[group.messages.length - 1].text }}</p>
-            <span class="timestamp">{{ formatTimestamp(group.messages[group.messages.length - 1].timestamp) }}</span>
+            <p class="last-message">{{ group.messages[group.messages.length - 1]?.text || 'No messages' }}</p>
+            <span class="timestamp">{{ group.messages[group.messages.length - 1]?.timestamp ? formatTimestamp(group.messages[group.messages.length - 1].timestamp) : '' }}</span>
           </div>
         </RouterLink>
       </div>
@@ -33,7 +33,7 @@ const route = useRoute();
 const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
-const chatGroups = ref({});
+const chatGroups = ref([]);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -45,20 +45,10 @@ const fetchChats = async () => {
     const response = await axios.get(`${BASE_URL}/api/owner-chats/${userId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    const messages = response.data.messages.filter(msg => msg.jobId === jobId.value);
-    const grouped = {};
-    messages.forEach(msg => {
-      const authorId = msg.authorUserId === userId.value ? msg.targetUserId : msg.authorUserId;
-      if (!grouped[authorId]) {
-        grouped[authorId] = { messages: [], authorName: '', username: '' };
-      }
-      grouped[authorId].messages.push(msg);
-      grouped[authorId].authorName = msg.authorName || 'Unknown';
-      grouped[authorId].username = msg.authorUsername || '';
-    });
-    chatGroups.value = grouped;
+    chatGroups.value = response.data.chatGroups || [];
   } catch (error) {
     console.error('Ошибка при загрузке чатов:', error);
+    chatGroups.value = [];
   }
 };
 
