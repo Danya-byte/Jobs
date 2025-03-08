@@ -211,6 +211,7 @@ const initiatePayment = async () => {
   }
 };
 
+
 const checkAdminStatus = async () => {
   try {
     const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', {
