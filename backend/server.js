@@ -1,5 +1,6 @@
 const { Bot } = require("grammy");
 const { hydrateFiles } = require("@grammyjs/files");
+const { InlineKeyboard } = require("grammy");
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
@@ -1070,8 +1071,19 @@ app.post("/api/chat/:targetUserId", async (req, res) => {
           `User *${escapeMarkdownV2(user.first_name || "Unknown")}* sent you a message:\n` +
           `> ${escapeMarkdownV2(text)}\n\n` +
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
-        await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
-      } catch {}
+        const keyboard = new InlineKeyboard().webApp(
+            "💬 Open Chat",
+            `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${jobId}`
+        );
+        await bot.api.sendMessage(
+            targetUserId,
+            notification,
+        {
+            parse_mode: "MarkdownV2",
+            reply_markup: keyboard
+        }
+      );
+    } catch {}
 
       res.json({ success: true, message, updatedMessages: messagesData });
     } else {
@@ -1181,12 +1193,26 @@ bot.on("message:successful_payment", async (ctx) => {
         const targetData = await bot.api.getChat(targetUserId);
         const authorUsername = authorData.username ? `@${authorData.username}` : "Unknown";
         const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+
         const notification =
           `*New Message\\!*\n\n` +
           `User *${escapeMarkdownV2(authorUsername)}* sent you a message:\n` +
           `> ${escapeMarkdownV2(text)}\n\n` +
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
-        await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
+
+        const keyboard = new InlineKeyboard().webApp(
+          "💬 Open Chat",
+          `https://jobs-iota-one.vercel.app/chat/${authorUserId}?jobId=${jobId}`
+        );
+
+        await bot.api.sendMessage(
+          targetUserId,
+          notification,
+          {
+            parse_mode: "MarkdownV2",
+            reply_markup: keyboard
+          }
+        );
       } catch {}
     }
 
@@ -1209,15 +1235,29 @@ bot.on("message:successful_payment", async (ctx) => {
       try {
         const authorData = await bot.api.getChat(authorUserId);
         const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+
+        const keyboard = new InlineKeyboard()
+          .webApp(
+            "👤 View profile",
+            `https://jobs-iota-one.vercel.app/profile/${targetUserId}`
+          );
+
         const notification =
           `*New Review\\!*\n\n` +
           `User *${escapeMarkdownV2(authorData.first_name || "Unknown")}* left you a review:\n` +
           `> ${escapeMarkdownV2(text)}\n\n` +
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
-        await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
+
+        await bot.api.sendMessage(
+          targetUserId,
+          notification,
+          {
+            parse_mode: "MarkdownV2",
+            reply_markup: keyboard
+          }
+        );
       } catch {}
     }
-
     else {
       await ctx.reply("Error: Payment data not found.");
     }

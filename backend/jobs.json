@@ -142,5 +142,51 @@
     "contact": "https://t.me/workiks_admin",
     "createdAt": "2025-03-08T21:13:51.639Z",
     "pinned": true
+  },
+  {
+    "id": "1741473414939_1940359844",
+    "adminId": 1940359844,
+    "userId": 1871247390,
+    "username": "rstmcrew",
+    "nick": "RSTM",
+    "position": "TEST",
+    "profileLink": "/profile/1871247390",
+    "experience": 1000,
+    "description": "TEST",
+    "requirements": [
+      "TEST"
+    ],
+    "tags": [
+      "TEST"
+    ],
+    "categories": [
+      "finance"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2025-03-08T22:36:54.939Z",
+    "pinned": false
+  },
+  {
+    "id": "1741475360033_1940359844",
+    "adminId": 1940359844,
+    "userId": 5531474912,
+    "username": "tgArhi",
+    "nick": "Arhi",
+    "position": "Arhi",
+    "profileLink": "/profile/5531474912",
+    "experience": 12,
+    "description": "Arhi",
+    "requirements": [
+      "Arhi"
+    ],
+    "tags": [
+      "Arhi"
+    ],
+    "categories": [
+      "social"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2025-03-08T23:09:20.033Z",
+    "pinned": false
   }
 ]
