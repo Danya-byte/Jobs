@@ -39,7 +39,7 @@ const messageInput = ref(null);
 
 const messages = ref([]);
 const newMessage = ref('');
-const nick = ref('Unknown');
+const nick = ref(route.params.nick);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
