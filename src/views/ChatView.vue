@@ -40,6 +40,7 @@ const messageInput = ref(null);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
+const isCreator = ref(false);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -60,14 +61,16 @@ const fetchJobDetails = async () => {
     return;
   }
   try {
-    const response = await axios.get(`${BASE_URL}/api/jobs`, {
+    const response = await axios.get(`${BASE_URL}/api/vacancies`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    const job = response.data.find(job => job.id === jobId.value);
-    if (job && job.nick) {
-      nick.value = job.nick;
+    const vacancy = response.data.find(v => v.id === jobId.value);
+    if (vacancy) {
+      nick.value = vacancy.companyName || 'Unknown';
+      const user = JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user'));
+      isCreator.value = vacancy.companyUserId.toString() === user.id.toString();
     } else {
-      console.warn('Вакансия не найдена или поле nick отсутствует');
+      console.warn('Вакансия не найдена');
     }
   } catch (error) {
     console.error('Ошибка при загрузке данных вакансии:', error);
@@ -76,9 +79,12 @@ const fetchJobDetails = async () => {
 
 const fetchMessages = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/chat/${userId.value}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
+    const response = await axios.get(
+      `${BASE_URL}/api/chat/${userId.value}?jobId=${jobId.value}`,
+      {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      }
+    );
     messages.value = response.data.messages.map(msg => ({
       ...msg,
       isSender: msg.authorUserId === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id
@@ -91,40 +97,58 @@ const fetchMessages = async () => {
 
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
-  try {
-    const response = await axios.post(
-      `${BASE_URL}/api/createMessageInvoice`,
-      { targetUserId: userId.value, text: newMessage.value, jobId: jobId.value },
-      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-    );
-    if (response.data.success) {
-      window.Telegram.WebApp.openInvoice(response.data.invoiceLink, (status) => {
-        if (status === 'paid') {
-          fetchMessages();
-          newMessage.value = '';
-          Telegram.WebApp.showAlert('Сообщение успешно отправлено!');
-        } else if (status === 'cancelled') {
-          Telegram.WebApp.showAlert('Платёж отменён.');
-          newMessage.value = '';
-        }
-      });
+  if (isCreator.value) {
+    // Бесплатная отправка для создателя
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/chat/${userId.value}`,
+        { text: newMessage.value, jobId: jobId.value },
+        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+      );
+      if (response.data.success) {
+        fetchMessages();
+        newMessage.value = '';
+      } else {
+        Telegram.WebApp.showAlert('Не удалось отправить сообщение.');
+      }
+    } catch (error) {
+      console.error('Ошибка при отправке сообщения:', error);
+      Telegram.WebApp.showAlert('Не удалось отправить сообщение.');
     }
-  } catch (error) {
-    console.error('Ошибка при отправке сообщения:', error);
-    Telegram.WebApp.showAlert('Не удалось инициировать платёж.');
+  } else {
+    // Платная отправка для не-создателей
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/createMessageInvoice`,
+        { targetUserId: userId.value, text: newMessage.value, jobId: jobId.value },
+        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+      );
+      if (response.data.success) {
+        window.Telegram.WebApp.openInvoice(response.data.invoiceLink, (status) => {
+          if (status === 'paid') {
+            fetchMessages();
+            newMessage.value = '';
+            Telegram.WebApp.showAlert('Сообщение успешно отправлено!');
+          } else if (status === 'cancelled') {
+            Telegram.WebApp.showAlert('Платёж отменён.');
+            newMessage.value = '';
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка при отправке сообщения:', error);
+      Telegram.WebApp.showAlert('Не удалось инициировать платёж.');
+    }
   }
 };
 
 const hideKeyboard = (event) => {
-  console.log('hideKeyboard вызван, messageInput.value:', messageInput.value);
   if (messageInput.value && event.target !== messageInput.value) {
     messageInput.value.blur();
   }
 };
 
 onMounted(() => {
-  console.log('Компонент смонтирован');
-  console.log('messageInput.value:', messageInput.value);
   if (!window.Telegram?.WebApp?.initData) {
     console.error('Telegram WebApp не инициализирован');
     Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
@@ -136,6 +160,7 @@ onMounted(() => {
   fetchMessages();
 });
 </script>
+
 
 <style scoped>
 .chat-container {

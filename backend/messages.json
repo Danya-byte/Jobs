@@ -52,5 +52,16 @@
     "isSender": true,
     "authorName": "Denis <No DM/>",
     "authorUsername": "deniska_ivashin"
+  },
+  {
+    "id": "5164023566_1741400822461",
+    "text": "привет",
+    "authorUserId": 5164023566,
+    "targetUserId": "1940359844",
+    "jobId": "1741396582045_1940359844",
+    "timestamp": "2025-03-08T02:27:02.461Z",
+    "isSender": true,
+    "authorName": "Denis <No DM/>",
+    "authorUsername": "deniska_ivashin"
   }
 ]
