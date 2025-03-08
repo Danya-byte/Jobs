@@ -132,6 +132,7 @@ const sendMessage = async () => {
             newMessage.value = '';
             Telegram.WebApp.showAlert('Message sent successfully!');
           } else if (status === 'cancelled') {
+            newMessage.value = '';
             Telegram.WebApp.showAlert('Payment cancelled.');
           }
         });
