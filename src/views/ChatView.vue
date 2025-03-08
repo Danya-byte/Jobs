@@ -169,6 +169,9 @@ onMounted(() => {
     Telegram.WebApp.showAlert('Please open the app via Telegram.');
     return;
   }
+  if (Telegram.WebApp.setHeaderColor) {
+      Telegram.WebApp.setHeaderColor('#97f492');
+  }
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
   fetchUserDetails();

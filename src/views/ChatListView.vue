@@ -109,6 +109,9 @@ const handleImageError = (event) => {
 
 onMounted(() => {
   fetchChats();
+  if (Telegram.WebApp.setHeaderColor) {
+      Telegram.WebApp.setHeaderColor('#97f492');
+  }
 });
 </script>
 
