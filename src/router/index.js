@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,8 +19,8 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue'),
       props: (route) => ({
         userId: route.params.userId,
-        username: route.query.username
-      })
+        username: route.query.username,
+      }),
     },
     {
       path: '/nft',
@@ -34,10 +34,15 @@ const router = createRouter({
       props: (route) => ({
         userId: route.params.userId,
         username: route.query.username,
-        jobId: route.query.jobId
-      })
-    }
+        jobId: route.query.jobId,
+      }),
+    },
+    {
+      path: '/chats',
+      name: 'chatList',
+      component: () => import('../views/ChatListView.vue'),
+    },
   ],
-})
+});
 
-export default router
+export default router;

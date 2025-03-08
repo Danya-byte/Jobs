@@ -333,10 +333,10 @@
                         </div>
                         <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                         <RouterLink
-                          :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }"
-                          class="chat-btn"
+                            :to="isOwner(selectedJob.userId) ? '/chats' : { path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }"
+                            class="chat-btn"
                         >
-                          {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
+                            {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
                         </RouterLink>
                         <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     </div>

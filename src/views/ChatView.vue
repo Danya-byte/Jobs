@@ -1,9 +1,9 @@
 <template>
   <div class="chat-container" @click="hideKeyboard">
     <div class="chat-header">
-      <button class="back-btn" @click="$router.push('/')">
+      <button class="back-btn" @click="$router.push('/chats')">
         <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M15 18l-6-6 6-6" />
+            <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
       <div class="user-info">
@@ -98,7 +98,7 @@ const fetchMessages = async () => {
     });
     messages.value = response.data.map(msg => ({
       ...msg,
-      isSender: msg.authorUserId === currentUserId.value
+      isSender: msg.authorUserId.toString() === currentUserId.value
     }));
     scrollToBottom();
   } catch (error) {
@@ -110,13 +110,15 @@ const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
     if (isOwner.value) {
-      await axios.post(
+      const response = await axios.post(
         `${BASE_URL}/api/chat/${targetUserId.value}`,
         { text: newMessage.value, jobId: jobId.value },
         { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
       );
-      fetchMessages();
-      newMessage.value = '';
+      if (response.data.success) {
+        fetchMessages();
+        newMessage.value = '';
+      }
     } else {
       const invoiceResponse = await axios.post(
         `${BASE_URL}/api/createMessageInvoice`,
