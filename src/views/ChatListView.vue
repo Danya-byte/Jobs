@@ -32,36 +32,57 @@ const currentUserId = ref('');
 
 const fetchChats = async () => {
   try {
-    const jobsResponse = await axios.get(`${BASE_URL}/api/jobs`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-    });
-    const ownedJobs = jobsResponse.data.filter((job) => job.userId.toString() === currentUserId.value);
-
     const messagesResponse = await axios.get(`${BASE_URL}/api/chats`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     const messages = messagesResponse.data;
 
+    const jobsResponse = await axios.get(`${BASE_URL}/api/jobs`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+    });
+    const jobs = jobsResponse.data;
+
     const chatMap = new Map();
     messages.forEach((msg) => {
       if (msg.jobId && (msg.targetUserId === currentUserId.value || msg.authorUserId === currentUserId.value)) {
-        const job = ownedJobs.find((j) => j.id === msg.jobId);
-        if (job) {
-          const key = `${msg.jobId}_${msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId}`;
-          if (!chatMap.has(key)) {
+        const otherUserId = msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId;
+        const key = `${msg.jobId}_${otherUserId}`;
+
+        if (!chatMap.has(key)) {
+          const job = jobs.find((j) => j.id === msg.jobId);
+          if (job) {
             chatMap.set(key, {
               jobId: msg.jobId,
-              targetUserId: msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId,
+              targetUserId: otherUserId,
               messages: [],
-              nick: job.nick,
+              nick: '', // Будем запрашивать ниже
               username: job.username || '',
-              photoUrl: job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : defaultPhoto,
+              photoUrl: '', // Будем запрашивать ниже
             });
           }
+        }
+        if (chatMap.has(key)) {
           chatMap.get(key).messages.push(msg);
         }
       }
     });
+
+    const chatsArray = Array.from(chatMap.entries());
+    for (const [key, chat] of chatsArray) {
+      try {
+        const userResponse = await axios.get(`${BASE_URL}/api/profile/${chat.targetUserId}`, {
+          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+        });
+        chat.nick = userResponse.data.nick || 'Unknown';
+        chat.photoUrl = userResponse.data.photoUrl || defaultPhoto;
+        chatMap.set(key, chat);
+      } catch (error) {
+        console.error(`Error fetching user profile for ${chat.targetUserId}:`, error);
+        chat.nick = 'Unknown';
+        chat.photoUrl = defaultPhoto;
+        chatMap.set(key, chat);
+      }
+    }
 
     chats.value = Array.from(chatMap.values()).map((chat) => {
       const lastMessage = chat.messages[chat.messages.length - 1];
