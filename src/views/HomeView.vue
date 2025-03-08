@@ -332,7 +332,7 @@
                             </label>
                         </div>
                         <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
-                        <RouterLink :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username } }" class="chat-btn">Chat with Freelancer</RouterLink>
+                        <RouterLink :to="{ path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }" class="chat-btn">Chat with Freelancer</RouterLink>
                         <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     </div>
                 </div>
