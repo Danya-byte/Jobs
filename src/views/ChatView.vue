@@ -1,44 +1,89 @@
 <template>
-  <div class="chat-view">
+  <div class="chat-container" @click="hideKeyboard">
     <div class="chat-header">
-      <button class="close-btn" @click="$router.push(`/owner-chats/${userId.value}`)">×</button>
-      <h2>{{ username }}</h2>
+      <h2>{{ nick || 'Unknown' }}</h2>
+      <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
-    <div class="messages" ref="messagesContainer">
-      <div v-for="message in messages" :key="message.id" :class="['message', { 'sent': message.isSender, 'received': !message.isSender }]">
-        <div class="message-content">{{ message.text }}</div>
-        <div class="message-timestamp">{{ formatTimestamp(message.timestamp) }}</div>
+    <div class="chat-messages" ref="messagesContainer">
+      <div v-for="(message, index) in messages" :key="index"
+           :class="['message', message.isSender ? 'sent' : 'received']">
+        <p>{{ message.text }}</p>
+        <span class="timestamp">{{ formatTimestamp(message.timestamp) }}</span>
       </div>
     </div>
-    <div class="message-input">
-      <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Напишите сообщение..." />
-      <button @click="sendMessage">Отправить</button>
+    <div class="chat-input">
+      <input v-model="newMessage" placeholder="Type a message..."
+             @keyup.enter="sendMessage" class="message-input"
+             ref="messageInput">
+      <button @click="sendMessage" class="send-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
-const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const route = useRoute();
-const userId = ref(JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id);
+const router = useRouter();
+const userId = ref(route.params.userId);
 const jobId = ref(route.query.jobId);
-const username = ref(route.query.username);
+const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
+const messagesContainer = ref(null);
+const messageInput = ref(null);
+
 const messages = ref([]);
 const newMessage = ref('');
-const messagesContainer = ref(null);
+const nick = ref('Unknown');
+
+const formatTimestamp = (timestamp) => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  });
+};
+
+const fetchJobDetails = async () => {
+  if (!jobId.value) {
+    console.warn('jobId не указан в URL');
+    return;
+  }
+  try {
+    const response = await axios.get(`${BASE_URL}/api/jobs`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    const job = response.data.find(job => job.id === jobId.value);
+    if (job && job.nick) {
+      nick.value = job.nick;
+    } else {
+      console.warn('Вакансия не найдена или поле nick отсутствует');
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке данных вакансии:', error);
+  }
+};
 
 const fetchMessages = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/chat/${route.params.userId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-      params: { jobId: jobId.value }
+    const response = await axios.get(`${BASE_URL}/api/chat/${userId.value}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    messages.value = response.data;
-    nextTick(() => scrollToBottom());
+    messages.value = response.data.messages.map(msg => ({
+      ...msg,
+      isSender: msg.authorUserId === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id
+    }));
+    scrollToBottom();
   } catch (error) {
     console.error('Ошибка при загрузке сообщений:', error);
   }
@@ -46,158 +91,258 @@ const fetchMessages = async () => {
 
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
-  const isOwner = userId.value === JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id;
-  if (isOwner) {
-    const message = {
-      id: `${userId.value}_${Date.now()}`,
-      text: newMessage.value,
-      authorUserId: userId.value,
-      targetUserId: route.params.userId,
-      jobId: jobId.value,
-      timestamp: new Date().toISOString(),
-      isSender: true
-    };
-    try {
-      await axios.post(`${BASE_URL}/api/chat/${route.params.userId}`, message, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/createMessageInvoice`,
+      { targetUserId: userId.value, text: newMessage.value, jobId: jobId.value },
+      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+    );
+    if (response.data.success) {
+      window.Telegram.WebApp.openInvoice(response.data.invoiceLink, (status) => {
+        if (status === 'paid') {
+          fetchMessages();
+          newMessage.value = '';
+          Telegram.WebApp.showAlert('Сообщение успешно отправлено!');
+        } else if (status === 'cancelled') {
+          Telegram.WebApp.showAlert('Платёж отменён.');
+          newMessage.value = '';
+        }
       });
-      messages.value.push(message);
-      newMessage.value = '';
-      scrollToBottom();
-    } catch (error) {
-      console.error('Ошибка при отправке сообщения:', error);
     }
-  } else {
-    try {
-      const response = await axios.post(
-        `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: userId.value, text: newMessage.value, jobId: jobId.value },
-        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-      );
-      if (response.data.success) {
-        window.Telegram.WebApp.openInvoice(response.data.invoiceLink, (status) => {
-          if (status === 'paid') {
-            fetchMessages();
-            newMessage.value = '';
-            Telegram.WebApp.showAlert('Сообщение успешно отправлено!');
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Ошибка при отправке сообщения:', error);
-    }
+  } catch (error) {
+    console.error('Ошибка при отправке сообщения:', error);
+    Telegram.WebApp.showAlert('Не удалось инициировать платёж.');
   }
 };
 
-const scrollToBottom = () => {
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+const hideKeyboard = (event) => {
+  console.log('hideKeyboard вызван, messageInput.value:', messageInput.value);
+  if (messageInput.value && event.target !== messageInput.value) {
+    messageInput.value.blur();
   }
-};
-
-const formatTimestamp = (timestamp) => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 onMounted(() => {
+  console.log('Компонент смонтирован');
+  console.log('messageInput.value:', messageInput.value);
+  if (!window.Telegram?.WebApp?.initData) {
+    console.error('Telegram WebApp не инициализирован');
+    Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+    return;
+  }
+  window.Telegram.WebApp.ready();
+  window.Telegram.WebApp.expand();
+  fetchJobDetails();
   fetchMessages();
 });
 </script>
 
 <style scoped>
-.chat-view {
+.chat-container {
+  background: linear-gradient(45deg, #101622, #1a2233);
+  height: 100vh;
+  max-width: 800px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  padding: 10px;
-  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
 }
 
 .chat-header {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
+}
+
+.chat-header h2 {
+  color: #97f492;
+  margin: 0;
+  font-size: clamp(1rem, 3.5vw, 1.25rem);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 24px;
+  color: #fff;
+  font-size: clamp(1.5rem, 5vw, 1.75rem);
   cursor: pointer;
-  margin-right: 10px;
+  padding: 0 0.5rem;
 }
 
-h2 {
-  flex: 1;
-  font-size: 20px;
-  text-align: center;
-}
-
-.messages {
+.chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  padding: clamp(0.5rem, 2vw, 1rem);
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
 .message {
-  max-width: 70%;
-  padding: 10px;
-  border-radius: 10px;
-  position: relative;
+  margin: 0.5rem 0;
+  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2.5vw, 1rem);
+  border-radius: clamp(0.75rem, 3vw, 1rem);
+  width: fit-content;
+  max-width: clamp(70%, 75vw, 75%);
+  word-wrap: break-word;
+  animation: slideIn 0.2s ease-out;
 }
 
 .sent {
-  background-color: #4caf50;
-  color: white;
-  align-self: flex-end;
+  background: #97f492;
+  color: #000;
+  margin-left: auto;
 }
 
 .received {
-  background-color: #f1f1f1;
-  align-self: flex-start;
+  background: #2d3540;
+  color: #fff;
 }
 
-.message-content {
-  word-wrap: break-word;
+.timestamp {
+  font-size: clamp(0.625rem, 2vw, 0.75rem);
+  color: #8a8f98;
+  margin-top: 0.25rem;
+  display: block;
 }
 
-.message-timestamp {
-  font-size: 10px;
-  color: #888;
-  text-align: right;
-  margin-top: 5px;
+.chat-input {
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem) !important;
+  display: flex;
+  gap: clamp(0.5rem, 2vw, 0.75rem);
+  background: #1a2233;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  bottom: 0;
+  align-items: center;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  min-height: clamp(3rem, 10vw, 4rem);
 }
 
 .message-input {
-  display: flex;
-  padding: 10px;
-  border-top: 1px solid #ddd;
-  background: #fff;
-}
-
-input {
   flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  margin-right: 10px;
-}
-
-button {
-  padding: 10px 20px;
-  background-color: #4caf50;
-  color: white;
+  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2.5vw, 1rem);
+  border-radius: clamp(1rem, 4vw, 1.25rem);
   border: none;
-  border-radius: 5px;
-  cursor: pointer;
+  background: #272e38;
+  color: #fff;
+  font-size: clamp(0.875rem, 3vw, 1rem);
+  outline: none;
+  min-height: clamp(2.5rem, 8vw, 3rem) !important;
+  margin-bottom: 0 !important;
 }
 
-button:hover {
-  background-color: #45a049;
+.send-btn {
+  background: #97f492;
+  border: none;
+  border-radius: 50%;
+  width: clamp(2.5rem, 8vw, 3rem);
+  height: clamp(2.5rem, 8vw, 3rem);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.send-btn svg {
+  fill: #000;
+  width: clamp(1.25rem, 4vw, 1.5rem);
+  height: clamp(1.25rem, 4vw, 1.5rem);
+}
+
+.send-btn:hover {
+  background: #6de06a;
+}
+
+@media (max-width: 768px) {
+  .chat-container {
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    height: 100dvh;
+  }
+
+  .chat-header {
+    padding: 0.5rem;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+
+  .chat-input {
+    padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.5rem, 2vw, 1rem);
+    min-height: 4rem;
+  }
+
+  .message-input {
+    min-height: 3.5rem !important;
+    padding: 12px 12px !important;
+  }
+
+  .send-btn {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .send-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .chat-container {
+    border-radius: 12px;
+    margin: 1rem auto;
+    height: calc(100vh - 2rem);
+  }
+
+  .chat-messages {
+    padding: 1.5rem;
+  }
+
+  .message {
+    max-width: 70%;
+  }
+
+  .chat-input {
+    padding: clamp(0.75rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
+    min-height: 4rem;
+  }
+
+  .message-input {
+    min-height: 3rem !important;
+    padding: 8px 16px !important;
+  }
+
+  .send-btn {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
