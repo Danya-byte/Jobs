@@ -680,7 +680,7 @@ app.delete("/api/tasks/:taskId", async (req, res) => {
 });
 app.get("/api/reviews", async (req, res) => {
   try {
-    const { targetUserId } = req.query; // Получаем targetUserId из query-параметров
+    const { targetUserId } = req.query;
     const telegramData = req.headers["x-telegram-data"];
 
     if (!telegramData || !validateTelegramData(telegramData)) {
@@ -700,9 +700,13 @@ app.get("/api/reviews", async (req, res) => {
       return res.status(500).json({ error: "Ошибка сервера при загрузке отзывов" });
     }
 
-    const userReviews = Object.values(reviews).filter(
-      (review) => review.targetUserId && review.targetUserId.toString() === targetUserId.toString()
-    );
+    // Преобразуем reviews в массив с reviewId из ключа
+    const userReviews = Object.entries(reviews)
+      .filter(([, review]) => review.targetUserId && review.targetUserId.toString() === targetUserId.toString())
+      .map(([key, review]) => ({
+        reviewId: key, // Добавляем ключ как reviewId
+        ...review // Оставляем оригинальную структуру
+      }));
 
     res.json(userReviews);
   } catch (error) {
@@ -747,6 +751,46 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     res.json({ success: true, invoiceLink });
   } catch {
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+app.delete("/api/reviews/:reviewId", async (req, res) => {
+  const release = await reviewsMutex.acquire();
+  try {
+    const { reviewId } = req.params; // Получаем reviewId из URL (например, "1940359844_1741461296609")
+    const telegramData = req.headers["x-telegram-data"];
+
+    // Проверка авторизации
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Проверка прав администратора
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    if (!user.id || !ADMIN_IDS.includes(user.id.toString())) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Загружаем отзывы, если они еще не загружены
+    if (!reviewsData || Object.keys(reviewsData).length === 0) {
+      await loadReviews();
+    }
+
+    // Проверяем, существует ли отзыв с таким ключом
+    if (!reviewsData[reviewId]) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    delete reviewsData[reviewId];
+    await fs.writeFile(REVIEWS_FILE, JSON.stringify(reviewsData, null, 2));
+
+    logger.info(`Review ${reviewId} deleted by admin ${user.id}`);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error(`Ошибка удаления отзыва ${req.params.reviewId}: ${error.message}`);
+    res.status(500).json({ error: "Внутренняя ошибка сервера" });
   } finally {
     release();
   }
