@@ -558,13 +558,14 @@ app.post("/api/createMessageInvoice", async (req, res) => {
 
     const job = jobsData.find(j => j.id === jobId);
     if (job && job.userId.toString() === user.id.toString()) {
+      // Для владельца вакансии — сразу в messages.json без оплаты
       const message = {
         id: `${user.id}_${Date.now()}`,
         text,
         authorUserId: user.id,
         targetUserId,
         jobId,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString(), // Сразу с timestamp
         isSender: true,
         authorName: user.first_name || 'Unknown',
         authorUsername: user.username || ''
@@ -598,13 +599,9 @@ app.post("/api/createMessageInvoice", async (req, res) => {
       isSender: true,
       authorName: user.first_name || 'Unknown',
       authorUsername: user.username || '',
-      paymentStatus: 'pending',
       paymentPayload: payload
     };
-    messagesData.push(message);
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-
-    pendingMessagesData[payload] = { text, authorUserId: user.id, targetUserId, jobId, type: "message" };
+    pendingMessagesData[payload] = message;
     await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
@@ -617,7 +614,8 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     );
 
     res.json({ success: true, invoiceLink });
-  } catch {
+  } catch (error) {
+    logger.error(`Error in createMessageInvoice: ${error}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -1048,6 +1046,38 @@ bot.on("pre_checkout_query", async (ctx) => {
     await ctx.answerPreCheckoutQuery(false, "Internal server error");
   }
 });
+app.get("/api/chat/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    const currentUserId = user.id.toString(); // Убедимся, что это строка
+
+    logger.info(`Fetching messages for currentUserId: ${currentUserId}, targetUserId: ${userId}`);
+    logger.info(`Current messagesData: ${JSON.stringify(messagesData)}`);
+
+    const userMessages = messagesData
+      .filter(
+        (msg) =>
+          (msg.authorUserId === currentUserId && msg.targetUserId === userId) ||
+          (msg.authorUserId === userId && msg.targetUserId === currentUserId)
+      )
+      .filter((msg) => msg.timestamp)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    logger.info(`Filtered messages: ${JSON.stringify(userMessages)}`);
+
+    res.json({ messages: userMessages });
+  } catch (error) {
+    logger.error(`Error fetching messages for user ${req.params.userId}: ${error}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 bot.on("message:successful_payment", async (ctx) => {
   const release = await messagesMutex.acquire();
@@ -1103,21 +1133,15 @@ setInterval(async () => {
   try {
     const now = Date.now();
     for (const payload in pendingMessagesData) {
-      const messageIndex = messagesData.findIndex(msg => msg.paymentPayload === payload);
-      if (messageIndex !== -1 && messagesData[messageIndex].paymentStatus === 'pending') {
-        const messageAge = now - parseInt(messagesData[messageIndex].id.split('_')[1]);
-        if (messageAge > 5 * 60 * 1000) {
-          messagesData[messageIndex] = {
-            ...messagesData[messageIndex],
-            paymentStatus: 'cancelled'
-          };
-          delete pendingMessagesData[payload];
-        }
+      const messageAge = now - parseInt(payload.split('_')[1]);
+      if (messageAge > 5 * 60 * 1000) {
+        delete pendingMessagesData[payload];
+        logger.info(`Pending message ${payload} cancelled due to timeout`);
       }
     }
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
     await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
-  } catch {
+  } catch (error) {
+    logger.error(`Error in pending messages cleanup: ${error}`);
   } finally {
     release();
   }

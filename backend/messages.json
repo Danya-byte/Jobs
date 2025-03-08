@@ -32,15 +32,25 @@
     "isSender": true
   },
   {
-    "id": "1940359844_1741397943612",
+    "id": "5164023566_1741398645536",
     "text": "ку",
-    "authorUserId": 1940359844,
-    "targetUserId": "5164023566",
+    "authorUserId": 5164023566,
+    "targetUserId": "1940359844",
     "jobId": "1741396582045_1940359844",
+    "timestamp": "2025-03-08T01:50:45.536Z",
     "isSender": true,
-    "authorName": "Danya",
-    "authorUsername": "rollpit",
-    "paymentStatus": "pending",
-    "paymentPayload": "1940359844_1741397943612"
+    "authorName": "Denis <No DM/>",
+    "authorUsername": "deniska_ivashin"
+  },
+  {
+    "id": "5164023566_1741399364053",
+    "text": "привет",
+    "authorUserId": 5164023566,
+    "targetUserId": "1940359844",
+    "jobId": "1741396582045_1940359844",
+    "timestamp": "2025-03-08T02:02:44.053Z",
+    "isSender": true,
+    "authorName": "Denis <No DM/>",
+    "authorUsername": "deniska_ivashin"
   }
 ]

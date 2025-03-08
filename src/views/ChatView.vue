@@ -116,7 +116,7 @@ const sendMessage = async () => {
 };
 
 const hideKeyboard = (event) => {
-  if (event.target !== messageInput.value) {
+  if (messageInput.value && event.target !== messageInput.value) {
     messageInput.value.blur();
   }
 };
@@ -129,8 +129,10 @@ onMounted(() => {
   }
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
-  fetchJobDetails();
-  fetchMessages();
+  nextTick(() => {
+    fetchJobDetails();
+    fetchMessages();
+  });
 });
 </script>
 
