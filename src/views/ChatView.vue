@@ -65,7 +65,7 @@ const fetchJobDetails = async () => {
     });
     const job = response.data.find(job => job.id === jobId.value);
     if (job && job.nick) {
-      nick.value = job.nick; // Устанавливаем nick из объекта вакансии
+      nick.value = job.nick;
     } else {
       console.warn('Вакансия не найдена или поле nick отсутствует');
     }
@@ -122,10 +122,13 @@ const hideKeyboard = (event) => {
 };
 
 onMounted(() => {
-  if (window.Telegram?.WebApp) {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
+  if (!window.Telegram?.WebApp?.initData) {
+    console.error('Telegram WebApp не инициализирован');
+    Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+    return;
   }
+  window.Telegram.WebApp.ready();
+  window.Telegram.WebApp.expand();
   fetchJobDetails();
   fetchMessages();
 });
