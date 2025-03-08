@@ -874,8 +874,17 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     const user = JSON.parse(params.get("user"));
     const { targetUserId, text, jobId } = req.body;
 
-    if (!user?.id || !targetUserId || !text) {
+    if (!user?.id || !targetUserId || !text || !jobId) {
       return res.status(400).json({ error: "Invalid data" });
+    }
+
+    const job = vacanciesData.find((j) => j.id === jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Vacancy not found" });
+    }
+
+    if (job.companyUserId.toString() === user.id.toString()) {
+      return res.status(400).json({ error: "Владелец вакансии может отправлять сообщения бесплатно" });
     }
 
     const payload = `${user.id}_${Date.now()}`;
@@ -949,64 +958,122 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
+app.get("/api/owner-chats/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const telegramData = req.headers["x-telegram-data"];
+
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Неавторизован" });
+  }
+
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user") || "{}");
+
+  if (!user.id || user.id.toString() !== userId) {
+    return res.status(403).json({ error: "Доступ запрещён" });
+  }
+
+  const ownerVacancies = vacanciesData.filter((vacancy) => vacancy.companyUserId.toString() === userId);
+  const ownerVacancyIds = ownerVacancies.map((vacancy) => vacancy.id);
+  const relevantMessages = messagesData.filter((msg) => ownerVacancyIds.includes(msg.jobId) && msg.targetUserId.toString() === userId);
+
+  const chatGroups = relevantMessages.reduce((acc, msg) => {
+    const groupKey = `${msg.authorUserId}_${msg.jobId}`;
+    if (!acc[groupKey]) {
+      acc[groupKey] = {
+        userId: msg.authorUserId,
+        jobId: msg.jobId,
+        authorUsername: "Unknown",
+        messages: [],
+        lastMessage: msg
+      };
+      try {
+        const senderData = bot.api.getChat(msg.authorUserId);
+        acc[groupKey].authorUsername = senderData.username || senderData.first_name || "Unknown";
+      } catch {}
+    }
+    acc[groupKey].messages.push(msg);
+    acc[groupKey].lastMessage = msg.timestamp > acc[groupKey].lastMessage.timestamp ? msg : acc[groupKey].lastMessage;
+    return acc;
+  }, {});
+
+  const chatGroupsArray = Object.values(chatGroups).sort((a, b) => new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp));
+  res.json(chatGroupsArray);
+});
+
 app.get("/api/chat/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const { jobId } = req.query;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Неавторизован" });
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-    const userMessages = messagesData.filter(
-      (msg) =>
-        ((msg.authorUserId === user.id && msg.targetUserId === userId) ||
-         (msg.authorUserId === userId && msg.targetUserId === user.id)) &&
-        (!jobId || msg.jobId === jobId)
-    );
-    res.json({ messages: userMessages });
+
+    const chatMessages = messagesData
+      .filter(
+        (msg) =>
+          msg.jobId === jobId &&
+          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === userId.toString()) ||
+           (msg.authorUserId.toString() === userId.toString() && msg.targetUserId.toString() === user.id.toString()))
+      )
+      .map((msg) => ({
+        ...msg,
+        isSender: msg.authorUserId.toString() === user.id.toString()
+      }))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    res.json(chatMessages);
   } catch {
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 });
 
 app.post("/api/chat/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const { text, jobId } = req.body;
-  const telegramData = req.headers["x-telegram-data"];
+  const release = await messagesMutex.acquire();
+  try {
+    const { userId } = req.params;
+    const { text, jobId } = req.body;
+    const telegramData = req.headers["x-telegram-data"];
 
-  if (!telegramData || !validateTelegramData(telegramData)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Неавторизован" });
+    }
 
-  const params = new URLSearchParams(telegramData);
-  const user = JSON.parse(params.get("user"));
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user"));
 
-  if (!user.id || !text || !jobId) {
-    return res.status(400).json({ error: "Invalid data" });
-  }
+    if (!user.id || !text || !jobId) {
+      return res.status(400).json({ error: "Неверные данные" });
+    }
 
-  const vacancy = vacanciesData.find((v) => v.id === jobId);
-  if (!vacancy) {
-    return res.status(404).json({ error: "Vacancy not found" });
-  }
+    const vacancy = vacanciesData.find((v) => v.id === jobId);
+    if (!vacancy) {
+      return res.status(404).json({ error: "Вакансия не найдена" });
+    }
 
-  if (vacancy.companyUserId.toString() === user.id.toString()) {
-    const message = {
-      id: `${user.id}_${Date.now()}`,
-      text,
-      authorUserId: user.id,
-      targetUserId: userId,
-      jobId,
-      timestamp: new Date().toISOString(),
-      isSender: true,
-    };
-    messagesData.push(message);
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-    res.json({ success: true, message });
-  } else {
-    res.status(403).json({ error: "Payment required" });
+    if (vacancy.companyUserId.toString() === user.id.toString()) {
+      const message = {
+        id: `${user.id}_${Date.now()}`,
+        text,
+        authorUserId: user.id,
+        targetUserId: userId,
+        jobId,
+        timestamp: new Date().toISOString(),
+        isSender: true,
+      };
+      messagesData.push(message);
+      await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+      res.json({ success: true, message });
+    } else {
+      res.status(403).json({ error: "Требуется оплата" });
+    }
+  } catch {
+    res.status(500).json({ error: "Внутренняя ошибка сервера" });
+  } finally {
+    release();
   }
 });
 
@@ -1077,65 +1144,6 @@ app.get("/api/isAdmin", async (req, res) => {
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }
-});
-app.get("/api/owner-chats/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const telegramData = req.headers["x-telegram-data"];
-
-  if (!telegramData || !validateTelegramData(telegramData)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const params = new URLSearchParams(telegramData);
-  const user = JSON.parse(params.get("user") || "{}");
-
-  if (!user.id || user.id.toString() !== userId) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
-
-  const userVacancies = vacanciesData.filter(
-    (v) => v.companyUserId.toString() === userId
-  );
-
-  const chatGroups = [];
-
-  for (const vacancy of userVacancies) {
-    const messagesForVacancy = messagesData.filter(
-      (m) => m.jobId === vacancy.id && m.targetUserId === userId
-    );
-
-    const grouped = {};
-    for (const msg of messagesForVacancy) {
-      if (!grouped[msg.authorUserId]) {
-        grouped[msg.authorUserId] = [];
-      }
-      grouped[msg.authorUserId].push(msg);
-    }
-
-    for (const [authorUserId, msgs] of Object.entries(grouped)) {
-      const latestMsg = msgs.sort(
-        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-      )[0];
-      let authorName = "Unknown";
-      let authorUsername = null;
-      try {
-        const senderData = await bot.api.getChat(authorUserId);
-        authorName = senderData.first_name || "Unknown";
-        authorUsername = senderData.username || null;
-      } catch {
-      }
-      chatGroups.push({
-        userId: authorUserId,
-        authorName,
-        authorUsername,
-        lastMessage: latestMsg.text,
-        timestamp: latestMsg.timestamp,
-        jobId: vacancy.id,
-      });
-    }
-  }
-
-  res.json({ chatGroups });
 });
 
 bot.on("pre_checkout_query", async (ctx) => {

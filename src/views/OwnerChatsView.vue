@@ -1,25 +1,24 @@
 <template>
-  <div class="chat-container">
-    <div class="chat-header">
-      <h2>Your Chats</h2>
-      <button class="close-btn" @click="$router.push('/')">×</button>
+  <div class="owner-chats">
+    <h2>Чаты по вашей вакансии</h2>
+    <div v-if="chatGroups.length === 0" class="no-chats">
+      Пока нет чатов
     </div>
-    <div class="chat-list">
-      <div v-if="chatGroups.length === 0" class="no-chats">
-        <p>No chats yet.</p>
-      </div>
-      <div v-else v-for="group in chatGroups" :key="group.userId" class="chat-group">
-        <RouterLink
-          :to="{ path: `/chat/${group.userId}`, query: { username: group.authorUsername, jobId: jobId } }"
-          class="chat-link"
-        >
-          <div class="chat-preview">
-            <p class="author">{{ group.authorName || 'Unknown' }}</p>
-            <p class="last-message">{{ group.messages[group.messages.length - 1]?.text || 'No messages' }}</p>
-            <span class="timestamp">{{ group.messages[group.messages.length - 1]?.timestamp ? formatTimestamp(group.messages[group.messages.length - 1].timestamp) : '' }}</span>
-          </div>
-        </RouterLink>
-      </div>
+    <div v-else class="chat-list">
+      <RouterLink
+        v-for="group in chatGroups"
+        :key="group.userId"
+        :to="{ path: `/chat/${group.userId}`, query: { username: group.authorUsername, jobId: jobId } }"
+        class="chat-item"
+      >
+        <div class="chat-info">
+          <div class="chat-username">{{ group.authorUsername }}</div>
+          <div class="last-message">{{ group.lastMessage.text }}</div>
+        </div>
+        <div class="chat-meta">
+          <div class="timestamp">{{ formatTimestamp(group.lastMessage.timestamp) }}</div>
+        </div>
+      </RouterLink>
     </div>
   </div>
 </template>
@@ -29,105 +28,91 @@ import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
-const route = useRoute();
-const userId = ref(route.params.userId);
-const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
+const route = useRoute();
+const userId = ref(route.params.userId || JSON.parse(new URLSearchParams(window.Telegram.WebApp.initData).get('user')).id);
+const jobId = ref(route.query.jobId);
 const chatGroups = ref([]);
-
-const formatTimestamp = (timestamp) => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
 
 const fetchChats = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/owner-chats/${userId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    chatGroups.value = response.data.chatGroups || [];
+    chatGroups.value = response.data;
   } catch (error) {
     console.error('Ошибка при загрузке чатов:', error);
-    chatGroups.value = [];
   }
 };
 
+const formatTimestamp = (timestamp) => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 onMounted(() => {
-  if (!window.Telegram?.WebApp?.initData) {
-    console.error('Telegram WebApp не инициализирован');
-    Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
-    return;
-  }
-  window.Telegram.WebApp.ready();
-  window.Telegram.WebApp.expand();
   fetchChats();
 });
 </script>
 
 <style scoped>
-.chat-container {
-  background: linear-gradient(45deg, #101622, #1a2233);
-  height: 100vh;
-  max-width: 800px;
+.owner-chats {
+  padding: 20px;
+  max-width: 600px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
 }
-.chat-header {
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
 }
-.chat-header h2 {
-  color: #97f492;
-  margin: 0;
-}
-.close-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 1.75rem;
-  cursor: pointer;
-}
-.chat-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-}
-.chat-group {
-  margin-bottom: 1rem;
-}
-.chat-link {
-  display: block;
-  text-decoration: none;
-  background: #2d3540;
-  padding: 1rem;
-  border-radius: 1rem;
-  color: #fff;
-}
-.chat-preview {
-  display: flex;
-  flex-direction: column;
-}
-.author {
-  color: #97f492;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-}
-.last-message {
-  margin: 0;
-  color: #c2c6cf;
-}
-.timestamp {
-  font-size: 0.75rem;
-  color: #8a8f98;
-  margin-top: 0.25rem;
-}
+
 .no-chats {
   text-align: center;
-  color: #8a8f98;
-  padding: 2rem;
+  color: #888;
+  font-size: 18px;
+}
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #000;
+}
+
+.chat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-username {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.last-message {
+  font-size: 14px;
+  color: #555;
+}
+
+.chat-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #888;
 }
 </style>
