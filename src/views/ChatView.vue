@@ -3,7 +3,7 @@
     <div class="chat-header">
       <button class="back-btn" @click="$router.push('/chats')">
         <svg width="24" height="24" viewBox="0 0 24 24">
-            <path d="M15 18l-6-6 6-6" />
+          <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
       <div class="user-info">
@@ -13,16 +13,13 @@
       <button class="close-btn" @click="$router.push('/')">×</button>
     </div>
     <div class="chat-messages" ref="messagesContainer">
-      <div v-for="(message, index) in messages" :key="index"
-           :class="['message', message.isSender ? 'sent' : 'received']">
+      <div v-for="(message, index) in messages" :key="index" :class="['message', message.isSender ? 'sent' : 'received']">
         <p>{{ message.text }}</p>
         <span class="timestamp">{{ formatTimestamp(message.timestamp) }}</span>
       </div>
     </div>
     <div class="chat-input">
-      <input v-model="newMessage" placeholder="Type a message..."
-             @keyup.enter="sendMessage" class="message-input"
-             ref="messageInput">
+      <input v-model="newMessage" placeholder="Type a message..." @keyup.enter="sendMessage" class="message-input" ref="messageInput">
       <button @click="sendMessage" class="send-btn">
         <svg width="20" height="20" viewBox="0 0 24 24">
           <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
@@ -108,38 +105,51 @@ const fetchMessages = async () => {
 
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
+
+  const tempMessage = {
+    id: `temp_${Date.now()}`,
+    text: newMessage.value,
+    authorUserId: currentUserId.value,
+    targetUserId: targetUserId.value,
+    jobId: jobId.value,
+    timestamp: new Date().toISOString(),
+    isSender: true
+  };
+
+  messages.value = [...messages.value, tempMessage];
+  newMessage.value = '';
+  scrollToBottom();
+
   try {
     if (isOwner.value) {
       const response = await axios.post(
         `${BASE_URL}/api/chat/${targetUserId.value}`,
-        { text: newMessage.value, jobId: jobId.value },
+        { text: tempMessage.text, jobId: jobId.value },
         { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
       );
-      if (response.data.success) {
-        fetchMessages();
-        newMessage.value = '';
-      }
+      messages.value = messages.value.filter(m => m.id !== tempMessage.id);
+      fetchMessages();
     } else {
       const invoiceResponse = await axios.post(
         `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: targetUserId.value, text: newMessage.value, jobId: jobId.value },
+        { targetUserId: targetUserId.value, text: tempMessage.text, jobId: jobId.value },
         { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
       );
       if (invoiceResponse.data.success) {
         window.Telegram.WebApp.openInvoice(invoiceResponse.data.invoiceLink, (status) => {
           if (status === 'paid') {
+            messages.value = messages.value.filter(m => m.id !== tempMessage.id);
             fetchMessages();
-            newMessage.value = '';
             Telegram.WebApp.showAlert('Message sent successfully!');
           } else if (status === 'cancelled') {
-            newMessage.value = '';
+            messages.value = messages.value.filter(m => m.id !== tempMessage.id);
             Telegram.WebApp.showAlert('Payment cancelled.');
           }
         });
       }
     }
   } catch (error) {
-    console.error(error);
+    messages.value = messages.value.filter(m => m.id !== tempMessage.id);
     Telegram.WebApp.showAlert('Failed to send message.');
   }
 };
@@ -170,7 +180,7 @@ onMounted(() => {
     return;
   }
   if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
+    Telegram.WebApp.setHeaderColor('#97f492');
   }
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();

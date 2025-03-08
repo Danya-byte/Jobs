@@ -967,7 +967,7 @@ app.post("/api/createMessageInvoice", async (req, res) => {
       payload,
       "",
       "XTR",
-      [{ label: "Message Sending", amount: 100 }]
+      [{ label: "Message Sending", amount: 1 }]
     );
 
     res.json({ success: true, invoiceLink });
@@ -1058,6 +1058,7 @@ app.post("/api/chat/:targetUserId", async (req, res) => {
         timestamp: new Date().toISOString(),
         isSender: true,
       };
+
       messagesData.push(message);
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
@@ -1072,7 +1073,7 @@ app.post("/api/chat/:targetUserId", async (req, res) => {
         await bot.api.sendMessage(targetUserId, notification, { parse_mode: "MarkdownV2" });
       } catch {}
 
-      res.json({ success: true, message });
+      res.json({ success: true, message, updatedMessages: messagesData });
     } else {
       res.status(403).json({ error: "Payment required" });
     }

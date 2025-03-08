@@ -75,14 +75,14 @@
     "pinned": true
   },
   {
-    "id": "1741396582045_1940359844",
+    "id": "1741465662819_1940359844",
     "adminId": 1940359844,
-    "userId": 5164023566,
-    "username": "deniska_ivashin",
+    "userId": 1940359844,
+    "username": "test",
     "nick": "test",
-    "position": "test",
-    "profileLink": "/profile/5164023566",
-    "experience": 11,
+    "position": "Full-stack dev",
+    "profileLink": "/profile/1940359844",
+    "experience": 12,
     "description": "test",
     "requirements": [
       "test"
@@ -94,7 +94,53 @@
       "it"
     ],
     "contact": "https://t.me/workiks_admin",
-    "createdAt": "2025-03-08T01:16:22.045Z",
+    "createdAt": "2025-03-08T20:27:42.819Z",
+    "pinned": true
+  },
+  {
+    "id": "1741467056115_1940359844",
+    "adminId": 1940359844,
+    "userId": 6568279325,
+    "username": "GW_NEON",
+    "nick": "NEON",
+    "position": "test jobs",
+    "profileLink": "/profile/6568279325",
+    "experience": 12,
+    "description": "test jobs",
+    "requirements": [
+      "test jobs"
+    ],
+    "tags": [
+      "test jobs"
+    ],
+    "categories": [
+      "it"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2025-03-08T20:50:56.115Z",
+    "pinned": true
+  },
+  {
+    "id": "1741468431639_1940359844",
+    "adminId": 1940359844,
+    "userId": 5164023566,
+    "username": "test",
+    "nick": "test",
+    "position": "test",
+    "profileLink": "/profile/5164023566",
+    "experience": 12,
+    "description": "test",
+    "requirements": [
+      "test"
+    ],
+    "tags": [
+      "test"
+    ],
+    "categories": [
+      "it"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2025-03-08T21:13:51.639Z",
     "pinned": true
   }
 ]

@@ -20,29 +20,6 @@
     "verified": true,
     "photoUrl": "https://i.postimg.cc/CxW2KR5Z/5.png",
     "createdAt": "2025-03-06T16:03:26.546Z",
-    "pinned": false
-  },
-  {
-    "id": "1741375949903_1940359844",
-    "adminId": 1940359844,
-    "companyUserId": 12345,
-    "companyName": "TEST",
-    "position": "TEST",
-    "description": "TEST",
-    "requirements": [
-      "TEST"
-    ],
-    "tags": [
-      "TEST"
-    ],
-    "categories": [
-      "it"
-    ],
-    "contact": "https://t.me/workiks_admin",
-    "officialWebsite": "TEST",
-    "verified": false,
-    "photoUrl": "TEST",
-    "createdAt": "2025-03-07T19:32:29.903Z",
     "pinned": true
   }
 ]

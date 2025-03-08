@@ -37,7 +37,10 @@ const fetchChats = async () => {
     const messagesResponse = await axios.get(`${BASE_URL}/api/chats`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
-    const messages = messagesResponse.data;
+    const messages = messagesResponse.data.filter(msg =>
+      msg.authorUserId.toString() === currentUserId.value ||
+      msg.targetUserId.toString() === currentUserId.value
+    );
 
     const jobsResponse = await axios.get(`${BASE_URL}/api/jobs`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
@@ -46,8 +49,11 @@ const fetchChats = async () => {
 
     const chatMap = new Map();
     messages.forEach((msg) => {
-      if (msg.jobId && (msg.targetUserId === currentUserId.value || msg.authorUserId === currentUserId.value)) {
-        const otherUserId = msg.authorUserId === currentUserId.value ? msg.targetUserId : msg.authorUserId;
+      if (msg.jobId) {
+        const otherUserId = msg.authorUserId.toString() === currentUserId.value
+          ? msg.targetUserId.toString()
+          : msg.authorUserId.toString();
+
         const key = `${msg.jobId}_${otherUserId}`;
 
         if (!chatMap.has(key)) {
@@ -79,7 +85,6 @@ const fetchChats = async () => {
         chat.photoUrl = userResponse.data.photoUrl || defaultPhoto;
         chatMap.set(key, chat);
       } catch (error) {
-        console.error(`Error fetching user profile for ${chat.targetUserId}:`, error);
         chat.nick = 'Unknown';
         chat.photoUrl = defaultPhoto;
         chatMap.set(key, chat);
@@ -110,7 +115,7 @@ const handleImageError = (event) => {
 onMounted(() => {
   fetchChats();
   if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
+    Telegram.WebApp.setHeaderColor('#97f492');
   }
 });
 </script>
