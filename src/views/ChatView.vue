@@ -43,12 +43,14 @@ const jobId = ref(route.query.jobId);
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const messagesContainer = ref(null);
 const messageInput = ref(null);
+const chatInput = ref(null);
 const messages = ref([]);
 const newMessage = ref('');
 const nick = ref('Unknown');
 const userPhoto = ref('');
 const currentUserId = ref('');
 const isOwner = ref(false);
+const isInputFocused = ref(false);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -58,7 +60,9 @@ const formatTimestamp = (timestamp) => {
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      const wrapper = messagesContainer.value;
+      const inner = wrapper.querySelector('.chat-messages');
+      wrapper.scrollTop = inner.scrollHeight;
     }
   });
 };
@@ -144,9 +148,18 @@ const sendMessage = async () => {
   }
 };
 
+const handleInputFocus = () => {
+  isInputFocused.value = true;
+};
+
+const handleInputBlur = () => {
+  isInputFocused.value = false;
+  messageInput.value.blur();
+};
+
 const hideKeyboard = (event) => {
   if (messageInput.value && event.target !== messageInput.value) {
-    messageInput.value.blur();
+    handleInputBlur();
   }
 };
 
@@ -170,13 +183,15 @@ onMounted(() => {
     return;
   }
   if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
+    Telegram.WebApp.setHeaderColor('#97f492');
   }
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
   fetchUserDetails();
   fetchJobDetails();
   fetchMessages();
+  messageInput.value.addEventListener('focus', handleInputFocus);
+  messageInput.value.addEventListener('blur', handleInputBlur);
 });
 </script>
 
@@ -191,6 +206,11 @@ onMounted(() => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .chat-header {
@@ -304,6 +324,13 @@ onMounted(() => {
   align-items: center;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   min-height: clamp(3rem, 10vw, 4rem);
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.chat-input.focused {
+  transform: translateY(-50vh);
 }
 
 .message-input {
