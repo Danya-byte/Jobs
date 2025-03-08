@@ -1,22 +1,24 @@
 <template>
-  <div class="chat-list-container">
-    <h2>Chats</h2>
+  <div class="container">
+    <nav class="nav-bar">
+      <h1>Chats</h1>
+      <RouterLink to="/" class="home-button">Home</RouterLink>
+    </nav>
+
     <div class="chat-list">
-      <div v-if="chats.length === 0" class="no-chats">
-        No chats available.
-      </div>
-      <router-link
+      <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
+      <RouterLink
         v-for="chat in chats"
         :key="chat.id"
-        :to="{ path: `/chat/${chat.targetUserId}`, query: { jobId: chat.jobId, username: chat.username } }"
+        :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
         class="chat-item"
       >
-        <img :src="chat.photoUrl || defaultPhoto" class="chat-avatar" loading="lazy" @error="handleImageError" />
+        <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
         <div class="chat-info">
-          <p class="chat-nick">{{ chat.nick }}</p>
+          <p class="nick">{{ chat.nick }}</p>
           <p class="last-message">{{ chat.lastMessage }}</p>
         </div>
-      </router-link>
+      </RouterLink>
     </div>
   </div>
 </template>
@@ -26,9 +28,9 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
-const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const chats = ref([]);
-const currentUserId = ref('');
+const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
 
 const fetchChats = async () => {
   try {
@@ -55,9 +57,9 @@ const fetchChats = async () => {
               jobId: msg.jobId,
               targetUserId: otherUserId,
               messages: [],
-              nick: '', // Будем запрашивать ниже
+              nick: '',
               username: job.username || '',
-              photoUrl: '', // Будем запрашивать ниже
+              photoUrl: '',
             });
           }
         }
@@ -106,26 +108,47 @@ const handleImageError = (event) => {
 };
 
 onMounted(() => {
-  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-    currentUserId.value = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
-    fetchChats();
-  } else {
-    Telegram.WebApp.showAlert('Please open the app via Telegram.');
-  }
+  fetchChats();
 });
 </script>
 
 <style scoped>
-.chat-list-container {
+.container {
   background: linear-gradient(45deg, #101622, #1a2233);
   min-height: 100vh;
   padding: 20px;
-  color: #fff;
+  overflow: hidden;
+  position: relative;
 }
 
-h2 {
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+h1 {
   color: #97f492;
-  margin-bottom: 20px;
+  font-size: 24px;
+  margin: 0;
+}
+
+.home-button {
+  background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
+  padding: 8px 20px;
+  border-radius: 30px;
+  color: #000;
+  font-weight: 400;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
+  transition: 0.3s;
+  font-size: 14px;
+  animation: pulse 2s infinite;
+}
+
+.home-button:hover {
+  transform: translateY(-2px);
 }
 
 .chat-list {
@@ -138,23 +161,24 @@ h2 {
   display: flex;
   align-items: center;
   gap: 15px;
-  padding: 15px;
   background: #181e29;
-  border-radius: 12px;
+  border-radius: 20px;
+  padding: 15px;
   text-decoration: none;
-  color: inherit;
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #2d3540;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .chat-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  border-color: #97f492;
 }
 
-.chat-avatar {
+.chat-icon {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 10px;
   object-fit: cover;
 }
 
@@ -162,7 +186,7 @@ h2 {
   flex: 1;
 }
 
-.chat-nick {
+.nick {
   color: #97f492;
   font-size: 16px;
   margin: 0;
@@ -171,12 +195,18 @@ h2 {
 .last-message {
   color: #8a8f98;
   font-size: 14px;
-  margin: 5px 0 0 0;
+  margin: 0;
 }
 
 .no-chats {
   color: #8a8f98;
+  font-size: 16px;
   text-align: center;
-  padding: 20px;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 </style>
