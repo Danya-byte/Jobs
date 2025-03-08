@@ -40,6 +40,6 @@ button, a, input, textarea, select {
 }
 
 html {
-    overflow: auto !important;
+    overflow: hidden !important;
     height: auto !important;
 }
