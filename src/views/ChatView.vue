@@ -39,7 +39,7 @@ const messageInput = ref(null);
 
 const messages = ref([]);
 const newMessage = ref('');
-const nick = ref(route.params.nick);
+const nick = ref('Unknown');
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -55,16 +55,22 @@ const scrollToBottom = () => {
 };
 
 const fetchJobDetails = async () => {
+  if (!jobId.value) {
+    console.warn('jobId не указан в URL');
+    return;
+  }
   try {
     const response = await axios.get(`${BASE_URL}/api/jobs`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     const job = response.data.find(job => job.id === jobId.value);
-    if (job) {
-      nick.value = job.nick;
+    if (job && job.nick) {
+      nick.value = job.nick; // Устанавливаем nick из объекта вакансии
+    } else {
+      console.warn('Вакансия не найдена или поле nick отсутствует');
     }
   } catch (error) {
-    console.error('Error fetching job details:', error);
+    console.error('Ошибка при загрузке данных вакансии:', error);
   }
 };
 
@@ -79,7 +85,7 @@ const fetchMessages = async () => {
     }));
     scrollToBottom();
   } catch (error) {
-    console.error('Error fetching messages:', error);
+    console.error('Ошибка при загрузке сообщений:', error);
   }
 };
 
@@ -96,16 +102,16 @@ const sendMessage = async () => {
         if (status === 'paid') {
           fetchMessages();
           newMessage.value = '';
-          Telegram.WebApp.showAlert('Message sent successfully!');
+          Telegram.WebApp.showAlert('Сообщение успешно отправлено!');
         } else if (status === 'cancelled') {
-          Telegram.WebApp.showAlert('Payment cancelled.');
+          Telegram.WebApp.showAlert('Платёж отменён.');
           newMessage.value = '';
         }
       });
     }
   } catch (error) {
-    console.error('Error sending message:', error);
-    Telegram.WebApp.showAlert('Failed to initiate payment.');
+    console.error('Ошибка при отправке сообщения:', error);
+    Telegram.WebApp.showAlert('Не удалось инициировать платёж.');
   }
 };
 
@@ -119,10 +125,6 @@ onMounted(() => {
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
-
-  if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
-    }
   }
   fetchJobDetails();
   fetchMessages();
