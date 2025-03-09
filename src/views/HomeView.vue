@@ -613,7 +613,7 @@ const showAddTaskModal = () => {
     tags: [],
     categories: [],
     contact: 'https://t.me/workiks_admin',
-    photoUrl: ''
+    photoUrl: 'https://i.postimg.cc/Yq9BtRJH/tasks.webp'
   };
   showTaskModal.value = true;
 };
