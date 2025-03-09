@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "1741479392455_1940359844",
+    "adminId": 1940359844,
+    "title": "2345",
+    "reward": 1234,
+    "deadline": "2025-03-09",
+    "description": "1234",
+    "tags": [
+      "123"
+    ],
+    "categories": [
+      "it"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "photoUrl": "https://i.postimg.cc/Yq9BtRJH/tasks.webp",
+    "createdAt": "2025-03-09T00:16:32.455Z",
+    "pinned": false
+  }
+]
