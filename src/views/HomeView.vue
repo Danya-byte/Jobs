@@ -267,7 +267,7 @@
                             <img :src="selectedTask.photoUrl || jobIcon" class="job-icon" loading="lazy" @error="handleImageError">
                             <div>
                                 <p class="nickname">{{ selectedTask.title }}</p>
-                                <p class="experience">{{ selectedTask.reward }} XTR</p>
+                                <p class="experience">{{ selectedTask.reward }} $</p>
                                 <p class="experience">{{ selectedTask.deadline ? `Deadline: ${new Date(selectedTask.deadline).toLocaleDateString()}` : 'No deadline' }}</p>
                             </div>
                             <button class="favorite-btn" @click="toggleFavorite(selectedTask.id)">
