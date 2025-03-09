@@ -86,7 +86,7 @@
                         <img class="job-icon" :src="task.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" loading="lazy">
                         <div class="job-info">
                             <p class="nick">{{ task.title }}</p>
-                            <p class="work">{{ task.reward }} XTR</p>
+                            <p class="work">{{ task.reward }} $</p>
                             <p class="experience">{{ task.deadline ? `Deadline: ${new Date(task.deadline).toLocaleDateString()}` : 'No deadline' }}</p>
                         </div>
                     </div>
@@ -194,7 +194,7 @@
                     </div>
                     <div class="job-details">
                         <input v-model="newTask.title" placeholder="Task Title" class="search-input" :class="{ 'invalid': !newTask.title && formSubmitted }" />
-                        <input v-model="newTask.reward" placeholder="Reward (XTR)" type="number" min="1" class="search-input" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
+                        <input v-model="newTask.reward" placeholder="Reward ($)" type="number" min="1" class="search-input" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
                         <input v-model="newTask.deadline" type="date" placeholder="Deadline" class="search-input" />
                         <textarea v-model="newTask.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newTask.description && formSubmitted }"></textarea>
                         <input v-model="tagsInput" @keyup.enter="addTaskTag" placeholder="Tags (Enter to add)" class="search-input" />
