@@ -386,12 +386,6 @@ onMounted(async () => {
   animation: pulse 1.5s ease-in-out;
 }
 
-@keyframes pulse {
-  0% { transform: scale(0.95); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
-}
-
 .profile-name {
   color: #fff;
   font-size: 25px;
