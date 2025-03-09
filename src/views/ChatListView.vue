@@ -145,11 +145,12 @@ onMounted(() => {
 
 h1 {
   color: #97f492;
-  font-size: 24px;
+  font-size: 28px;
   margin: 0;
   font-family: 'Inter', system-ui;
   font-weight: 600;
   letter-spacing: -0.03em;
+  text-shadow: 0 2px 4px rgba(151, 244, 146, 0.2);
 }
 
 .home-button {
@@ -160,13 +161,12 @@ h1 {
   font-weight: 400;
   text-decoration: none;
   box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
-  transition: 0.3s;
-  font-size: 14px;
-  animation: pulse 2s infinite;
+  transition: transform 0.3s, background 0.3s;
 }
 
 .home-button:hover {
   transform: translateY(-2px);
+  background: #6de06a;
 }
 
 .chat-list {
@@ -201,7 +201,7 @@ h1 {
   padding: 15px;
   text-decoration: none;
   border: 1px solid #2d3540;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   margin-bottom: 10px;
 }
 
@@ -209,6 +209,7 @@ h1 {
   transform: translateY(-3px);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
   border-color: #97f492;
+  background: #1f2633;
 }
 
 .chat-icon {
@@ -233,24 +234,17 @@ h1 {
 }
 
 .last-message {
-  color: #8a8f98;
+  color: #b0b5bf;
   font-size: 14px;
   margin: 0;
   line-height: 1.4;
-  opacity: 0.9;
 }
 
 .no-chats {
-  color: #8a8f98;
+  color: #97f492;
   font-size: 16px;
   text-align: center;
   padding: 20px;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
 }
 
 @media (max-width: 768px) {
@@ -258,20 +252,18 @@ h1 {
     width: 48px;
     height: 48px;
   }
-
   .home-button {
     padding: 8px 16px;
   }
 }
 
-@media (max-height: 500px) and (orientation: landscape) {
+@media (min-height: 500px) and (orientation: landscape) {
   .chat-header {
     padding: 0.5rem;
   }
-
   .user-avatar {
-    width: 32px !important;
-    height: 32px !important;
+    width: 32px;
+    height: 32px;
   }
 }
 </style>

@@ -298,34 +298,28 @@ onMounted(async () => {
   .profile-container {
     padding: 30px 20px;
   }
-
   .back-button-wrapper {
     padding: 8px 16px;
     gap: 8px;
     border-radius: 25px;
   }
-
   .back-icon {
     width: 24px;
     height: 24px;
   }
-
   .back-text {
     font-size: 14px;
     opacity: 0;
     width: 0;
   }
-
   .back-btn:hover .back-button-wrapper {
     background: rgba(151, 244, 146, 0.15);
     transform: translateX(-5px);
     box-shadow: 0 0 15px rgba(151, 244, 146, 0.2);
   }
-
   .back-btn:hover .back-icon {
     transform: rotate(-45deg);
   }
-
   .back-btn:hover .back-text {
     opacity: 1;
     width: auto;
@@ -339,7 +333,6 @@ onMounted(async () => {
     transform: scale(0.95);
     box-shadow: 0 0 10px rgba(151, 244, 146, 0.3);
   }
-
   .back-button-wrapper:active .back-icon,
   .back-button-wrapper.touched .back-icon {
     transform: rotate(-45deg);
@@ -366,18 +359,12 @@ onMounted(async () => {
   width: 90px;
   height: 90px;
   border-radius: 50%;
-  border: 3px solid transparent;
-  box-shadow: 0 0 30px rgba(151, 244, 146, 0.3);
-  opacity: 1;
+  border: 3px solid #97f492;
+  box-shadow: 0 0 30px rgba(151, 244, 146, 0.4);
+  opacity: 0;
   transform: translateY(20px);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: border-rotate 3s infinite linear;
   z-index: 1000;
-}
-
-@keyframes border-rotate {
-  0% { border-color: #97f492; filter: hue-rotate(0deg); }
-  100% { border-color: #97f492; filter: hue-rotate(360deg); }
 }
 
 .avatar-visible {
@@ -395,7 +382,7 @@ onMounted(async () => {
 .reviews-section {
   margin-top: 20px;
   padding: 20px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   height: calc(100vh - 260px);
   display: flex;
@@ -409,7 +396,7 @@ onMounted(async () => {
   padding: 15px;
   background: #272e38;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 15px;
   color: white;
   resize: none;
   overflow: hidden;
@@ -423,7 +410,7 @@ onMounted(async () => {
 .review-input:focus {
   outline: none;
   border-color: #97f492;
-  box-shadow: 0 0 0 2px rgba(151, 244, 146, 0.3);
+  box-shadow: 0 0 5px rgba(151, 244, 146, 0.5);
 }
 
 .review-input::placeholder {
@@ -439,7 +426,7 @@ onMounted(async () => {
   color: #182038;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
   margin-bottom: 20px;
 }
 
@@ -477,10 +464,12 @@ onMounted(async () => {
 }
 
 .review-message {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   padding: 15px;
   border-radius: 12px;
   margin-bottom: 15px;
+  border: 1px solid rgba(151, 244, 146, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message-content {
@@ -503,12 +492,12 @@ onMounted(async () => {
   margin-left: 10px;
   cursor: pointer;
   padding: 2px 5px;
-  font-size: 1.2em;
+  font-size: 1em;
+  transition: transform 0.2s ease;
 }
 
 .delete-btn:hover {
   opacity: 0.8;
   transform: scale(1.1);
-  transition: transform 0.2s ease;
 }
 </style>

@@ -221,7 +221,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  background: inherit;
+  background: linear-gradient(45deg, #101622, #1a2233);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   z-index: 1;
 }
 
@@ -230,7 +231,12 @@ onMounted(() => {
   border: none;
   color: #fff;
   cursor: pointer;
-  padding: 0 0.5rem;
+  padding: 0.5rem;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: rgba(151, 244, 146, 0.2);
 }
 
 .back-btn svg {
@@ -270,7 +276,12 @@ onMounted(() => {
   color: #fff;
   font-size: clamp(1.5rem, 5vw, 1.75rem);
   cursor: pointer;
-  padding: 0 0.5rem;
+  padding: 0.5rem;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(151, 244, 146, 0.2);
 }
 
 .chat-messages {
@@ -298,6 +309,7 @@ onMounted(() => {
   max-width: clamp(70%, 75vw, 75%);
   word-wrap: break-word;
   animation: slideIn 0.2s ease-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .sent {
@@ -311,25 +323,25 @@ onMounted(() => {
   background: linear-gradient(135deg, #2d3540 0%, #1a2233 100%);
   color: #fff;
   border-radius: 15px 15px 15px 0;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
 }
 
 .timestamp {
-  font-size: clamp(0.625rem, 2vw, 0.75rem);
+  font-size: clamp(0.6rem, 1.5vw, 0.7rem);
   color: #8a8f98;
   margin-top: 0.25rem;
   display: block;
+  opacity: 0.7;
 }
 
 .chat-input {
-  padding: clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
+  padding: clamp(0.5rem, 2vw, 1rem);
   display: flex;
   gap: clamp(0.5rem, 2vw, 0.75rem);
   background: #1a2233;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
   align-items: center;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   min-height: clamp(3rem, 10vw, 4rem);
   position: relative;
   z-index: 2;
@@ -338,19 +350,18 @@ onMounted(() => {
 .message-input {
   flex: 1;
   padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2.5vw, 1rem);
-  border-radius: clamp(1rem, 4vw, 1.25rem);
+  border-radius: 20px;
   border: none;
   background: #272e38;
   color: #fff;
   font-size: clamp(0.875rem, 3vw, 1rem);
   outline: none;
   min-height: clamp(2.5rem, 8vw, 3rem);
-  margin-bottom: 0;
   transition: box-shadow 0.2s ease;
 }
 
 .message-input:focus {
-  box-shadow: 0 0 0 2px #97f49255;
+  box-shadow: 0 0 5px rgba(151, 244, 146, 0.5);
   border: 1px solid #97f492;
 }
 
@@ -363,18 +374,18 @@ onMounted(() => {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 0.2s;
-  touch-action: manipulation;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.send-btn:hover {
+  background: #6de06a;
+  transform: scale(1.05);
 }
 
 .send-btn svg {
   fill: #000;
   width: clamp(1.25rem, 4vw, 1.5rem);
   height: clamp(1.25rem, 4vw, 1.5rem);
-}
-
-.send-btn:hover {
-  background: #6de06a;
 }
 
 @media (max-width: 768px) {
@@ -384,30 +395,24 @@ onMounted(() => {
     box-shadow: none;
     height: 100dvh;
   }
-
   .chat-header {
     padding: 0.5rem;
   }
-
   .message {
     max-width: 85%;
   }
-
   .chat-input {
-    padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.5rem, 2vw, 1rem);
+    padding: clamp(0.5rem, 2vw, 0.75rem);
     min-height: 4rem;
   }
-
   .message-input {
     min-height: 3.5rem;
-    padding: 12px 12px;
+    padding: 12px;
   }
-
   .send-btn {
     width: 3rem;
     height: 3rem;
   }
-
   .send-btn svg {
     width: 1.5rem;
     height: 1.5rem;
@@ -420,25 +425,20 @@ onMounted(() => {
     margin: 1rem auto;
     height: calc(100vh - 2rem);
   }
-
   .chat-messages {
     padding: 1.5rem;
   }
-
   .message {
     max-width: 70%;
   }
-
   .chat-input {
-    padding: clamp(0.75rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
+    padding: clamp(0.75rem, 2vw, 1rem);
     min-height: 4rem;
   }
-
   .message-input {
     min-height: 3rem;
     padding: 8px 16px;
   }
-
   .send-btn {
     width: 3rem;
     height: 3rem;
