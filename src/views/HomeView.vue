@@ -42,7 +42,7 @@
                 </div>
                 <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
                     <div class="card-header">
-                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp" loading="lazy">
+                        <img class="job-icon" src="https://i.postimg.cc/Z5vkdRbs/jobs.png" loading="lazy">
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
                             <p class="work">{{ job.position }}</p>
@@ -368,7 +368,7 @@ const userLastName = ref('');
 const currentUserId = ref('');
 const currentUsername = ref('');
 const isAdmin = ref(false);
-const jobIcon = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+const jobIcon = 'https://i.postimg.cc/Z5vkdRbs/jobs.png';
 const searchQuery = ref('');
 const searchInput = ref(null);
 const jobs = ref([]);
