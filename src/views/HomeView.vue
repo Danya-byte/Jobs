@@ -405,7 +405,7 @@ const newTask = ref({
     tags: [],
     categories: [],
     contact: 'https://t.me/workiks_admin',
-    photoUrl: ''
+    photoUrl: 'https://i.postimg.cc/Yq9BtRJH/tasks.webp'
 });
 const requirementsInput = ref('');
 const tagsInput = ref('');
