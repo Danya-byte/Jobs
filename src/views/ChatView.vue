@@ -250,6 +250,7 @@ onMounted(() => {
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  aspect-ratio: 1/1;
 }
 
 .chat-header h2 {
@@ -275,13 +276,18 @@ onMounted(() => {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: #97f492 transparent;
   padding: clamp(0.5rem, 2vw, 1rem);
 }
 
 .chat-messages::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #97f492;
+  border-radius: 4px;
 }
 
 .message {
@@ -295,14 +301,17 @@ onMounted(() => {
 }
 
 .sent {
-  background: #97f492;
+  background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
   color: #000;
   margin-left: auto;
+  border-radius: 15px 15px 0 15px;
 }
 
 .received {
-  background: #2d3540;
+  background: linear-gradient(135deg, #2d3540 0%, #1a2233 100%);
   color: #fff;
+  border-radius: 15px 15px 15px 0;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
 }
 
 .timestamp {
@@ -326,13 +335,6 @@ onMounted(() => {
   z-index: 2;
 }
 
-@media (max-width: 768px) {
-  .chat-input.focused {
-    transform: translateY(-50vh);
-    transition: transform 0.3s ease;
-  }
-}
-
 .message-input {
   flex: 1;
   padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2.5vw, 1rem);
@@ -344,6 +346,12 @@ onMounted(() => {
   outline: none;
   min-height: clamp(2.5rem, 8vw, 3rem);
   margin-bottom: 0;
+  transition: box-shadow 0.2s ease;
+}
+
+.message-input:focus {
+  box-shadow: 0 0 0 2px #97f49255;
+  border: 1px solid #97f492;
 }
 
 .send-btn {
@@ -356,6 +364,7 @@ onMounted(() => {
   place-items: center;
   cursor: pointer;
   transition: background 0.2s;
+  touch-action: manipulation;
 }
 
 .send-btn svg {

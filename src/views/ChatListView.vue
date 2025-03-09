@@ -147,6 +147,9 @@ h1 {
   color: #97f492;
   font-size: 24px;
   margin: 0;
+  font-family: 'Inter', system-ui;
+  font-weight: 600;
+  letter-spacing: -0.03em;
 }
 
 .home-button {
@@ -176,12 +179,17 @@ h1 {
 .chat-list-wrapper {
   flex: 1;
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: #97f492 transparent;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+.chat-list-wrapper::-webkit-scrollbar-thumb {
+  background: #97f492;
+  border-radius: 4px;
 }
 
 .chat-item {
@@ -208,6 +216,7 @@ h1 {
   height: 40px;
   border-radius: 10px;
   object-fit: cover;
+  aspect-ratio: 1/1;
 }
 
 .chat-info {
@@ -218,12 +227,17 @@ h1 {
   color: #97f492;
   font-size: 16px;
   margin: 0;
+  font-family: 'Inter', system-ui;
+  font-weight: 600;
+  letter-spacing: -0.03em;
 }
 
 .last-message {
   color: #8a8f98;
   font-size: 14px;
   margin: 0;
+  line-height: 1.4;
+  opacity: 0.9;
 }
 
 .no-chats {
@@ -237,5 +251,27 @@ h1 {
   0% { transform: scale(1); }
   50% { transform: scale(1.05); }
   100% { transform: scale(1); }
+}
+
+@media (max-width: 768px) {
+  .chat-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .home-button {
+    padding: 8px 16px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .chat-header {
+    padding: 0.5rem;
+  }
+
+  .user-avatar {
+    width: 32px !important;
+    height: 32px !important;
+  }
 }
 </style>
