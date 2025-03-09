@@ -364,7 +364,13 @@ onMounted(async () => {
   opacity: 0;
   transform: translateY(20px);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: border-rotate 3s infinite linear;
   z-index: 1000;
+}
+
+@keyframes border-rotate {
+  0% { border-color: #97f492; filter: hue-rotate(0deg); }
+  100% { border-color: #97f492; filter: hue-rotate(360deg); }
 }
 
 .avatar-visible {
