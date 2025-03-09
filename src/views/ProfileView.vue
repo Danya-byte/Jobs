@@ -382,8 +382,7 @@ onMounted(async () => {
 
 .avatar-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
-  animation: pulse 1.5s ease-in-out;
+  transform: translateY(0);
 }
 
 .profile-name {
