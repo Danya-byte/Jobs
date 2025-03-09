@@ -382,7 +382,14 @@ onMounted(async () => {
 
 .avatar-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
+  animation: pulse 1.5s ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 .profile-name {
@@ -445,6 +452,7 @@ onMounted(async () => {
 
 .leave-review-btn:hover {
   transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(151, 244, 146, 0.5);
 }
 
 .leave-review-btn:disabled {
