@@ -168,11 +168,14 @@ const handleImageError = (event) => {
 const showCustomPopup = (options, callback) => {
   console.log('Opening popup:', options);
   if (isMobile()) {
+    console.log('Attempting Telegram popup');
     Telegram.WebApp.showPopup(options, (buttonId) => {
       console.log('Telegram popup callback:', buttonId);
       callback(buttonId);
     });
   } else {
+    console.log('Showing custom modal');
+    closeModal();
     modalTitle.value = options.title;
     modalMessage.value = options.message;
     modalButtons.value = options.buttons;
@@ -186,11 +189,14 @@ const showCustomPopup = (options, callback) => {
 const showCustomConfirm = (message, callback) => {
   console.log('Opening confirm:', message);
   if (isMobile()) {
+    console.log('Attempting Telegram confirm');
     Telegram.WebApp.showConfirm(message, (confirmed) => {
       console.log('Telegram confirm callback:', confirmed);
       callback(confirmed ? 'confirm' : 'cancel');
     });
   } else {
+    console.log('Showing custom confirm modal');
+    closeModal();
     modalTitle.value = 'Подтверждение';
     modalMessage.value = message;
     modalButtons.value = [
@@ -269,41 +275,43 @@ const endSwipe = (chatId) => {
 
 const reportChat = async (chatId) => {
   console.log('Reporting chat:', chatId);
-  showCustomPopup({
-    title: 'Пожаловаться',
-    message: 'Выберите причину жалобы',
-    buttons: [
-      { id: 'spam', type: 'default', text: 'Спам' },
-      { id: 'insult', type: 'default', text: 'Оскорбления' },
-      { id: 'other', type: 'default', text: 'Другое' },
-      { id: 'cancel', type: 'cancel', text: 'Отмена' },
-    ],
-  }, async (buttonId) => {
-    console.log('Report reason selected:', buttonId);
-    if (buttonId === 'cancel') return;
+  setTimeout(() => {
+    showCustomPopup({
+      title: 'Пожаловаться',
+      message: 'Выберите причину жалобы',
+      buttons: [
+        { id: 'spam', type: 'default', text: 'Спам' },
+        { id: 'insult', type: 'default', text: 'Оскорбления' },
+        { id: 'other', type: 'default', text: 'Другое' },
+        { id: 'cancel', type: 'cancel', text: 'Отмена' },
+      ],
+    }, async (buttonId) => {
+      console.log('Report reason selected:', buttonId);
+      if (buttonId === 'cancel') return;
 
-    let reportText = '';
-    if (buttonId === 'spam') reportText = 'Спам';
-    else if (buttonId === 'insult') reportText = 'Оскорбления';
-    else if (buttonId === 'other') {
-      showCustomPopup({
-        title: 'Укажите причину',
-        message: 'Введите текст жалобы',
-        buttons: [
-          { id: 'submit', type: 'default', text: 'Отправить' },
-          { id: 'cancel', type: 'cancel', text: 'Отмена' },
-        ],
-        input: true,
-      }, async (submitButtonId, inputText) => {
-        console.log('Other reason submitted:', submitButtonId, inputText);
-        if (submitButtonId === 'submit' && inputText) {
-          await submitReport(chatId, inputText);
-        }
-      });
-      return;
-    }
-    if (reportText) await submitReport(chatId, reportText);
-  });
+      let reportText = '';
+      if (buttonId === 'spam') reportText = 'Спам';
+      else if (buttonId === 'insult') reportText = 'Оскорбления';
+      else if (buttonId === 'other') {
+        showCustomPopup({
+          title: 'Укажите причину',
+          message: 'Введите текст жалобы',
+          buttons: [
+            { id: 'submit', type: 'default', text: 'Отправить' },
+            { id: 'cancel', type: 'cancel', text: 'Отмена' },
+          ],
+          input: true,
+        }, async (submitButtonId, inputText) => {
+          console.log('Other reason submitted:', submitButtonId, inputText);
+          if (submitButtonId === 'submit' && inputText) {
+            await submitReport(chatId, inputText);
+          }
+        });
+        return;
+      }
+      if (reportText) await submitReport(chatId, reportText);
+    });
+  }, 300);
   swipeOffset.value[chatId] = 0;
 };
 
@@ -358,6 +366,9 @@ const deleteChat = async (chatId) => {
 };
 
 onMounted(() => {
+  if (!window.Telegram || !window.Telegram.WebApp) {
+    console.error('Telegram Web App not initialized');
+  }
   fetchChats();
   if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
 });
