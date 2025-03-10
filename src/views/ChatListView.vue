@@ -13,13 +13,13 @@
           :key="chat.id"
           class="chat-item-wrapper"
           :style="{ transform: swipeOffset[chat.id] ? `translateX(${swipeOffset[chat.id]}px)` : 'translateX(0)' }"
-          @touchstart="startSwipe($event, chat.id)"
-          @touchmove="moveSwipe($event, chat.id)"
-          @touchend="endSwipe(chat.id)"
         >
           <RouterLink
             :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
             class="chat-item"
+            @touchstart="isMobile && startSwipe($event, chat.id)"
+            @touchmove="isMobile && moveSwipe($event, chat.id)"
+            @touchend="isMobile && endSwipe(chat.id)"
           >
             <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
             <div class="chat-info">
@@ -336,6 +336,7 @@ h1 {
 
 .chat-item-wrapper {
   position: relative;
+  overflow: hidden;
   margin-bottom: 10px;
   transition: transform 0.2s ease;
 }
@@ -350,6 +351,8 @@ h1 {
   text-decoration: none;
   border: 1px solid #2d3540;
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-item:hover {
@@ -411,14 +414,16 @@ h1 {
 .swipe-actions {
   position: absolute;
   top: 0;
-  right: -100px;
+  right: 0;
   height: 100%;
   width: 100px;
   display: flex;
   align-items: center;
   justify-content: space-around;
+  background: #1a2233;
   opacity: 0;
   transition: opacity 0.2s;
+  z-index: 0;
 }
 
 .swipe-actions.visible {
