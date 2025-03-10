@@ -86,6 +86,7 @@ const modalButtons = ref([]);
 const modalCallback = ref(null);
 const modalInput = ref(false);
 const modalInputValue = ref('');
+const activeSwipedChat = ref(null);
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -248,6 +249,10 @@ const moveSwipe = (event, chatId) => {
   if (Math.abs(deltaX) > 10) {
     event.preventDefault();
     if (deltaX < 0) {
+      if (activeSwipedChat.value && activeSwipedChat.value !== chatId) {
+        swipeOffset.value[activeSwipedChat.value] = 0;
+        activeSwipedChat.value = null;
+      }
       swipeOffset.value[chatId] = Math.max(deltaX, -120);
     } else if (swipeOffset.value[chatId] === -120) {
       swipeOffset.value[chatId] = Math.min(deltaX, 0);
@@ -259,8 +264,12 @@ const endSwipe = (chatId) => {
   const delta = swipeOffset.value[chatId];
   if (delta < -60) {
     swipeOffset.value[chatId] = -120;
+    activeSwipedChat.value = chatId;
   } else if (delta > -60) {
     swipeOffset.value[chatId] = 0;
+    if (activeSwipedChat.value === chatId) {
+      activeSwipedChat.value = null;
+    }
   }
   delete event.target.touchData;
 };
@@ -281,6 +290,7 @@ const reportChat = async (chatId) => {
     });
   }, 300);
   swipeOffset.value[chatId] = 0;
+  if (activeSwipedChat.value === chatId) activeSwipedChat.value = null;
 };
 
 const submitReport = async (chatId, reportText) => {
@@ -326,6 +336,7 @@ const deleteChat = async (chatId) => {
     );
   }, 300);
   swipeOffset.value[chatId] = 0;
+  if (activeSwipedChat.value === chatId) activeSwipedChat.value = null;
 };
 
 onMounted(() => {
@@ -341,13 +352,13 @@ body {
     background: linear-gradient(45deg, #0a0f1a, #141b2d);
     color: white;
     min-height: 100vh;
-    overflow-x: hidden; /* Убираем горизонтальный скролл */
-    overflow-y: hidden; /* Убираем вертикальный скролл для body */
+    overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 html {
     overflow-x: hidden;
-    overflow-y: hidden; /* Убираем скролл для всей страницы */
+    overflow-y: hidden;
     height: 100%;
 }
 
@@ -387,10 +398,10 @@ button, a, input, textarea, select {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Убираем скролл для контейнера */
+    overflow: hidden;
     position: relative;
     width: 100%;
-    max-width: 100%; /* Ограничиваем ширину */
+    max-width: 100%;
 }
 
 .nav-bar {
@@ -432,22 +443,22 @@ h1 {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Убираем скролл для .chat-list */
+    overflow: hidden;
     width: 100%;
 }
 
 .chat-list-wrapper {
     flex: 1;
-    overflow-y: auto; /* Только вертикальный скролл для чатов */
-    overflow-x: hidden; /* Убираем горизонтальный скролл */
-    scrollbar-width: thin; /* Тонкая полоса прокрутки */
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
     -ms-overflow-style: none;
     position: relative;
     width: 100%;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
-    width: 6px; /* Тонкая полоса прокрутки для Webkit */
+    width: 6px;
 }
 
 .chat-list-wrapper::-webkit-scrollbar-thumb {
@@ -479,7 +490,7 @@ h1 {
     border: 1px solid #2d3540;
     transition: transform 0.3s ease;
     width: 100%;
-    box-sizing: border-box; /* Учитываем padding в ширине */
+    box-sizing: border-box;
 }
 
 .chat-item:hover {
@@ -496,7 +507,7 @@ h1 {
 
 .chat-info {
     flex: 1;
-    overflow: hidden; /* Предотвращаем выход текста за пределы */
+    overflow: hidden;
 }
 
 .nick {
@@ -506,7 +517,7 @@ h1 {
     font-family: 'Inter', system-ui;
     font-weight: 600;
     letter-spacing: -0.03em;
-    white-space: nowrap; /* Предотвращаем перенос текста */
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -553,7 +564,7 @@ h1 {
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    overflow: hidden; /* Убираем скролл для модального окна */
+    overflow: hidden;
 }
 
 .modal-content {
