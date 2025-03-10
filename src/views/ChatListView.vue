@@ -8,39 +8,33 @@
     <div class="chat-list">
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
       <div class="chat-list-wrapper">
-        <div
-          v-for="chat in chats"
-          :key="chat.id"
-          class="chat-item-wrapper"
-          :style="{
-            transform: `translateX(${swipeOffset[chat.id] || 0}px)`,
-            transition: swipeOffset[chat.id] ? 'none' : 'transform 0.2s ease'
-          }"
-          @click="handleSwipeClick(chat.id)"
-        >
+        <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper">
+          <div class="swipe-actions">
+            <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">⚠️</div>
+            <div class="swipe-icon delete-icon" @click.stop="deleteChat(chat.id)">🗑️</div>
+          </div>
           <div
-            class="swipe-actions"
+            class="chat-item-container"
             :style="{
-              transform: `translateX(${swipeOffset[chat.id] ? swipeOffset[chat.id] + 100 : 100}%)`
+              transform: `translateX(${swipeOffset[chat.id] || 0}px)`,
+              transition: swipeOffset[chat.id] ? 'none' : 'transform 0.2s ease'
             }"
           >
-            <div class="swipe-icon report-icon">⚠️</div>
-            <div class="swipe-icon delete-icon">🗑️</div>
+            <RouterLink
+              :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
+              class="chat-item"
+              @touchstart="isMobile() && startSwipe($event, chat.id)"
+              @touchmove="isMobile() && moveSwipe($event, chat.id)"
+              @touchend="isMobile() && endSwipe(chat.id)"
+            >
+              <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
+              <div class="chat-info">
+                <p class="nick">{{ chat.nick }}</p>
+                <p class="last-message">{{ chat.lastMessage }}</p>
+              </div>
+              <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.id)">⋮</button>
+            </RouterLink>
           </div>
-          <RouterLink
-            :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
-            class="chat-item"
-            @touchstart="isMobile() && startSwipe($event, chat.id)"
-            @touchmove="isMobile() && moveSwipe($event, chat.id)"
-            @touchend="isMobile() && endSwipe(chat.id)"
-          >
-            <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
-            <div class="chat-info">
-              <p class="nick">{{ chat.nick }}</p>
-              <p class="last-message">{{ chat.lastMessage }}</p>
-            </div>
-            <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.id)">⋮</button>
-          </RouterLink>
         </div>
       </div>
     </div>
@@ -53,9 +47,7 @@
             <input v-model="modalInputValue" placeholder="Введите текст" />
           </div>
           <div class="modal-buttons">
-            <button v-for="btn in modalButtons" :key="btn.id"
-                    :class="['modal-btn', btn.type]"
-                    @click="handleModalAction(btn.id)">
+            <button v-for="btn in modalButtons" :key="btn.id" :class="['modal-btn', btn.type]" @click="handleModalAction(btn.id)">
               {{ btn.text }}
             </button>
           </div>
@@ -260,22 +252,6 @@ const endSwipe = (chatId) => {
   delete event.target.touchData;
 };
 
-const handleSwipeClick = (chatId, event) => {
-  if (Math.abs(swipeOffset.value[chatId]) >= 100) {
-    const swipeWidth = event.currentTarget.offsetWidth;
-    const clickPosition = event.clientX - event.currentTarget.getBoundingClientRect().left;
-
-    if (clickPosition > swipeWidth - 90) {
-      if (clickPosition > swipeWidth - 40) {
-        deleteChat(chatId);
-      } else {
-        reportChat(chatId);
-      }
-      swipeOffset.value[chatId] = 0;
-    }
-  }
-};
-
 const reportChat = async (chatId) => {
   showCustomPopup({
     title: 'Пожаловаться',
@@ -365,288 +341,341 @@ onMounted(() => {
 </script>
 
 <style scoped>
+body {
+    margin: 0;
+    font-family: 'Geologica', sans-serif;
+    background: linear-gradient(45deg, #0a0f1a, #141b2d);
+    color: white;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+* {
+    box-sizing: border-box;
+    transition: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+@keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.dynamic-bg {
+    animation: gradient-shift 15s ease infinite;
+    background-size: 200% 200%;
+}
+
+button, a, input, textarea, select {
+    -webkit-tap-highlight-color: transparent;
+}
+
+html {
+    overflow-x: hidden;
+    height: auto;
+}
+
 .container {
-  background: linear-gradient(45deg, #101622, #1a2233);
-  height: 100vh;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+    background: linear-gradient(45deg, #101622, #1a2233);
+    height: 100vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 .nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 h1 {
-  color: #97f492;
-  font-size: 28px;
-  margin: 0;
-  font-family: 'Inter', system-ui;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  text-shadow: 0 2px 4px rgba(151, 244, 146, 0.2);
+    color: #97f492;
+    font-size: 28px;
+    margin: 0;
+    font-family: 'Inter', system-ui;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    text-shadow: 0 2px 4px rgba(151, 244, 146, 0.2);
 }
 
 .home-button {
-  background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
-  padding: 8px 20px;
-  border-radius: 30px;
-  color: #000;
-  font-weight: 400;
-  text-decoration: none;
-  box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
-  transition: transform 0.3s, background 0.3s;
+    background: linear-gradient(135deg, #97f492 0%, #6de06a 100%);
+    padding: 8px 20px;
+    border-radius: 30px;
+    color: #000;
+    font-weight: 400;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(151, 244, 146, 0.3);
+    transition: transform 0.3s, background 0.3s;
 }
 
 .home-button:hover {
-  transform: translateY(-2px);
-  background: #6de06a;
+    transform: translateY(-2px);
+    background: #6de06a;
 }
 
 .chat-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .chat-list-wrapper {
-  flex: 1;
-  overflow-y: scroll;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+    flex: 1;
+    overflow-y: scroll;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
-  display: none;
+    display: none;
 }
 
 .chat-item-wrapper {
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 10px;
-  transition: transform 0.2s ease;
+    position: relative;
+    overflow: visible;
+    margin-bottom: 10px;
+}
+
+.chat-item-container {
+    position: relative;
+    z-index: 2;
 }
 
 .chat-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  background: #181e29;
-  border-radius: 20px;
-  padding: 15px;
-  text-decoration: none;
-  border: 1px solid #2d3540;
-  transition: background 0.2s;
-  position: relative;
-  z-index: 2;
-  pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #181e29;
+    border-radius: 20px;
+    padding: 15px;
+    text-decoration: none;
+    border: 1px solid #2d3540;
+    transition: transform 0.3s ease;
+    width: 100%;
 }
 
 .chat-item:hover {
-  background: #1f2633;
+    background: #1f2633;
 }
 
 .chat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  object-fit: cover;
-  aspect-ratio: 1/1;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    object-fit: cover;
+    aspect-ratio: 1/1;
 }
 
 .chat-info {
-  flex: 1;
+    flex: 1;
 }
 
 .nick {
-  color: #97f492;
-  font-size: 16px;
-  margin: 0;
-  font-family: 'Inter', system-ui;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+    color: #97f492;
+    font-size: 16px;
+    margin: 0;
+    font-family: 'Inter', system-ui;
+    font-weight: 600;
+    letter-spacing: -0.03em;
 }
 
 .last-message {
-  color: #b0b5bf;
-  font-size: 14px;
-  margin: 0;
-  line-height: 1.4;
+    color: #b0b5bf;
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.4;
 }
 
 .no-chats {
-  color: #97f492;
-  font-size: 16px;
-  text-align: center;
-  padding: 20px;
+    color: #97f492;
+    font-size: 16px;
+    text-align: center;
+    padding: 20px;
 }
 
 .options-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 0.5rem;
-  transition: background 0.2s;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: background 0.2s;
 }
 
 .options-btn:hover {
-  background: rgba(151, 244, 146, 0.2);
+    background: rgba(151, 244, 146, 0.2);
 }
 
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
 .modal-content {
-  background: #1a2233;
-  padding: 20px;
-  border-radius: 15px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    background: #1a2233;
+    padding: 20px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .modal-content h3 {
-  color: #97f492;
-  margin: 0 0 15px;
+    color: #97f492;
+    margin: 0 0 15px;
 }
 
 .modal-content p {
-  color: #fff;
-  margin: 0 0 20px;
+    color: #fff;
+    margin: 0 0 20px;
 }
 
 .modal-input {
-  margin-bottom: 20px;
+    margin-bottom: 20px;
 }
 
 .modal-input input {
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #97f492;
-  background: #272e38;
-  color: #fff;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #97f492;
+    background: #272e38;
+    color: #fff;
 }
 
 .modal-buttons {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 .modal-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: none;
-  cursor: pointer;
-  transition: transform 0.2s;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s;
 }
 
 .modal-btn:hover {
-  transform: translateY(-2px);
+    transform: translateY(-2px);
 }
 
 .modal-btn.default {
-  background: #97f492;
-  color: #000;
+    background: #97f492;
+    color: #000;
 }
 
 .modal-btn.destructive {
-  background: #ff4444;
-  color: #fff;
+    background: #ff4444;
+    color: #fff;
 }
 
 .modal-btn.cancel {
-  background: #2d3540;
-  color: #fff;
+    background: #2d3540;
+    color: #fff;
 }
 
 .modal-enter-active,
 .modal-leave-active {
-  transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease;
 }
 
 .modal-enter-from,
 .modal-leave-to {
-  opacity: 0;
+    opacity: 0;
 }
 
 .swipe-actions {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-right: 15px;
-  width: 120px;
-  pointer-events: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 15px;
+    width: 120px;
+    z-index: 1;
 }
 
 .swipe-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  user-select: none;
-  pointer-events: auto;
-  cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    user-select: none;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .report-icon {
-  background: #ffd700;
-  color: #000;
+    background: #ffd700;
+    color: #000;
 }
 
 .delete-icon {
-  background: #ff4444;
-  color: white;
+    background: #ff4444;
+    color: white;
 }
 
 @media (max-width: 768px) {
-  .chat-icon {
-    width: 48px;
-    height: 48px;
-  }
-  .home-button {
-    padding: 8px 16px;
-  }
+    .chat-icon {
+        width: 48px;
+        height: 48px;
+    }
+    .home-button {
+        padding: 8px 16px;
+    }
+    .swipe-actions {
+        display: none;
+    }
+    .chat-item-container.swiped .swipe-actions {
+        display: flex;
+    }
 }
 
 @media (min-height: 500px) and (orientation: landscape) {
-  .chat-header {
-    padding: 0.5rem;
-  }
-  .user-avatar {
-    width: 32px;
-    height: 32px;
-  }
+    .chat-header {
+        padding: 0.5rem;
+    }
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+    }
 }
 </style>
