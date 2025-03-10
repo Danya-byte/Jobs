@@ -111,6 +111,15 @@ const fetchMessages = async () => {
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
+    const chatId = `${jobId.value}_${targetUserId.value}`;
+    const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+    });
+    if (blockCheck.data.blocked) {
+      Telegram.WebApp.showAlert('Чат остановлен до вмешательства модерации и решения конфликта');
+      return;
+    }
+
     if (isOwner.value) {
       const response = await axios.post(
         `${BASE_URL}/api/chat/${targetUserId.value}`,

@@ -7,18 +7,21 @@
 
     <div class="chat-list">
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
-      <RouterLink
-        v-for="chat in chats"
-        :key="chat.id"
-        :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
-        class="chat-item"
-      >
-        <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
-        <div class="chat-info">
-          <p class="nick">{{ chat.nick }}</p>
-          <p class="last-message">{{ chat.lastMessage }}</p>
-        </div>
-      </RouterLink>
+      <div class="chat-list-wrapper">
+        <RouterLink
+          v-for="chat in chats"
+          :key="chat.id"
+          :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
+          class="chat-item"
+        >
+          <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
+          <div class="chat-info">
+            <p class="nick">{{ chat.nick }}</p>
+            <p class="last-message">{{ chat.lastMessage }}</p>
+          </div>
+          <button class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
+        </RouterLink>
+      </div>
     </div>
   </div>
 </template>
@@ -53,7 +56,6 @@ const fetchChats = async () => {
         const otherUserId = msg.authorUserId.toString() === currentUserId.value
           ? msg.targetUserId.toString()
           : msg.authorUserId.toString();
-
         const key = `${msg.jobId}_${otherUserId}`;
 
         if (!chatMap.has(key)) {
@@ -66,32 +68,36 @@ const fetchChats = async () => {
               nick: '',
               username: job.username || '',
               photoUrl: '',
+              lastMessageTime: new Date(0),
             });
           }
         }
         if (chatMap.has(key)) {
           chatMap.get(key).messages.push(msg);
+          const msgTime = new Date(msg.timestamp);
+          if (msgTime > chatMap.get(key).lastMessageTime) {
+            chatMap.get(key).lastMessageTime = msgTime;
+          }
         }
       }
     });
 
-    const chatsArray = Array.from(chatMap.entries());
-    for (const [key, chat] of chatsArray) {
+    const sortedChats = Array.from(chatMap.values()).sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+
+    for (const chat of sortedChats) {
       try {
         const userResponse = await axios.get(`${BASE_URL}/api/profile/${chat.targetUserId}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
         chat.nick = userResponse.data.nick || 'Unknown';
         chat.photoUrl = userResponse.data.photoUrl || defaultPhoto;
-        chatMap.set(key, chat);
       } catch (error) {
         chat.nick = 'Unknown';
         chat.photoUrl = defaultPhoto;
-        chatMap.set(key, chat);
       }
     }
 
-    chats.value = Array.from(chatMap.values()).map((chat) => {
+    chats.value = sortedChats.map((chat) => {
       const lastMessage = chat.messages[chat.messages.length - 1];
       return {
         id: `${chat.jobId}_${chat.targetUserId}`,
@@ -101,6 +107,7 @@ const fetchChats = async () => {
         username: chat.username,
         photoUrl: chat.photoUrl,
         lastMessage: lastMessage.text.slice(0, 30) + (lastMessage.text.length > 30 ? '...' : ''),
+        lastMessageTime: chat.lastMessageTime,
       };
     });
   } catch (error) {
@@ -110,6 +117,66 @@ const fetchChats = async () => {
 
 const handleImageError = (event) => {
   event.target.src = defaultPhoto;
+};
+
+const openOptions = (chatId) => {
+  const action = prompt('Выберите действие: 1 - Пожаловаться, 2 - Удалить чат');
+  if (action === '1') {
+    reportChat(chatId);
+  } else if (action === '2') {
+    deleteChat(chatId);
+  }
+};
+
+const reportChat = async (chatId) => {
+  const reason = prompt('Выберите причину жалобы: 1 - Спам, 2 - Оскорбления, 3 - Другое');
+  let reportText = '';
+  if (reason === '1') {
+    reportText = 'Спам';
+  } else if (reason === '2') {
+    reportText = 'Оскорбления';
+  } else if (reason === '3') {
+    reportText = prompt('Введите текст жалобы:');
+  } else {
+    return;
+  }
+
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/report`,
+      { chatId, reason: reportText },
+      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+    );
+    if (response.data.success) {
+      alert('Жалоба отправлена');
+      chats.value = chats.value.map(chat =>
+        chat.id === chatId ? { ...chat, blocked: true } : chat
+      );
+    } else {
+      alert('Ошибка при отправке жалобы');
+    }
+  } catch (error) {
+    console.error('Error reporting chat:', error);
+    alert('Ошибка при отправке жалобы');
+  }
+};
+
+const deleteChat = async (chatId) => {
+  if (confirm('Вы точно хотите удалить данный чат? История чата не удаляется тоже')) {
+    try {
+      const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+      });
+      if (response.data.success) {
+        chats.value = chats.value.filter((chat) => chat.id !== chatId);
+      } else {
+        alert('Ошибка при удалении чата');
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      alert('Ошибка при удалении чата');
+    }
+  }
 };
 
 onMounted(() => {
@@ -178,18 +245,13 @@ h1 {
 
 .chat-list-wrapper {
   flex: 1;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #97f492 transparent;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-list-wrapper::-webkit-scrollbar-thumb {
-  background: #97f492;
-  border-radius: 4px;
+  display: none;
 }
 
 .chat-item {
@@ -203,6 +265,7 @@ h1 {
   border: 1px solid #2d3540;
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   margin-bottom: 10px;
+  position: relative;
 }
 
 .chat-item:hover {
@@ -245,6 +308,20 @@ h1 {
   font-size: 16px;
   text-align: center;
   padding: 20px;
+}
+
+.options-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: background 0.2s;
+}
+
+.options-btn:hover {
+  background: rgba(151, 244, 146, 0.2);
 }
 
 @media (max-width: 768px) {
