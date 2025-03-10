@@ -13,7 +13,12 @@
           :key="chat.id"
           class="chat-item-wrapper"
           :style="{ transform: swipeOffset[chat.id] ? `translateX(${swipeOffset[chat.id]}px)` : 'translateX(0)' }"
+          @click.stop="handleSwipeClick(chat.id)"
         >
+          <div class="swipe-actions">
+            <div class="swipe-icon report-icon">⚠️</div>
+            <div class="swipe-icon delete-icon">🗑️</div>
+          </div>
           <RouterLink
             :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
             class="chat-item"
@@ -229,11 +234,28 @@ const moveSwipe = (event, chatId) => {
 
 const endSwipe = (chatId) => {
   if (!isMobile()) return;
-  if (swipeOffset.value[chatId] && swipeOffset.value[chatId] < -50) {
+  if (swipeOffset.value[chatId] < -50) {
     swipeOffset.value[chatId] = -100;
+    setTimeout(() => {
+      swipeOffset.value[chatId] = 0;
+    }, 1500);
   } else {
     swipeOffset.value[chatId] = 0;
   }
+};
+
+const handleSwipeClick = (chatId) => {
+  if (swipeOffset.value[chatId] === -100) {
+    const rect = event.target.getBoundingClientRect();
+    const iconWidth = 40;
+
+    if (event.clientX > rect.right - iconWidth * 2) {
+      deleteChat(chatId);
+    } else if (event.clientX > rect.right - iconWidth * 1) {
+      reportChat(chatId);
+    }
+  }
+  swipeOffset.value[chatId] = 0;
 };
 
 const reportChat = async (chatId) => {
@@ -551,6 +573,44 @@ h1 {
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
+}
+
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 20px;
+  transition: transform 0.2s ease;
+  transform: translateX(100%);
+}
+
+.swipe-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  user-select: none;
+}
+
+.report-icon {
+  background: #ffd700;
+  color: #000;
+}
+
+.delete-icon {
+  background: #ff4444;
+  color: white;
+}
+
+.chat-item-wrapper[style*="-100px"] .swipe-actions {
+  transform: translateX(0);
 }
 
 @media (max-width: 768px) {
