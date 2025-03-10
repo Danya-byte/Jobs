@@ -8,8 +8,8 @@
     <div class="chat-list">
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
       <div class="chat-list-wrapper">
-        <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper">
-          <div class="swipe-actions" :style="{ display: swipeOffset[chat.id] === -120 ? 'flex' : 'none' }">
+        <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper" :style="{ position: 'relative' }">
+          <div class="swipe-actions" :style="{ right: swipeOffset[chat.id] === -120 ? '0' : '-120px', display: 'flex' }">
             <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">⚠️</div>
             <div class="swipe-icon delete-icon" @click.stop="deleteChat(chat.id)">🗑️</div>
           </div>
@@ -101,11 +101,14 @@ const logToFile = (message) => {
 
 // Логирование видимости
 const logVisibility = (chatId) => {
-  const actions = document.querySelector(`.chat-item-wrapper[data-v-xxx] .swipe-actions`); // Замените xxx на реальный data-v атрибут
-  if (actions && window.getComputedStyle(actions).display !== 'none') {
-    logToFile(`Swipe actions visible for chat ${chatId}`);
-  } else {
-    logToFile(`Swipe actions not visible for chat ${chatId}`);
+  const wrapper = document.querySelector(`[data-v-xxx] .chat-item-wrapper`); // Замените xxx на реальный data-v атрибут
+  if (wrapper) {
+    const actions = wrapper.querySelector('.swipe-actions');
+    if (actions && window.getComputedStyle(actions).display !== 'none' && window.getComputedStyle(actions).visibility !== 'hidden') {
+      logToFile(`Swipe actions visible for chat ${chatId}`);
+    } else {
+      logToFile(`Swipe actions not visible for chat ${chatId} (display: ${window.getComputedStyle(actions).display}, visibility: ${window.getComputedStyle(actions).visibility})`);
+    }
   }
 };
 
@@ -446,7 +449,7 @@ html {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: relative; /* Изменили на relative для правильного позиционирования */
+    position: relative;
     top: 0;
     left: 0;
     right: 0;
@@ -499,7 +502,7 @@ h1 {
     overflow-y: scroll;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    position: relative; /* Убедимся, что контент внутри рендерится корректно */
+    position: relative;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
@@ -508,7 +511,7 @@ h1 {
 
 .chat-item-wrapper {
     position: relative;
-    overflow: visible; /* Убедимся, что иконки не обрезаются */
+    overflow: visible;
     margin-bottom: 10px;
 }
 
@@ -701,7 +704,7 @@ h1 {
     gap: 10px;
     padding-right: 15px;
     width: 120px;
-    z-index: 10; /* Увеличили z-index */
+    z-index: 10; /* Убедимся, что иконки поверх */
     background: green !important; /* Для теста */
 }
 
