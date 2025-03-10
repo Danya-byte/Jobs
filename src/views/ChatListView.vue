@@ -339,18 +339,18 @@ h1 {
   overflow: hidden;
   margin-bottom: 10px;
   transition: transform 0.2s ease;
+  background: #181e29;
 }
 
 .chat-item {
   display: flex;
   align-items: center;
   gap: 15px;
-  background: #181e29;
   border-radius: 20px;
   padding: 15px;
   text-decoration: none;
   border: 1px solid #2d3540;
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: box-shadow 0.2s;
   position: relative;
   z-index: 1;
 }
@@ -358,7 +358,6 @@ h1 {
 .chat-item:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-  border-color: #97f492;
   background: #1f2633;
 }
 
@@ -414,7 +413,7 @@ h1 {
 .swipe-actions {
   position: absolute;
   top: 0;
-  right: 0;
+  right: -100px;
   height: 100%;
   width: 100px;
   display: flex;
@@ -424,6 +423,7 @@ h1 {
   opacity: 0;
   transition: opacity 0.2s;
   z-index: 0;
+  border-radius: 0 20px 20px 0;
 }
 
 .swipe-actions.visible {
