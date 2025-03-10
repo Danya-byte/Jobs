@@ -393,6 +393,14 @@ body {
     overflow-y: auto;
 }
 
+.chat-item-container.swiped {
+    background: red !important;
+}
+.chat-item-container.swiped .swipe-actions {
+    display: flex !important;
+    background: green !important;
+}
+
 * {
     box-sizing: border-box;
     transition: none;
