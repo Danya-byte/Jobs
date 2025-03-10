@@ -1196,7 +1196,7 @@ bot.on("message:successful_payment", async (ctx) => {
 
         const notification =
           `*New Message\\!*\n\n` +
-          `User *${escapeMarkdownV2(authorUsername)}* sent you a message:\n` +
+          `User *${escapeMarkdownV2(authorData.first_name || "Unknown")}* sent you a message:\n` +
           `> ${escapeMarkdownV2(text)}\n\n` +
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
 

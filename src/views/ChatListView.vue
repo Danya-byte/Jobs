@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <nav class="nav-bar">
-      <h1>Chats</h1>
+      <h1>My chats</h1>
       <RouterLink to="/" class="home-button">Home</RouterLink>
     </nav>
 
