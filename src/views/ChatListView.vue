@@ -9,7 +9,7 @@
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
       <div class="chat-list-wrapper">
         <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper">
-          <div class="swipe-actions">
+          <div class="swipe-actions" :style="{ display: swipeOffset[chat.id] === -120 ? 'flex' : 'none' }">
             <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">⚠️</div>
             <div class="swipe-icon delete-icon" @click.stop="deleteChat(chat.id)">🗑️</div>
           </div>
@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
@@ -97,6 +97,16 @@ const logToFile = (message) => {
   const timestamp = new Date().toISOString();
   logs.value.push(`${timestamp}: ${message}`);
   if (logs.value.length > 50) logs.value.shift();
+};
+
+// Логирование видимости
+const logVisibility = (chatId) => {
+  const actions = document.querySelector(`.chat-item-wrapper[data-v-xxx] .swipe-actions`); // Замените xxx на реальный data-v атрибут
+  if (actions && window.getComputedStyle(actions).display !== 'none') {
+    logToFile(`Swipe actions visible for chat ${chatId}`);
+  } else {
+    logToFile(`Swipe actions not visible for chat ${chatId}`);
+  }
 };
 
 const fetchChats = async () => {
@@ -280,7 +290,7 @@ const moveSwipe = (event, chatId) => {
   if (Math.abs(deltaX) > Math.abs(deltaY)) {
     event.preventDefault();
     if (deltaX < 0) {
-      swipeOffset.value[chatId] = Math.max(deltaX, -120); // Ограничиваем сдвиг до -120
+      swipeOffset.value[chatId] = Math.max(deltaX, -120);
     }
   }
 };
@@ -291,6 +301,7 @@ const endSwipe = (chatId) => {
   if (delta < -60) {
     swipeOffset.value[chatId] = -120;
     logToFile(`Swipe fixed at -120 for chat ${chatId}`);
+    logVisibility(chatId); // Проверяем видимость
     setTimeout(() => {
       swipeOffset.value[chatId] = 0;
       logToFile(`Swipe reset for chat ${chatId}`);
@@ -393,14 +404,6 @@ body {
     overflow-y: auto;
 }
 
-.chat-item-container.swiped {
-    background: red !important;
-}
-.chat-item-container.swiped .swipe-actions {
-    display: flex !important;
-    background: green !important;
-}
-
 * {
     box-sizing: border-box;
     transition: none;
@@ -443,7 +446,7 @@ html {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: fixed;
+    position: relative; /* Изменили на relative для правильного позиционирования */
     top: 0;
     left: 0;
     right: 0;
@@ -496,6 +499,7 @@ h1 {
     overflow-y: scroll;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    position: relative; /* Убедимся, что контент внутри рендерится корректно */
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
@@ -504,7 +508,7 @@ h1 {
 
 .chat-item-wrapper {
     position: relative;
-    overflow: visible;
+    overflow: visible; /* Убедимся, что иконки не обрезаются */
     margin-bottom: 10px;
 }
 
@@ -524,6 +528,7 @@ h1 {
     border: 1px solid #2d3540;
     transition: transform 0.3s ease;
     width: 100%;
+    margin-right: 120px; /* Отступ для иконок */
 }
 
 .chat-item:hover {
@@ -689,14 +694,15 @@ h1 {
 .swipe-actions {
     position: absolute;
     top: 0;
-    right: 0;
+    right: -120px; /* Иконки скрыты справа, появляются при свайпе */
     bottom: 0;
     display: flex;
     align-items: center;
     gap: 10px;
     padding-right: 15px;
     width: 120px;
-    z-index: 1;
+    z-index: 10; /* Увеличили z-index */
+    background: green !important; /* Для теста */
 }
 
 .swipe-icon {
@@ -720,6 +726,14 @@ h1 {
 .delete-icon {
     background: #ff4444;
     color: white;
+}
+
+.chat-item-container.swiped {
+    background: red !important;
+}
+
+.chat-item-container.swiped .swipe-actions {
+    right: 0 !important; /* Показываем иконки при свайпе */
 }
 
 .log-overlay {
@@ -760,12 +774,6 @@ h1 {
     }
     .home-button {
         padding: 8px 16px;
-    }
-    .swipe-actions {
-        display: none;
-    }
-    .chat-item-container.swiped .swipe-actions {
-        display: flex !important;
     }
 }
 
