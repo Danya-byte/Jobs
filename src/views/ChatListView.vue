@@ -12,10 +12,18 @@
           v-for="chat in chats"
           :key="chat.id"
           class="chat-item-wrapper"
-          :style="{ transform: swipeOffset[chat.id] ? `translateX(${swipeOffset[chat.id]}px)` : 'translateX(0)' }"
-          @click.stop="handleSwipeClick(chat.id)"
+          :style="{
+            transform: `translateX(${swipeOffset[chat.id] || 0}px)`,
+            transition: swipeOffset[chat.id] ? 'none' : 'transform 0.2s ease'
+          }"
+          @click="handleSwipeClick(chat.id)"
         >
-          <div class="swipe-actions">
+          <div
+            class="swipe-actions"
+            :style="{
+              transform: `translateX(${swipeOffset[chat.id] ? swipeOffset[chat.id] + 100 : 100}%)`
+            }"
+          >
             <div class="swipe-icon report-icon">⚠️</div>
             <div class="swipe-icon delete-icon">🗑️</div>
           </div>
@@ -220,42 +228,52 @@ const openOptions = (chatId) => {
 
 const startSwipe = (event, chatId) => {
   if (!isMobile()) return;
-  swipeOffset.value[chatId] = 0;
-  event.target.startX = event.touches[0].clientX;
+  event.preventDefault();
+  const touch = event.touches[0];
+  touch.startX = touch.clientX;
+  touch.startY = touch.clientY;
+  touch.chatId = chatId;
+  event.target.touchData = touch;
 };
 
 const moveSwipe = (event, chatId) => {
-  if (!isMobile() || !event.target.startX) return;
-  const deltaX = event.touches[0].clientX - event.target.startX;
-  if (deltaX < 0 && deltaX > -100) {
-    swipeOffset.value[chatId] = deltaX;
+  const touch = event.target.touchData;
+  if (!touch || touch.chatId !== chatId) return;
+
+  const deltaX = event.touches[0].clientX - touch.startX;
+  if (Math.abs(deltaX) > Math.abs(event.touches[0].clientY - touch.startY)) {
+    event.preventDefault();
+    if (deltaX < 0 && deltaX > -120) {
+      swipeOffset.value[chatId] = deltaX;
+    }
   }
 };
 
 const endSwipe = (chatId) => {
-  if (!isMobile()) return;
-  if (swipeOffset.value[chatId] < -50) {
-    swipeOffset.value[chatId] = -100;
-    setTimeout(() => {
-      swipeOffset.value[chatId] = 0;
-    }, 1500);
+  const delta = swipeOffset.value[chatId];
+  if (delta < -60) {
+    swipeOffset.value[chatId] = -120;
+    setTimeout(() => swipeOffset.value[chatId] = 0, 1500);
   } else {
     swipeOffset.value[chatId] = 0;
   }
+  delete event.target.touchData;
 };
 
-const handleSwipeClick = (chatId) => {
-  if (swipeOffset.value[chatId] === -100) {
-    const rect = event.target.getBoundingClientRect();
-    const iconWidth = 40;
+const handleSwipeClick = (chatId, event) => {
+  if (Math.abs(swipeOffset.value[chatId]) >= 100) {
+    const swipeWidth = event.currentTarget.offsetWidth;
+    const clickPosition = event.clientX - event.currentTarget.getBoundingClientRect().left;
 
-    if (event.clientX > rect.right - iconWidth * 2) {
-      deleteChat(chatId);
-    } else if (event.clientX > rect.right - iconWidth * 1) {
-      reportChat(chatId);
+    if (clickPosition > swipeWidth - 90) {
+      if (clickPosition > swipeWidth - 40) {
+        deleteChat(chatId);
+      } else {
+        reportChat(chatId);
+      }
+      swipeOffset.value[chatId] = 0;
     }
   }
-  swipeOffset.value[chatId] = 0;
 };
 
 const reportChat = async (chatId) => {
@@ -431,7 +449,8 @@ h1 {
   border: 1px solid #2d3540;
   transition: background 0.2s;
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .chat-item:hover {
@@ -583,9 +602,9 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-right: 20px;
-  transition: transform 0.2s ease;
-  transform: translateX(100%);
+  padding-right: 15px;
+  width: 120px;
+  pointer-events: none;
 }
 
 .swipe-icon {
@@ -597,6 +616,8 @@ h1 {
   justify-content: center;
   font-size: 24px;
   user-select: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .report-icon {
@@ -607,10 +628,6 @@ h1 {
 .delete-icon {
   background: #ff4444;
   color: white;
-}
-
-.chat-item-wrapper[style*="-100px"] .swipe-actions {
-  transform: translateX(0);
 }
 
 @media (max-width: 768px) {
