@@ -669,7 +669,7 @@ h1 {
     color: #fff;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease;
-    margin-right: 5px;
+    margin-right: 10px;
 }
 
 .swipe-icon:hover {
