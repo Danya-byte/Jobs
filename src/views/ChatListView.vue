@@ -320,7 +320,7 @@ const deleteChat = async (chatId) => {
   console.log('Deleting chat:', chatId);
   setTimeout(() => {
     showCustomConfirm(
-      'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
+      'Вы точно хотите удалить данный чат? История чата удаляется тоже',
       async (buttonId) => {
         console.log('Delete confirmation:', buttonId);
         if (buttonId === 'confirm') {
