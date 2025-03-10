@@ -451,19 +451,14 @@ h1 {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-width: thin;
+    scrollbar-width: none;
     -ms-overflow-style: none;
     position: relative;
     width: 100%;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
-    width: 6px;
-}
-
-.chat-list-wrapper::-webkit-scrollbar-thumb {
-    background: #97f492;
-    border-radius: 10px;
+    width: 0;
 }
 
 .chat-item-wrapper {
