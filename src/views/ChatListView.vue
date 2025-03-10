@@ -15,6 +15,7 @@
           </div>
           <div
             class="chat-item-container"
+            :class="{ swiped: swipeOffset[chat.id] === -120 }"
             :style="{
               transform: `translateX(${swipeOffset[chat.id] || 0}px)`,
               transition: swipeOffset[chat.id] ? 'none' : 'transform 0.2s ease'
@@ -79,10 +80,31 @@ const modalButtons = ref([]);
 const modalCallback = ref(null);
 const modalInput = ref(false);
 const modalInputValue = ref('');
+const logs = ref([]); // Массив для хранения логов
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+// Функция логирования
+const logToFile = (message) => {
+  const timestamp = new Date().toISOString();
+  logs.value.push(`${timestamp}: ${message}`);
+  // Ограничиваем количество логов, чтобы не переполнить память
+  if (logs.value.length > 100) logs.value.shift();
+};
+
+// Сохранение логов и отправка в Telegram
+const saveLogs = () => {
+  const logString = logs.value.join('\n');
+  if (window.Telegram && window.Telegram.WebApp) {
+    Telegram.WebApp.sendData(logString); // Отправляем логи как данные
+    console.log('Logs sent to Telegram:', logString);
+  } else {
+    console.log('Telegram Web App not available. Logs:', logString);
+  }
+};
+
 const fetchChats = async () => {
+  logToFile('Fetching chats');
   try {
     const messagesResponse = await axios.get(`${BASE_URL}/api/chats`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
@@ -157,8 +179,9 @@ const fetchChats = async () => {
         lastMessageTime: chat.lastMessageTime,
       };
     });
+    logToFile('Chats fetched successfully');
   } catch (error) {
-    console.error('Error fetching chats:', error);
+    logToFile(`Error fetching chats: ${error.message}`);
   }
 };
 
@@ -167,15 +190,15 @@ const handleImageError = (event) => {
 };
 
 const showCustomPopup = (options, callback) => {
-  console.log('Opening popup:', options);
+  logToFile(`Opening popup: ${JSON.stringify(options)}`);
   if (isMobile()) {
-    console.log('Attempting Telegram popup');
+    logToFile('Attempting Telegram popup');
     Telegram.WebApp.showPopup(options, (buttonId) => {
-      console.log('Telegram popup callback:', buttonId);
+      logToFile(`Telegram popup callback: ${buttonId}`);
       callback(buttonId);
     });
   } else {
-    console.log('Showing custom modal');
+    logToFile('Showing custom modal');
     closeModal();
     modalTitle.value = options.title;
     modalMessage.value = options.message;
@@ -188,15 +211,15 @@ const showCustomPopup = (options, callback) => {
 };
 
 const showCustomConfirm = (message, callback) => {
-  console.log('Opening confirm:', message);
+  logToFile(`Opening confirm: ${message}`);
   if (isMobile()) {
-    console.log('Attempting Telegram confirm');
+    logToFile('Attempting Telegram confirm');
     Telegram.WebApp.showConfirm(message, (confirmed) => {
-      console.log('Telegram confirm callback:', confirmed);
+      logToFile(`Telegram confirm callback: ${confirmed}`);
       callback(confirmed ? 'confirm' : 'cancel');
     });
   } else {
-    console.log('Showing custom confirm modal');
+    logToFile('Showing custom confirm modal');
     closeModal();
     modalTitle.value = 'Подтверждение';
     modalMessage.value = message;
@@ -211,7 +234,7 @@ const showCustomConfirm = (message, callback) => {
 };
 
 const handleModalAction = (buttonId) => {
-  console.log('Modal action triggered:', buttonId, 'Input value:', modalInput.value ? modalInputValue.value : null);
+  logToFile(`Modal action triggered: ${buttonId}, Input value: ${modalInput.value ? modalInputValue.value : null}`);
   if (modalCallback.value && buttonId) {
     modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : null);
   }
@@ -222,6 +245,7 @@ const closeModal = () => {
   showModal.value = false;
   modalCallback.value = null;
   modalInputValue.value = '';
+  logToFile('Modal closed');
 };
 
 const openOptions = (chatId) => {
@@ -233,7 +257,7 @@ const openOptions = (chatId) => {
       { id: 'delete', type: 'destructive', text: 'Удалить чат' }
     ],
   }, (buttonId) => {
-    console.log('Options callback:', buttonId);
+    logToFile(`Options callback: ${buttonId}`);
     if (buttonId === 'report') reportChat(chatId);
     else if (buttonId === 'delete') deleteChat(chatId);
   });
@@ -247,6 +271,7 @@ const startSwipe = (event, chatId) => {
   touch.startY = touch.clientY;
   touch.chatId = chatId;
   event.target.touchData = touch;
+  logToFile(`Swipe started for chat ${chatId} at x: ${touch.startX}, y: ${touch.startY}`);
 };
 
 const moveSwipe = (event, chatId) => {
@@ -254,7 +279,9 @@ const moveSwipe = (event, chatId) => {
   if (!touch || touch.chatId !== chatId) return;
 
   const deltaX = event.touches[0].clientX - touch.startX;
-  if (Math.abs(deltaX) > Math.abs(event.touches[0].clientY - touch.startY)) {
+  const deltaY = event.touches[0].clientY - touch.startY;
+  logToFile(`Swipe moved for chat ${chatId}: deltaX=${deltaX}, deltaY=${deltaY}`);
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
     event.preventDefault();
     if (deltaX < 0 && deltaX > -120) {
       swipeOffset.value[chatId] = deltaX;
@@ -264,9 +291,13 @@ const moveSwipe = (event, chatId) => {
 
 const endSwipe = (chatId) => {
   const delta = swipeOffset.value[chatId];
+  logToFile(`Swipe ended for chat ${chatId}: delta=${delta}`);
   if (delta < -60) {
-    swipeOffset.value[chatId] = -120;
-    setTimeout(() => swipeOffset.value[chatId] = 0, 1500);
+    swipeOffset.value[chatId] = -120; // Фиксируем сдвиг для показа иконок
+    setTimeout(() => {
+      swipeOffset.value[chatId] = 0;
+      logToFile(`Swipe reset for chat ${chatId}`);
+    }, 1500);
   } else {
     swipeOffset.value[chatId] = 0;
   }
@@ -274,7 +305,7 @@ const endSwipe = (chatId) => {
 };
 
 const reportChat = async (chatId) => {
-  console.log('Reporting chat:', chatId);
+  logToFile(`Reporting chat: ${chatId}`);
   setTimeout(() => {
     showCustomPopup({
       title: 'Пожаловаться',
@@ -284,7 +315,7 @@ const reportChat = async (chatId) => {
       ],
       input: true,
     }, async (buttonId, inputText) => {
-      console.log('Report submitted:', buttonId, inputText);
+      logToFile(`Report submitted: ${buttonId}, ${inputText}`);
       if (buttonId === 'submit' && inputText) {
         await submitReport(chatId, inputText);
       }
@@ -294,14 +325,14 @@ const reportChat = async (chatId) => {
 };
 
 const submitReport = async (chatId, reportText) => {
-  console.log('Submitting report:', { chatId, reportText });
+  logToFile(`Submitting report: chatId=${chatId}, reportText=${reportText}`);
   try {
     const response = await axios.post(
       `${BASE_URL}/api/report`,
       { chatId, reason: reportText },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
-    console.log('Report response:', response.data);
+    logToFile(`Report response: ${JSON.stringify(response.data)}`);
     if (response.data.success) {
       Telegram.WebApp.showAlert('Жалоба отправлена');
       chats.value = chats.value.map(chat =>
@@ -311,31 +342,31 @@ const submitReport = async (chatId, reportText) => {
       Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
     }
   } catch (error) {
-    console.error('Error reporting chat:', error);
+    logToFile(`Error reporting chat: ${error.message}`);
     Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
   }
 };
 
 const deleteChat = async (chatId) => {
-  console.log('Deleting chat:', chatId);
+  logToFile(`Deleting chat: ${chatId}`);
   setTimeout(() => {
     showCustomConfirm(
-      'Вы точно хотите удалить данный чат? История чата удаляется тоже',
+      'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
       async (buttonId) => {
-        console.log('Delete confirmation:', buttonId);
+        logToFile(`Delete confirmation: ${buttonId}`);
         if (buttonId === 'confirm') {
           try {
             const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
               headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
             });
-            console.log('Delete response:', response.data);
+            logToFile(`Delete response: ${JSON.stringify(response.data)}`);
             if (response.data.success) {
               chats.value = chats.value.filter((chat) => chat.id !== chatId);
             } else {
               Telegram.WebApp.showAlert('Ошибка при удалении чата');
             }
           } catch (error) {
-            console.error('Error deleting chat:', error);
+            logToFile(`Error deleting chat: ${error.message}`);
             Telegram.WebApp.showAlert('Ошибка при удалении чата');
           }
         }
@@ -347,10 +378,12 @@ const deleteChat = async (chatId) => {
 
 onMounted(() => {
   if (!window.Telegram || !window.Telegram.WebApp) {
-    console.error('Telegram Web App not initialized');
+    logToFile('Telegram Web App not initialized');
   }
   fetchChats();
   if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
+  // Добавляем кнопку для сохранения логов (для тестирования)
+  setTimeout(() => saveLogs(), 10000); // Сохраняем логи через 10 секунд после загрузки
 });
 </script>
 
