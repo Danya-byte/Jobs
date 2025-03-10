@@ -155,7 +155,7 @@ const fetchChats = async () => {
     chats.value = sortedChats.map((chat) => {
       const lastMessage = chat.messages[chat.messages.length - 1];
       return {
-        id: `${chat.jobId}_${chat.targetUserId}`,
+        id: `${chat.jobId}`,
         targetUserId: chat.targetUserId,
         jobId: chat.jobId,
         nick: chat.nick,

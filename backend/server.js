@@ -983,23 +983,41 @@ app.delete("/api/chat/:chatId", async (req, res) => {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
 
-    const [jobId, targetUserId] = chatId.split('_');
+    const parts = chatId.split('_');
+    if (parts.length < 2) {
+      return res.status(400).json({ error: "Invalid chatId format" });
+    }
+    const jobId = parts[0];
+    const targetUserId = parts[1];
+    if (parts.length > 2) {
+      console.warn(`Unexpected extra parts in chatId: ${parts.slice(2).join('_')}`);
+    }
+
+    if (!Array.isArray(messagesData)) {
+      throw new Error('messagesData is not an array');
+    }
+
     messagesData = messagesData.filter(
-      (msg) => !(msg.jobId === jobId &&
+      (msg) => !(msg.jobId === `${jobId}_${targetUserId}` &&
                  (msg.authorUserId.toString() === user.id.toString() ||
-                  msg.targetUserId.toString() === user.id.toString()) &&
-                 (msg.authorUserId.toString() === targetUserId ||
-                  msg.targetUserId.toString() === targetUserId))
+                  msg.targetUserId.toString() === user.id.toString()))
     );
+
     await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
-    // Уведомление обоих пользователей
-    const otherUserId = targetUserId === user.id.toString() ? messagesData.find(msg => msg.jobId === jobId)?.authorUserId : targetUserId;
-    await bot.api.sendMessage(user.id, `Чат с @${otherUserId} удалён`);
-    await bot.api.sendMessage(otherUserId, `Чат с @${user.id} удалён`);
+    const otherUserId = targetUserId === user.id.toString()
+      ? messagesData.find(msg => msg.jobId === `${jobId}_${targetUserId}`)?.authorUserId
+      : targetUserId;
+    if (otherUserId) {
+      await bot.api.sendMessage(user.id, `Чат с @${otherUserId} удалён`);
+      await bot.api.sendMessage(otherUserId, `Чат с @${user.id} удалён`);
+    } else {
+      console.warn('Could not determine otherUserId for chat:', chatId);
+    }
 
     res.json({ success: true });
   } catch (error) {
+    console.error('Error deleting chat:', error);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
