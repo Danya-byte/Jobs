@@ -9,7 +9,7 @@
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
       <div class="chat-list-wrapper">
         <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper" :style="{ position: 'relative' }">
-          <div class="swipe-actions" :style="{ right: swipeOffset[chat.id] === -120 ? '0' : '-120px', display: 'flex' }">
+          <div v-if="isMobile()" class="swipe-actions" :style="{ right: swipeOffset[chat.id] === -120 ? '0' : '-120px', display: 'flex' }">
             <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3 3H21L12 21L3 3Z" fill="currentColor" />
@@ -341,9 +341,14 @@ body {
     background: linear-gradient(45deg, #0a0f1a, #141b2d);
     color: white;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+    overflow-y: hidden; /* Убираем вертикальный скролл для body */
+}
+
+html {
     overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-y: hidden; /* Убираем скролл для всей страницы */
+    height: 100%;
 }
 
 * {
@@ -376,23 +381,16 @@ button, a, input, textarea, select {
     -webkit-tap-highlight-color: transparent;
 }
 
-html {
-    overflow-x: hidden;
-    height: auto;
-}
-
 .container {
     background: linear-gradient(45deg, #101622, #1a2233);
     height: 100vh;
     padding: 20px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; /* Убираем скролл для контейнера */
     position: relative;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    width: 100%;
+    max-width: 100%; /* Ограничиваем ширину */
 }
 
 .nav-bar {
@@ -401,6 +399,7 @@ html {
     align-items: center;
     margin-bottom: 20px;
     flex-shrink: 0;
+    width: 100%;
 }
 
 h1 {
@@ -433,30 +432,40 @@ h1 {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; /* Убираем скролл для .chat-list */
+    width: 100%;
 }
 
 .chat-list-wrapper {
     flex: 1;
-    overflow-y: scroll;
-    scrollbar-width: none;
+    overflow-y: auto; /* Только вертикальный скролл для чатов */
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+    scrollbar-width: thin; /* Тонкая полоса прокрутки */
     -ms-overflow-style: none;
     position: relative;
+    width: 100%;
 }
 
 .chat-list-wrapper::-webkit-scrollbar {
-    display: none;
+    width: 6px; /* Тонкая полоса прокрутки для Webkit */
+}
+
+.chat-list-wrapper::-webkit-scrollbar-thumb {
+    background: #97f492;
+    border-radius: 10px;
 }
 
 .chat-item-wrapper {
     position: relative;
     overflow: visible;
     margin-bottom: 10px;
+    width: 100%;
 }
 
 .chat-item-container {
     position: relative;
     z-index: 2;
+    width: 100%;
 }
 
 .chat-item {
@@ -470,7 +479,7 @@ h1 {
     border: 1px solid #2d3540;
     transition: transform 0.3s ease;
     width: 100%;
-    margin-right: 120px;
+    box-sizing: border-box; /* Учитываем padding в ширине */
 }
 
 .chat-item:hover {
@@ -487,6 +496,7 @@ h1 {
 
 .chat-info {
     flex: 1;
+    overflow: hidden; /* Предотвращаем выход текста за пределы */
 }
 
 .nick {
@@ -496,6 +506,9 @@ h1 {
     font-family: 'Inter', system-ui;
     font-weight: 600;
     letter-spacing: -0.03em;
+    white-space: nowrap; /* Предотвращаем перенос текста */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .last-message {
@@ -503,6 +516,9 @@ h1 {
     font-size: 14px;
     margin: 0;
     line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .no-chats {
@@ -537,6 +553,7 @@ h1 {
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    overflow: hidden; /* Убираем скролл для модального окна */
 }
 
 .modal-content {
@@ -646,12 +663,6 @@ h1 {
     background: linear-gradient(90deg, #181e29 0%, #2d3540 100%);
     border-radius: 0 20px 20px 0;
     transition: right 0.2s ease;
-}
-
-@media (min-width: 769px) {
-    .swipe-actions {
-        display: none !important;
-    }
 }
 
 .swipe-icon {
