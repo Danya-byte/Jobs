@@ -17,16 +17,16 @@
           <RouterLink
             :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
             class="chat-item"
-            @touchstart="isMobile && startSwipe($event, chat.id)"
-            @touchmove="isMobile && moveSwipe($event, chat.id)"
-            @touchend="isMobile && endSwipe(chat.id)"
+            @touchstart="isMobile() && startSwipe($event, chat.id)"
+            @touchmove="isMobile() && moveSwipe($event, chat.id)"
+            @touchend="isMobile() && endSwipe(chat.id)"
           >
             <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
             <div class="chat-info">
               <p class="nick">{{ chat.nick }}</p>
               <p class="last-message">{{ chat.lastMessage }}</p>
             </div>
-            <button v-if="!isMobile" class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
+            <button v-if="!isMobile()" class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
           </RouterLink>
           <div class="swipe-actions" :class="{ visible: swipeOffset[chat.id] < -50 }">
             <div class="action report" @click.stop="reportChat(chat.id)">
@@ -55,7 +55,8 @@ const chats = ref([]);
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
 const swipeOffset = ref({});
-const isMobile = ref(window.innerWidth <= 768);
+
+const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 const fetchChats = async () => {
   try {
@@ -157,13 +158,13 @@ const openOptions = (chatId) => {
 };
 
 const startSwipe = (event, chatId) => {
-  if (!isMobile.value) return;
+  if (!isMobile()) return;
   swipeOffset.value[chatId] = 0;
   event.target.startX = event.touches[0].clientX;
 };
 
 const moveSwipe = (event, chatId) => {
-  if (!isMobile.value || !event.target.startX) return;
+  if (!isMobile() || !event.target.startX) return;
   const deltaX = event.touches[0].clientX - event.target.startX;
   if (deltaX < 0 && deltaX > -100) {
     swipeOffset.value[chatId] = deltaX;
@@ -171,7 +172,7 @@ const moveSwipe = (event, chatId) => {
 };
 
 const endSwipe = (chatId) => {
-  if (!isMobile.value) return;
+  if (!isMobile()) return;
   if (swipeOffset.value[chatId] && swipeOffset.value[chatId] < -50) {
     swipeOffset.value[chatId] = -100;
   } else {
@@ -256,14 +257,9 @@ const deleteChat = async (chatId) => {
   swipeOffset.value[chatId] = 0;
 };
 
-const handleResize = () => {
-  isMobile.value = window.innerWidth <= 768;
-};
-
 onMounted(() => {
   fetchChats();
   if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
-  window.addEventListener('resize', handleResize);
 });
 </script>
 
@@ -339,25 +335,23 @@ h1 {
   overflow: hidden;
   margin-bottom: 10px;
   transition: transform 0.2s ease;
-  background: #181e29;
 }
 
 .chat-item {
   display: flex;
   align-items: center;
   gap: 15px;
+  background: #181e29;
   border-radius: 20px;
   padding: 15px;
   text-decoration: none;
   border: 1px solid #2d3540;
-  transition: box-shadow 0.2s;
+  transition: background 0.2s;
   position: relative;
   z-index: 1;
 }
 
 .chat-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
   background: #1f2633;
 }
 
@@ -420,7 +414,6 @@ h1 {
   align-items: center;
   justify-content: space-around;
   background: #1a2233;
-  opacity: 0;
   transition: opacity 0.2s;
   z-index: 0;
   border-radius: 0 20px 20px 0;
