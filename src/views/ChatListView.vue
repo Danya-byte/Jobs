@@ -278,38 +278,16 @@ const reportChat = async (chatId) => {
   setTimeout(() => {
     showCustomPopup({
       title: 'Пожаловаться',
-      message: 'Выберите причину жалобы',
+      message: 'Укажите причину жалобы',
       buttons: [
-        { id: 'spam', type: 'default', text: 'Спам' },
-        { id: 'insult', type: 'default', text: 'Оскорбления' },
-        { id: 'other', type: 'default', text: 'Другое' },
-        { id: 'cancel', type: 'cancel', text: 'Отмена' }
+        { id: 'submit', type: 'default', text: 'Отправить' }
       ],
-    }, async (buttonId) => {
-      console.log('Report reason selected:', buttonId);
-      if (buttonId === 'cancel') return;
-
-      let reportText = '';
-      if (buttonId === 'spam') reportText = 'Спам';
-      else if (buttonId === 'insult') reportText = 'Оскорбления';
-      else if (buttonId === 'other') {
-        showCustomPopup({
-          title: 'Укажите причину',
-          message: 'Введите текст жалобы',
-          buttons: [
-            { id: 'submit', type: 'default', text: 'Отправить' },
-            { id: 'cancel', type: 'cancel', text: 'Отмена' }
-          ],
-          input: true,
-        }, async (submitButtonId, inputText) => {
-          console.log('Other reason submitted:', submitButtonId, inputText);
-          if (submitButtonId === 'submit' && inputText) {
-            await submitReport(chatId, inputText);
-          }
-        });
-        return;
+      input: true,
+    }, async (buttonId, inputText) => {
+      console.log('Report submitted:', buttonId, inputText);
+      if (buttonId === 'submit' && inputText) {
+        await submitReport(chatId, inputText);
       }
-      if (reportText) await submitReport(chatId, reportText);
     });
   }, 300);
   swipeOffset.value[chatId] = 0;
@@ -340,28 +318,30 @@ const submitReport = async (chatId, reportText) => {
 
 const deleteChat = async (chatId) => {
   console.log('Deleting chat:', chatId);
-  showCustomConfirm(
-    'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
-    async (buttonId) => {
-      console.log('Delete confirmation:', buttonId);
-      if (buttonId === 'confirm') {
-        try {
-          const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
-            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-          });
-          console.log('Delete response:', response.data);
-          if (response.data.success) {
-            chats.value = chats.value.filter((chat) => chat.id !== chatId);
-          } else {
+  setTimeout(() => {
+    showCustomConfirm(
+      'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
+      async (buttonId) => {
+        console.log('Delete confirmation:', buttonId);
+        if (buttonId === 'confirm') {
+          try {
+            const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
+              headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+            });
+            console.log('Delete response:', response.data);
+            if (response.data.success) {
+              chats.value = chats.value.filter((chat) => chat.id !== chatId);
+            } else {
+              Telegram.WebApp.showAlert('Ошибка при удалении чата');
+            }
+          } catch (error) {
+            console.error('Error deleting chat:', error);
             Telegram.WebApp.showAlert('Ошибка при удалении чата');
           }
-        } catch (error) {
-          console.error('Error deleting chat:', error);
-          Telegram.WebApp.showAlert('Ошибка при удалении чата');
         }
       }
-    }
-  );
+    );
+  }, 300);
   swipeOffset.value[chatId] = 0;
 };
 
@@ -627,8 +607,8 @@ h1 {
 
 .modal-buttons {
     display: flex;
+    justify-content: space-around;
     gap: 10px;
-    justify-content: flex-end;
 }
 
 .modal-btn {
@@ -637,6 +617,8 @@ h1 {
     border: none;
     cursor: pointer;
     transition: transform 0.2s;
+    flex: 1;
+    text-align: center;
 }
 
 .modal-btn:hover {
