@@ -8,22 +8,39 @@
     <div class="chat-list">
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
       <div class="chat-list-wrapper">
-        <RouterLink
+        <div
           v-for="chat in chats"
           :key="chat.id"
-          :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
-          class="chat-item"
+          class="chat-item-wrapper"
+          :style="{ transform: swipeOffset[chat.id] ? `translateX(${swipeOffset[chat.id]}px)` : 'translateX(0)' }"
           @touchstart="startSwipe($event, chat.id)"
-          @touchmove="moveSwipe($event)"
+          @touchmove="moveSwipe($event, chat.id)"
           @touchend="endSwipe(chat.id)"
         >
-          <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
-          <div class="chat-info">
-            <p class="nick">{{ chat.nick }}</p>
-            <p class="last-message">{{ chat.lastMessage }}</p>
+          <RouterLink
+            :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
+            class="chat-item"
+          >
+            <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
+            <div class="chat-info">
+              <p class="nick">{{ chat.nick }}</p>
+              <p class="last-message">{{ chat.lastMessage }}</p>
+            </div>
+            <button v-if="!isMobile" class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
+          </RouterLink>
+          <div class="swipe-actions" :class="{ visible: swipeOffset[chat.id] < -50 }">
+            <div class="action report" @click.stop="reportChat(chat.id)">
+              <svg width="24" height="24" viewBox="0 0 24 24">
+                <path d="M12 2L2 22h20L12 2z" fill="#ffcc00" />
+              </svg>
+            </div>
+            <div class="action delete" @click.stop="deleteChat(chat.id)">
+              <svg width="24" height="24" viewBox="0 0 24 24">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="#ff4444" />
+              </svg>
+            </div>
           </div>
-          <button class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
-        </RouterLink>
+        </div>
       </div>
     </div>
   </div>
@@ -37,9 +54,8 @@ const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const chats = ref([]);
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
-const swipeStartX = ref(null);
-const swipeCurrentX = ref(null);
-const activeChatId = ref(null);
+const swipeOffset = ref({});
+const isMobile = ref(window.innerWidth <= 768);
 
 const fetchChats = async () => {
   try {
@@ -135,34 +151,32 @@ const openOptions = (chatId) => {
       { type: 'cancel', text: 'Отмена' },
     ],
   }, (buttonId) => {
-    if (buttonId === 'report') {
-      reportChat(chatId);
-    } else if (buttonId === 'delete') {
-      deleteChat(chatId);
-    }
+    if (buttonId === 'report') reportChat(chatId);
+    else if (buttonId === 'delete') deleteChat(chatId);
   });
 };
 
 const startSwipe = (event, chatId) => {
-  swipeStartX.value = event.touches[0].clientX;
-  activeChatId.value = chatId;
+  if (!isMobile.value) return;
+  swipeOffset.value[chatId] = 0;
+  event.target.startX = event.touches[0].clientX;
 };
 
-const moveSwipe = (event) => {
-  if (swipeStartX.value === null) return;
-  swipeCurrentX.value = event.touches[0].clientX;
+const moveSwipe = (event, chatId) => {
+  if (!isMobile.value || !event.target.startX) return;
+  const deltaX = event.touches[0].clientX - event.target.startX;
+  if (deltaX < 0 && deltaX > -100) {
+    swipeOffset.value[chatId] = deltaX;
+  }
 };
 
 const endSwipe = (chatId) => {
-  if (swipeStartX.value !== null && swipeCurrentX.value !== null) {
-    const deltaX = swipeCurrentX.value - swipeStartX.value;
-    if (deltaX < -50) {
-      openOptions(chatId);
-    }
+  if (!isMobile.value) return;
+  if (swipeOffset.value[chatId] && swipeOffset.value[chatId] < -50) {
+    swipeOffset.value[chatId] = -100;
+  } else {
+    swipeOffset.value[chatId] = 0;
   }
-  swipeStartX.value = null;
-  swipeCurrentX.value = null;
-  activeChatId.value = null;
 };
 
 const reportChat = async (chatId) => {
@@ -177,11 +191,9 @@ const reportChat = async (chatId) => {
     ],
   }, async (buttonId) => {
     let reportText = '';
-    if (buttonId === 'spam') {
-      reportText = 'Спам';
-    } else if (buttonId === 'insult') {
-      reportText = 'Оскорбления';
-    } else if (buttonId === 'other') {
+    if (buttonId === 'spam') reportText = 'Спам';
+    else if (buttonId === 'insult') reportText = 'Оскорбления';
+    else if (buttonId === 'other') {
       Telegram.WebApp.showPopup({
         title: 'Укажите причину',
         message: 'Введите текст жалобы',
@@ -191,16 +203,12 @@ const reportChat = async (chatId) => {
         ],
         input: true,
       }, async (submitButtonId, inputText) => {
-        if (submitButtonId === 'submit' && inputText) {
-          await submitReport(chatId, inputText);
-        }
+        if (submitButtonId === 'submit' && inputText) await submitReport(chatId, inputText);
       });
-      return;
-    } else {
-      return;
-    }
-    await submitReport(chatId, reportText);
+    } else return;
+    if (reportText) await submitReport(chatId, reportText);
   });
+  swipeOffset.value[chatId] = 0;
 };
 
 const submitReport = async (chatId, reportText) => {
@@ -245,13 +253,17 @@ const deleteChat = async (chatId) => {
       }
     }
   );
+  swipeOffset.value[chatId] = 0;
+};
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768;
 };
 
 onMounted(() => {
   fetchChats();
-  if (Telegram.WebApp.setHeaderColor) {
-    Telegram.WebApp.setHeaderColor('#97f492');
-  }
+  if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
+  window.addEventListener('resize', handleResize);
 });
 </script>
 
@@ -322,6 +334,12 @@ h1 {
   display: none;
 }
 
+.chat-item-wrapper {
+  position: relative;
+  margin-bottom: 10px;
+  transition: transform 0.2s ease;
+}
+
 .chat-item {
   display: flex;
   align-items: center;
@@ -332,8 +350,6 @@ h1 {
   text-decoration: none;
   border: 1px solid #2d3540;
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-  margin-bottom: 10px;
-  position: relative;
 }
 
 .chat-item:hover {
@@ -390,6 +406,40 @@ h1 {
 
 .options-btn:hover {
   background: rgba(151, 244, 146, 0.2);
+}
+
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: -100px;
+  height: 100%;
+  width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.swipe-actions.visible {
+  opacity: 1;
+}
+
+.action {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.report svg {
+  fill: #ffcc00;
+}
+
+.delete svg {
+  fill: #ff4444;
 }
 
 @media (max-width: 768px) {
