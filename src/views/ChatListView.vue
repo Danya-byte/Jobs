@@ -10,7 +10,13 @@
       <div class="chat-list-wrapper">
         <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper" :style="{ position: 'relative' }">
           <div class="swipe-actions" :style="{ right: swipeOffset[chat.id] === -120 ? '0' : '-120px', display: 'flex' }">
-            <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">⚠️</div>
+            <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 3H21L12 21L3 3Z" fill="currentColor" />
+                <path d="M12 7V13" stroke="#000" stroke-width="2" stroke-linecap="round" />
+                <circle cx="12" cy="15" r="1" fill="#000" />
+              </svg>
+            </div>
             <div class="swipe-icon delete-icon" @click.stop="deleteChat(chat.id)">🗑️</div>
           </div>
           <div
@@ -293,7 +299,9 @@ const moveSwipe = (event, chatId) => {
   if (Math.abs(deltaX) > Math.abs(deltaY)) {
     event.preventDefault();
     if (deltaX < 0) {
-      swipeOffset.value[chatId] = Math.max(deltaX, -120);
+      swipeOffset.value[chatId] = Math.max(deltaX, -120); // Свайп влево
+    } else if (swipeOffset.value[chatId] === -120) {
+      swipeOffset.value[chatId] = Math.min(deltaX, 0); // Свайп вправо, если уже открыт
     }
   }
 };
@@ -304,13 +312,11 @@ const endSwipe = (chatId) => {
   if (delta < -60) {
     swipeOffset.value[chatId] = -120;
     logToFile(`Swipe fixed at -120 for chat ${chatId}`);
-    logVisibility(chatId); // Проверяем видимость
-    setTimeout(() => {
-      swipeOffset.value[chatId] = 0;
-      logToFile(`Swipe reset for chat ${chatId}`);
-    }, 1500);
-  } else {
+    logVisibility(chatId);
+    // Убрали автоматический сброс
+  } else if (delta > -60) {
     swipeOffset.value[chatId] = 0;
+    logToFile(`Swipe reset to 0 for chat ${chatId}`);
   }
   delete event.target.touchData;
 };
@@ -531,7 +537,7 @@ h1 {
     border: 1px solid #2d3540;
     transition: transform 0.3s ease;
     width: 100%;
-    margin-right: 120px;
+    margin-right: 120px; /* Отступ для иконок */
 }
 
 .chat-item:hover {
@@ -739,6 +745,11 @@ h1 {
 
 .report-icon {
     background: linear-gradient(135deg, #ffd700 0%, #e6c200 100%);
+}
+
+.report-icon svg {
+    width: 24px;
+    height: 24px;
 }
 
 .delete-icon {
