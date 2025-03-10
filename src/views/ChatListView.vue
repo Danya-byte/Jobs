@@ -41,6 +41,7 @@
     <transition name="modal">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal-content">
+          <button class="close-btn" @click="closeModal">✖</button>
           <h3>{{ modalTitle }}</h3>
           <p>{{ modalMessage }}</p>
           <div v-if="modalInput" class="modal-input">
@@ -229,8 +230,7 @@ const openOptions = (chatId) => {
     message: 'Выберите действие',
     buttons: [
       { id: 'report', type: 'default', text: 'Пожаловаться' },
-      { id: 'delete', type: 'destructive', text: 'Удалить чат' },
-      { id: 'cancel', type: 'cancel', text: 'Отмена' },
+      { id: 'delete', type: 'destructive', text: 'Удалить чат' }
     ],
   }, (buttonId) => {
     console.log('Options callback:', buttonId);
@@ -283,7 +283,7 @@ const reportChat = async (chatId) => {
         { id: 'spam', type: 'default', text: 'Спам' },
         { id: 'insult', type: 'default', text: 'Оскорбления' },
         { id: 'other', type: 'default', text: 'Другое' },
-        { id: 'cancel', type: 'cancel', text: 'Отмена' },
+        { id: 'cancel', type: 'cancel', text: 'Отмена' }
       ],
     }, async (buttonId) => {
       console.log('Report reason selected:', buttonId);
@@ -298,7 +298,7 @@ const reportChat = async (chatId) => {
           message: 'Введите текст жалобы',
           buttons: [
             { id: 'submit', type: 'default', text: 'Отправить' },
-            { id: 'cancel', type: 'cancel', text: 'Отмена' },
+            { id: 'cancel', type: 'cancel', text: 'Отмена' }
           ],
           input: true,
         }, async (submitButtonId, inputText) => {
@@ -583,6 +583,23 @@ h1 {
     width: 90%;
     max-width: 400px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.close-btn:hover {
+    color: #97f492;
 }
 
 .modal-content h3 {
