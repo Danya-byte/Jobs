@@ -640,8 +640,7 @@ h1 {
     bottom: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding-right: 35px;
+    justify-content: space-around;
     width: 120px;
     z-index: 10;
     background: linear-gradient(90deg, #181e29 0%, #2d3540 100%);
@@ -656,28 +655,28 @@ h1 {
 }
 
 .swipe-icon {
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 22px;
     user-select: none;
     pointer-events: auto;
     cursor: pointer;
     color: #fff;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease;
-    margin-right: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .swipe-icon:hover {
     transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.3);
 }
 
 .report-icon {
-    background: linear-gradient(135deg, #ffd700 0%, #e6c200 100%);
+    background: linear-gradient(135deg, #ffeb3b 0%, #fbc02d 100%);
 }
 
 .report-icon svg {
@@ -687,7 +686,7 @@ h1 {
 }
 
 .delete-icon {
-    background: linear-gradient(135deg, #ff5555 0%, #e63939 100%);
+    background: linear-gradient(135deg, #ff6f61 0%, #d32f2f 100%);
 }
 
 .chat-item-container.swiped {
