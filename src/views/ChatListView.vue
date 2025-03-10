@@ -28,21 +28,27 @@
             </div>
             <button v-if="!isMobile()" class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
           </RouterLink>
-          <div class="swipe-actions" :class="{ visible: swipeOffset[chat.id] < -50 }">
-            <div class="action report" @click.stop="reportChat(chat.id)">
-              <svg width="24" height="24" viewBox="0 0 24 24">
-                <path d="M12 2L2 22h20L12 2z" fill="#ffcc00" />
-              </svg>
-            </div>
-            <div class="action delete" @click.stop="deleteChat(chat.id)">
-              <svg width="24" height="24" viewBox="0 0 24 24">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="#ff4444" />
-              </svg>
-            </div>
-          </div>
         </div>
       </div>
     </div>
+    <transition name="modal">
+      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+        <div class="modal-content">
+          <h3>{{ modalTitle }}</h3>
+          <p>{{ modalMessage }}</p>
+          <div v-if="modalInput" class="modal-input">
+            <input v-model="modalInputValue" placeholder="Введите текст" />
+          </div>
+          <div class="modal-buttons">
+            <button v-for="btn in modalButtons" :key="btn.id"
+                    :class="['modal-btn', btn.type]"
+                    @click="handleModalAction(btn.id)">
+              {{ btn.text }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -55,6 +61,13 @@ const chats = ref([]);
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
 const swipeOffset = ref({});
+const showModal = ref(false);
+const modalTitle = ref('');
+const modalMessage = ref('');
+const modalButtons = ref([]);
+const modalCallback = ref(null);
+const modalInput = ref(false);
+const modalInputValue = ref('');
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -142,8 +155,50 @@ const handleImageError = (event) => {
   event.target.src = defaultPhoto;
 };
 
+const showCustomPopup = (options, callback) => {
+  if (isMobile()) {
+    Telegram.WebApp.showPopup(options, callback);
+  } else {
+    modalTitle.value = options.title;
+    modalMessage.value = options.message;
+    modalButtons.value = options.buttons;
+    modalInput.value = options.input || false;
+    modalInputValue.value = '';
+    modalCallback.value = callback;
+    showModal.value = true;
+  }
+};
+
+const showCustomConfirm = (message, callback) => {
+  if (isMobile()) {
+    Telegram.WebApp.showConfirm(message, callback);
+  } else {
+    modalTitle.value = 'Подтверждение';
+    modalMessage.value = message;
+    modalButtons.value = [
+      { id: 'confirm', type: 'default', text: 'Да' },
+      { id: 'cancel', type: 'cancel', text: 'Нет' }
+    ];
+    modalCallback.value = callback;
+    modalInput.value = false;
+    showModal.value = true;
+  }
+};
+
+const handleModalAction = (buttonId) => {
+  if (modalCallback.value) {
+    modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : undefined);
+  }
+  closeModal();
+};
+
+const closeModal = () => {
+  showModal.value = false;
+  modalCallback.value = null;
+};
+
 const openOptions = (chatId) => {
-  Telegram.WebApp.showPopup({
+  showCustomPopup({
     title: 'Действия с чатом',
     message: 'Выберите действие',
     buttons: [
@@ -181,7 +236,7 @@ const endSwipe = (chatId) => {
 };
 
 const reportChat = async (chatId) => {
-  Telegram.WebApp.showPopup({
+  showCustomPopup({
     title: 'Пожаловаться',
     message: 'Выберите причину жалобы',
     buttons: [
@@ -190,12 +245,12 @@ const reportChat = async (chatId) => {
       { id: 'other', type: 'default', text: 'Другое' },
       { type: 'cancel', text: 'Отмена' },
     ],
-  }, async (buttonId) => {
+  }, async (buttonId, inputText) => {
     let reportText = '';
     if (buttonId === 'spam') reportText = 'Спам';
     else if (buttonId === 'insult') reportText = 'Оскорбления';
     else if (buttonId === 'other') {
-      Telegram.WebApp.showPopup({
+      showCustomPopup({
         title: 'Укажите причину',
         message: 'Введите текст жалобы',
         buttons: [
@@ -234,10 +289,10 @@ const submitReport = async (chatId, reportText) => {
 };
 
 const deleteChat = async (chatId) => {
-  Telegram.WebApp.showConfirm(
+  showCustomConfirm(
     'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
     async (confirmed) => {
-      if (confirmed) {
+      if (confirmed === 'confirm') {
         try {
           const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
             headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
@@ -404,40 +459,92 @@ h1 {
   background: rgba(151, 244, 146, 0.2);
 }
 
-.swipe-actions {
-  position: absolute;
+.modal-overlay {
+  position: fixed;
   top: 0;
-  right: -100px;
-  height: 100%;
-  width: 100px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
-  align-items: center;
-  justify-content: space-around;
-  background: #1a2233;
-  transition: opacity 0.2s;
-  z-index: 0;
-  border-radius: 0 20px 20px 0;
-}
-
-.swipe-actions.visible {
-  opacity: 1;
-}
-
-.action {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a2233;
+  padding: 20px;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content h3 {
+  color: #97f492;
+  margin: 0 0 15px;
+}
+
+.modal-content p {
+  color: #fff;
+  margin: 0 0 20px;
+}
+
+.modal-input {
+  margin-bottom: 20px;
+}
+
+.modal-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #97f492;
+  background: #272e38;
+  color: #fff;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
   cursor: pointer;
+  transition: transform 0.2s;
 }
 
-.report svg {
-  fill: #ffcc00;
+.modal-btn:hover {
+  transform: translateY(-2px);
 }
 
-.delete svg {
-  fill: #ff4444;
+.modal-btn.default {
+  background: #97f492;
+  color: #000;
+}
+
+.modal-btn.destructive {
+  background: #ff4444;
+  color: #fff;
+}
+
+.modal-btn.cancel {
+  background: #2d3540;
+  color: #fff;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 768px) {

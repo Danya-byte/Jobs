@@ -32,6 +32,24 @@
     <div v-if="isBlocked" class="chat-overlay">
       <p class="overlay-text">Чат остановлен до вмешательства модерации и решения конфликта</p>
     </div>
+    <transition name="modal">
+      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+        <div class="modal-content">
+          <h3>{{ modalTitle }}</h3>
+          <p>{{ modalMessage }}</p>
+          <div v-if="modalInput" class="modal-input">
+            <input v-model="modalInputValue" placeholder="Введите текст" />
+          </div>
+          <div class="modal-buttons">
+            <button v-for="btn in modalButtons" :key="btn.id"
+                    :class="['modal-btn', btn.type]"
+                    @click="handleModalAction(btn.id)">
+              {{ btn.text }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -55,6 +73,13 @@ const isOwner = ref(false);
 const isInputFocused = ref(false);
 const isMobile = ref(window.innerWidth <= 768);
 const isBlocked = ref(false);
+const showModal = ref(false);
+const modalTitle = ref('');
+const modalMessage = ref('');
+const modalButtons = ref([]);
+const modalCallback = ref(null);
+const modalInput = ref(false);
+const modalInputValue = ref('');
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -192,6 +217,48 @@ const hideKeyboard = (event) => {
 
 const handleResize = () => {
   isMobile.value = window.innerWidth <= 768;
+};
+
+const showCustomPopup = (options, callback) => {
+  if (isMobile.value) {
+    Telegram.WebApp.showPopup(options, callback);
+  } else {
+    modalTitle.value = options.title;
+    modalMessage.value = options.message;
+    modalButtons.value = options.buttons;
+    modalInput.value = options.input || false;
+    modalInputValue.value = '';
+    modalCallback.value = callback;
+    showModal.value = true;
+  }
+};
+
+const showCustomConfirm = (message, callback) => {
+  if (isMobile.value) {
+    Telegram.WebApp.showConfirm(message, callback);
+  } else {
+    modalTitle.value = 'Подтверждение';
+    modalMessage.value = message;
+    modalButtons.value = [
+      { id: 'confirm', type: 'default', text: 'Да' },
+      { id: 'cancel', type: 'cancel', text: 'Нет' }
+    ];
+    modalCallback.value = callback;
+    modalInput.value = false;
+    showModal.value = true;
+  }
+};
+
+const handleModalAction = (buttonId) => {
+  if (modalCallback.value) {
+    modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : undefined);
+  }
+  closeModal();
+};
+
+const closeModal = () => {
+  showModal.value = false;
+  modalCallback.value = null;
 };
 
 watch(() => route.params.userId, (newUserId) => {
@@ -438,6 +505,94 @@ onMounted(() => {
   background: rgba(40, 48, 62, 0.8);
   border-radius: 10px;
   max-width: 80%;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a2233;
+  padding: 20px;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content h3 {
+  color: #97f492;
+  margin: 0 0 15px;
+}
+
+.modal-content p {
+  color: #fff;
+  margin: 0 0 20px;
+}
+
+.modal-input {
+  margin-bottom: 20px;
+}
+
+.modal-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #97f492;
+  background: #272e38;
+  color: #fff;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.modal-btn:hover {
+  transform: translateY(-2px);
+}
+
+.modal-btn.default {
+  background: #97f492;
+  color: #000;
+}
+
+.modal-btn.destructive {
+  background: #ff4444;
+  color: #fff;
+}
+
+.modal-btn.cancel {
+  background: #2d3540;
+  color: #fff;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 768px) {
