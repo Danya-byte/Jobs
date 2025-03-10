@@ -47,7 +47,12 @@
             <input v-model="modalInputValue" placeholder="Введите текст" />
           </div>
           <div class="modal-buttons">
-            <button v-for="btn in modalButtons" :key="btn.id" :class="['modal-btn', btn.type]" @click="handleModalAction(btn.id)">
+            <button
+              v-for="btn in modalButtons"
+              :key="btn.id"
+              :class="['modal-btn', btn.type]"
+              @click="handleModalAction(btn.id)"
+            >
               {{ btn.text }}
             </button>
           </div>
@@ -161,8 +166,12 @@ const handleImageError = (event) => {
 };
 
 const showCustomPopup = (options, callback) => {
+  console.log('Opening popup:', options);
   if (isMobile()) {
-    Telegram.WebApp.showPopup(options, callback);
+    Telegram.WebApp.showPopup(options, (buttonId) => {
+      console.log('Telegram popup callback:', buttonId);
+      callback(buttonId);
+    });
   } else {
     modalTitle.value = options.title;
     modalMessage.value = options.message;
@@ -175,8 +184,12 @@ const showCustomPopup = (options, callback) => {
 };
 
 const showCustomConfirm = (message, callback) => {
+  console.log('Opening confirm:', message);
   if (isMobile()) {
-    Telegram.WebApp.showConfirm(message, callback);
+    Telegram.WebApp.showConfirm(message, (confirmed) => {
+      console.log('Telegram confirm callback:', confirmed);
+      callback(confirmed ? 'confirm' : 'cancel');
+    });
   } else {
     modalTitle.value = 'Подтверждение';
     modalMessage.value = message;
@@ -191,6 +204,7 @@ const showCustomConfirm = (message, callback) => {
 };
 
 const handleModalAction = (buttonId) => {
+  console.log('Modal action triggered:', buttonId, 'Input value:', modalInput.value ? modalInputValue.value : null);
   if (modalCallback.value && buttonId) {
     modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : null);
   }
@@ -213,6 +227,7 @@ const openOptions = (chatId) => {
       { id: 'cancel', type: 'cancel', text: 'Отмена' },
     ],
   }, (buttonId) => {
+    console.log('Options callback:', buttonId);
     if (buttonId === 'report') reportChat(chatId);
     else if (buttonId === 'delete') deleteChat(chatId);
   });
@@ -253,6 +268,7 @@ const endSwipe = (chatId) => {
 };
 
 const reportChat = async (chatId) => {
+  console.log('Reporting chat:', chatId);
   showCustomPopup({
     title: 'Пожаловаться',
     message: 'Выберите причину жалобы',
@@ -263,6 +279,7 @@ const reportChat = async (chatId) => {
       { id: 'cancel', type: 'cancel', text: 'Отмена' },
     ],
   }, async (buttonId) => {
+    console.log('Report reason selected:', buttonId);
     if (buttonId === 'cancel') return;
 
     let reportText = '';
@@ -278,6 +295,7 @@ const reportChat = async (chatId) => {
         ],
         input: true,
       }, async (submitButtonId, inputText) => {
+        console.log('Other reason submitted:', submitButtonId, inputText);
         if (submitButtonId === 'submit' && inputText) {
           await submitReport(chatId, inputText);
         }
@@ -290,12 +308,14 @@ const reportChat = async (chatId) => {
 };
 
 const submitReport = async (chatId, reportText) => {
+  console.log('Submitting report:', { chatId, reportText });
   try {
     const response = await axios.post(
       `${BASE_URL}/api/report`,
       { chatId, reason: reportText },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
+    console.log('Report response:', response.data);
     if (response.data.success) {
       Telegram.WebApp.showAlert('Жалоба отправлена');
       chats.value = chats.value.map(chat =>
@@ -311,14 +331,17 @@ const submitReport = async (chatId, reportText) => {
 };
 
 const deleteChat = async (chatId) => {
+  console.log('Deleting chat:', chatId);
   showCustomConfirm(
     'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
     async (buttonId) => {
+      console.log('Delete confirmation:', buttonId);
       if (buttonId === 'confirm') {
         try {
           const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
             headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
           });
+          console.log('Delete response:', response.data);
           if (response.data.success) {
             chats.value = chats.value.filter((chat) => chat.id !== chatId);
           } else {
