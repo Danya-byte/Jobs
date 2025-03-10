@@ -341,6 +341,7 @@ body {
     background: linear-gradient(45deg, #0a0f1a, #141b2d);
     color: white;
     min-height: 100vh;
+    overflow: hidden;
     overflow-x: hidden;
     overflow-y: hidden;
 }
