@@ -4,13 +4,14 @@ body {
     background: linear-gradient(45deg, #0a0f1a, #141b2d);
     color: white;
     min-height: 100vh;
+    overflow: hidden;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 
 * {
     box-sizing: border-box;
-    transition: none;
+    transition: all 0.3s ease;
 }
 
 .fade-enter-active,
@@ -39,41 +40,6 @@ button, a, input, textarea, select {
 }
 
 html {
-    overflow-x: hidden;
-    height: auto;
-}
-
-.chat-item {
-    position: relative;
-    overflow: visible;
-    transition: transform 0.3s ease;
-}
-
-.chat-actions {
-    position: absolute;
-    right: 0;
-    top: 0;
-    height: 100%;
-    display: flex;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 10;
-}
-
-.chat-item.swiped .chat-actions {
-    opacity: 1;
-}
-
-.chat-actions button {
-    position: relative;
-    z-index: 10;
-}
-
-@media (max-width: 768px) {
-    .chat-actions {
-        display: none;
-    }
-    .chat-item.swiped .chat-actions {
-        display: flex;
-    }
+    overflow: hidden !important;
+    height: auto !important;
 }
