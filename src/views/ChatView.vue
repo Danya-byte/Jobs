@@ -18,11 +18,8 @@
         <p>{{ message.text }}</p>
         <span class="timestamp">{{ formatTimestamp(message.timestamp) }}</span>
       </div>
-      <div v-if="isChatBlocked" class="chat-blocked-message">
-        <p>Чат остановлен до вмешательства модерации и решения конфликта.</p>
-      </div>
     </div>
-    <div class="chat-input" v-if="!isChatBlocked">
+    <div class="chat-input">
       <input v-model="newMessage" placeholder="Type a message..."
              @keyup.enter="sendMessage" class="message-input"
              ref="messageInput">
@@ -32,8 +29,8 @@
         </svg>
       </button>
     </div>
-    <div v-else class="chat-input-disabled">
-      <p>Чат заблокирован. Ожидайте решения модерации.</p>
+    <div v-if="isBlocked" class="chat-overlay">
+      <p class="overlay-text">Вы не можете отправлять сообщения, так как чат заблокирован до вмешательства модерации</p>
     </div>
   </div>
 </template>
@@ -57,7 +54,7 @@ const currentUserId = ref('');
 const isOwner = ref(false);
 const isInputFocused = ref(false);
 const isMobile = ref(window.innerWidth <= 768);
-const isChatBlocked = ref(false);
+const isBlocked = ref(false);
 
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -118,12 +115,12 @@ const fetchMessages = async () => {
 const checkChatStatus = async () => {
   try {
     const chatId = `${jobId.value}_${targetUserId.value}`;
-    const response = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
-    isChatBlocked.value = response.data.blocked;
+    isBlocked.value = blockCheck.data.blocked;
   } catch (error) {
-    console.error(error);
+    console.error('Error checking chat status:', error);
   }
 };
 
@@ -135,7 +132,6 @@ const sendMessage = async () => {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     if (blockCheck.data.blocked) {
-      isChatBlocked.value = true;
       Telegram.WebApp.showAlert('Чат остановлен до вмешательства модерации и решения конфликта');
       return;
     }
@@ -244,6 +240,7 @@ onMounted(() => {
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  position: relative;
 }
 
 .chat-header {
@@ -379,20 +376,6 @@ onMounted(() => {
   z-index: 2;
 }
 
-.chat-input-disabled {
-  padding: clamp(0.5rem, 2vw, 1rem);
-  background: #1a2233;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
-  text-align: center;
-  color: #97f492;
-  font-size: 0.9rem;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  min-height: clamp(3rem, 10vw, 4rem);
-  position: relative;
-  z-index: 2;
-}
-
 .message-input {
   flex: 1;
   padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2.5vw, 1rem);
@@ -434,14 +417,27 @@ onMounted(() => {
   height: clamp(1.25rem, 4vw, 1.5rem);
 }
 
-.chat-blocked-message {
+.chat-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 3;
+}
+
+.overlay-text {
+  color: #fff;
+  font-size: 16px;
   text-align: center;
-  padding: 1rem;
-  color: #97f492;
-  font-size: 0.9rem;
-  background: rgba(255, 0, 0, 0.1);
-  border-radius: 8px;
-  margin: 1rem;
+  padding: 20px;
+  background: rgba(40, 48, 62, 0.8);
+  border-radius: 10px;
+  max-width: 80%;
 }
 
 @media (max-width: 768px) {

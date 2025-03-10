@@ -912,6 +912,91 @@ app.post("/api/toggleFavorite", async (req, res) => {
     releaseCompany();
   }
 });
+app.post("/api/report", async (req, res) => {
+  const release = await messagesMutex.acquire();
+  try {
+    const { chatId, reason } = req.body;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!chatId || !reason) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const chatKey = chatId;
+    if (!chatUnlocksData[chatKey]) {
+      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
+    } else {
+      chatUnlocksData[chatKey].blocked = true;
+      chatUnlocksData[chatKey].reporterId = user.id;
+    }
+    await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
+
+    const targetUserId = chatId.split('_')[1];
+    const jobId = chatId.split('_')[0];
+    const message = `Пользователь @${user.username || user.id} пожаловался на чат с @${targetUserId} по причине: ${reason}`;
+    const keyboard = new InlineKeyboard()
+      .webApp("Открыть чат", `https://jobs-iota-one.vercel.app/chat/${targetUserId}?jobId=${jobId}`)
+      .row()
+      .text("Разблокировать", `unblock_${chatId}`)
+      .text("Удалить", `delete_${chatId}`);
+
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await bot.api.sendMessage(adminId, message, { reply_markup: keyboard });
+      } catch {}
+    }
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
+app.get("/api/chat/status/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const blocked = chatUnlocksData[chatId]?.blocked || false;
+    res.json({ blocked });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+app.delete("/api/chat/:chatId", async (req, res) => {
+  const release = await messagesMutex.acquire();
+  try {
+    const { chatId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    messagesData = messagesData.filter(
+      (msg) => !(msg.jobId === chatId.split('_')[0] &&
+                 (msg.authorUserId.toString() === user.id.toString() ||
+                  msg.targetUserId.toString() === user.id.toString()))
+    );
+    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
 bot.on("callback_query:data", async (ctx) => {
   const data = ctx.callbackQuery.data;
   const adminId = ctx.from.id.toString();
@@ -971,231 +1056,6 @@ bot.on("callback_query:data", async (ctx) => {
     } finally {
       release();
     }
-  }
-});
-app.post("/api/report", async (req, res) => {
-  const release = await messagesMutex.acquire();
-  try {
-    const { chatId, reason } = req.body;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-
-    if (!chatId || !reason) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const chatKey = chatId;
-    if (!chatUnlocksData[chatKey]) {
-      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id, reason };
-    } else {
-      chatUnlocksData[chatKey].blocked = true;
-      chatUnlocksData[chatKey].reporterId = user.id;
-      chatUnlocksData[chatKey].reason = reason;
-    }
-    await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
-
-    const targetUserId = chatId.split('_')[1];
-    const jobId = chatId.split('_')[0];
-    const message = `Пользователь @${user.username || user.id} пожаловался на чат с @${targetUserId} по причине: ${reason}`;
-    const keyboard = new InlineKeyboard()
-      .webApp("Открыть чат", `https://jobs-iota-one.vercel.app/chat/${targetUserId}?jobId=${jobId}`)
-      .row()
-      .text("Разблокировать", `unblock_${chatId}`)
-      .text("Удалить", `delete_${chatId}`);
-
-    for (const adminId of ADMIN_IDS) {
-      try {
-        await bot.api.sendMessage(adminId, message, { reply_markup: keyboard });
-      } catch {}
-    }
-
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-app.post("/api/chat/unblock/:chatId", async (req, res) => {
-  const release = await messagesMutex.acquire();
-  try {
-    const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-
-    if (!ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    if (chatUnlocksData[chatId]) {
-      chatUnlocksData[chatId].blocked = false;
-      await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
-
-      const targetUserId = chatId.split('_')[1];
-      const reporterId = chatUnlocksData[chatId].reporterId;
-      await bot.api.sendMessage(reporterId, `Чат с @${targetUserId} был разблокирован администратором`);
-      await bot.api.sendMessage(targetUserId, `Чат с @${reporterId} был разблокирован администратором`);
-
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: "Chat not found" });
-    }
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-app.delete("/api/chat/delete/:chatId", async (req, res) => {
-  const release = await messagesMutex.acquire();
-  try {
-    const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-
-    if (!ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    if (chatUnlocksData[chatId]) {
-      const targetUserId = chatId.split('_')[1];
-      const reporterId = chatUnlocksData[chatId].reporterId;
-
-      messagesData = messagesData.filter(
-        (msg) => !(msg.jobId === chatId.split('_')[0] &&
-                   (msg.authorUserId.toString() === reporterId.toString() ||
-                    msg.targetUserId.toString() === targetUserId))
-      );
-      await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-
-      delete chatUnlocksData[chatId];
-      await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
-
-      await bot.api.sendMessage(reporterId, `Чат с @${targetUserId} был удалён администратором`);
-      await bot.api.sendMessage(targetUserId, `Чат с @${reporterId} был удалён администратором`);
-
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: "Chat not found" });
-    }
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
-app.get("/api/admin/reports", async (req, res) => {
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-
-    if (!ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    const reports = Object.entries(chatUnlocksData)
-      .filter(([_, data]) => data.blocked)
-      .map(([chatId, data]) => ({
-        chatId,
-        reporterId: data.reporterId,
-        targetUserId: chatId.split('_')[1],
-        reason: data.reason,
-        timestamp: data.timestamp || new Date().toISOString(),
-      }));
-
-    res.json(reports);
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-app.get("/api/admin/reports/:chatId", async (req, res) => {
-  try {
-    const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-
-    if (!ADMIN_IDS.includes(user.id.toString())) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    const report = chatUnlocksData[chatId];
-    if (!report || !report.blocked) {
-      return res.status(404).json({ error: "Report not found" });
-    }
-
-    res.json({
-      chatId,
-      reporterId: report.reporterId,
-      targetUserId: chatId.split('_')[1],
-      reason: report.reason,
-      timestamp: report.timestamp || new Date().toISOString(),
-    });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-app.get("/api/chat/status/:chatId", async (req, res) => {
-  try {
-    const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const blocked = chatUnlocksData[chatId]?.blocked || false;
-    res.json({ blocked });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-app.delete("/api/chat/:chatId", async (req, res) => {
-  const release = await messagesMutex.acquire();
-  try {
-    const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-
-    messagesData = messagesData.filter(
-      (msg) => !(msg.jobId === chatId.split('_')[0] &&
-                 (msg.authorUserId.toString() === user.id.toString() ||
-                  msg.targetUserId.toString() === user.id.toString()))
-    );
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
   }
 });
 app.get("/api/favorites", async (req, res) => {
