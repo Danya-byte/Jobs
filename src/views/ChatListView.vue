@@ -206,45 +206,40 @@ const handleImageError = (event) => {
 
 const showCustomPopup = (options, callback) => {
   logToFile(`Opening popup: ${JSON.stringify(options)}`);
-  if (isMobile()) {
-    logToFile('Attempting Telegram popup');
-    Telegram.WebApp.showPopup(options, (buttonId) => {
-      logToFile(`Telegram popup callback: ${buttonId}`);
-      callback(buttonId);
-    });
-  } else {
-    logToFile('Showing custom modal');
-    closeModal();
-    modalTitle.value = options.title;
-    modalMessage.value = options.message;
-    modalButtons.value = options.buttons;
-    modalInput.value = options.input || false;
-    modalInputValue.value = '';
-    modalCallback.value = callback;
-    showModal.value = true;
-  }
+  // Убираем Telegram.WebApp.showPopup, используем только кастомное модальное окно
+  closeModal();
+  modalTitle.value = options.title;
+  modalMessage.value = options.message;
+  modalButtons.value = options.buttons;
+  modalInput.value = options.input || false;
+  modalInputValue.value = '';
+  modalCallback.value = callback;
+  showModal.value = true;
 };
 
 const showCustomConfirm = (message, callback) => {
   logToFile(`Opening confirm: ${message}`);
-  if (isMobile()) {
-    logToFile('Attempting Telegram confirm');
-    Telegram.WebApp.showConfirm(message, (confirmed) => {
-      logToFile(`Telegram confirm callback: ${confirmed}`);
-      callback(confirmed ? 'confirm' : 'cancel');
-    });
+  // Убираем Telegram.WebApp.showConfirm, используем кастомное модальное окно
+  closeModal();
+  modalTitle.value = 'Подтверждение';
+  modalMessage.value = message;
+  modalButtons.value = [
+    { id: 'confirm', type: 'default', text: 'Да' },
+    { id: 'cancel', type: 'cancel', text: 'Нет' }
+  ];
+  modalCallback.value = callback;
+  modalInput.value = false;
+  showModal.value = true;
+};
+
+// Функция для показа уведомлений через Telegram-алерт
+const showNotification = (message) => {
+  logToFile(`Showing notification: ${message}`);
+  if (window.Telegram && window.Telegram.WebApp) {
+    Telegram.WebApp.showAlert(message);
   } else {
-    logToFile('Showing custom confirm modal');
-    closeModal();
-    modalTitle.value = 'Подтверждение';
-    modalMessage.value = message;
-    modalButtons.value = [
-      { id: 'confirm', type: 'default', text: 'Да' },
-      { id: 'cancel', type: 'cancel', text: 'Нет' }
-    ];
-    modalCallback.value = callback;
-    modalInput.value = false;
-    showModal.value = true;
+    // Фallback для десктопа или если Telegram WebApp недоступен
+    alert(message);
   }
 };
 
@@ -351,16 +346,16 @@ const submitReport = async (chatId, reportText) => {
     );
     logToFile(`Report response: ${JSON.stringify(response.data)}`);
     if (response.data.success) {
-      Telegram.WebApp.showAlert('Жалоба отправлена');
+      showNotification('Жалоба отправлена');
       chats.value = chats.value.map(chat =>
         chat.id === chatId ? { ...chat, blocked: true } : chat
       );
     } else {
-      Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
+      showNotification('Ошибка при отправке жалобы');
     }
   } catch (error) {
     logToFile(`Error reporting chat: ${error.message}`);
-    Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
+    showNotification('Ошибка при отправке жалобы');
   }
 };
 
@@ -380,11 +375,11 @@ const deleteChat = async (chatId) => {
             if (response.data.success) {
               chats.value = chats.value.filter((chat) => chat.id !== chatId);
             } else {
-              Telegram.WebApp.showAlert('Ошибка при удалении чата');
+              showNotification('Ошибка при удалении чата');
             }
           } catch (error) {
             logToFile(`Error deleting chat: ${error.message}`);
-            Telegram.WebApp.showAlert('Ошибка при удалении чата');
+            showNotification('Ошибка при удалении чата');
           }
         }
       }
