@@ -61,15 +61,6 @@
         </div>
       </div>
     </transition>
-    <!-- Добавляем блок для отображения логов -->
-    <div v-if="isMobile()" class="log-overlay">
-      <button class="toggle-logs" @click="showLogs = !showLogs">
-        {{ showLogs ? 'Скрыть логи' : 'Показать логи' }}
-      </button>
-      <div v-if="showLogs" class="log-content">
-        <pre>{{ logs.join('\n') }}</pre>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -90,7 +81,6 @@ const modalCallback = ref(null);
 const modalInput = ref(false);
 const modalInputValue = ref('');
 const logs = ref([]); // Массив для хранения логов
-const showLogs = ref(false); // Показывать/скрывать логи
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -98,7 +88,19 @@ const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera
 const logToFile = (message) => {
   const timestamp = new Date().toISOString();
   logs.value.push(`${timestamp}: ${message}`);
-  if (logs.value.length > 50) logs.value.shift(); // Ограничение на 50 записей
+  // Ограничиваем количество логов, чтобы не переполнить память
+  if (logs.value.length > 100) logs.value.shift();
+};
+
+// Сохранение логов и отправка в Telegram
+const saveLogs = () => {
+  const logString = logs.value.join('\n');
+  if (window.Telegram && window.Telegram.WebApp) {
+    Telegram.WebApp.sendData(logString); // Отправляем логи как данные
+    console.log('Logs sent to Telegram:', logString);
+  } else {
+    console.log('Telegram Web App not available. Logs:', logString);
+  }
 };
 
 const fetchChats = async () => {
@@ -291,7 +293,7 @@ const endSwipe = (chatId) => {
   const delta = swipeOffset.value[chatId];
   logToFile(`Swipe ended for chat ${chatId}: delta=${delta}`);
   if (delta < -60) {
-    swipeOffset.value[chatId] = -120;
+    swipeOffset.value[chatId] = -120; // Фиксируем сдвиг для показа иконок
     setTimeout(() => {
       swipeOffset.value[chatId] = 0;
       logToFile(`Swipe reset for chat ${chatId}`);
@@ -380,6 +382,8 @@ onMounted(() => {
   }
   fetchChats();
   if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
+  // Добавляем кнопку для сохранения логов (для тестирования)
+  setTimeout(() => saveLogs(), 10000); // Сохраняем логи через 10 секунд после загрузки
 });
 </script>
 
@@ -434,7 +438,7 @@ html {
     height: 100vh;
     padding: 20px;
     display: flex;
-   ascroll-behavior: auto;
+    flex-direction: column;
     overflow: hidden;
     position: fixed;
     top: 0;
@@ -713,37 +717,6 @@ h1 {
 .delete-icon {
     background: #ff4444;
     color: white;
-}
-
-.log-overlay {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-.toggle-logs {
-    background: #97f492;
-    color: #000;
-    padding: 8px 16px;
-    border-radius: 20px;
-    border: none;
-    cursor: pointer;
-}
-
-.toggle-logs:hover {
-    background: #6de06a;
-}
-
-.log-content {
-    background: rgba(0, 0, 0, 0.8);
-    padding: 10px;
-    border-radius: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-    color: #fff;
-    font-size: 12px;
 }
 
 @media (max-width: 768px) {
