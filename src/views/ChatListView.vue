@@ -146,16 +146,23 @@ const fetchChats = async () => {
         });
         chat.nick = userResponse.data.nick || 'Unknown';
         chat.photoUrl = userResponse.data.photoUrl || defaultPhoto;
+
+        const chatId = `${chat.jobId}_${chat.targetUserId}`;
+        const statusResponse = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
+          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+        });
+        chat.blocked = statusResponse.data.blocked;
       } catch (error) {
         chat.nick = 'Unknown';
         chat.photoUrl = defaultPhoto;
+        chat.blocked = false;
       }
     }
 
     chats.value = sortedChats.map((chat) => {
       const lastMessage = chat.messages[chat.messages.length - 1];
       return {
-        id: `${chat.jobId}`,
+        id: `${chat.jobId}_${chat.targetUserId}`,
         targetUserId: chat.targetUserId,
         jobId: chat.jobId,
         nick: chat.nick,
@@ -163,6 +170,7 @@ const fetchChats = async () => {
         photoUrl: chat.photoUrl,
         lastMessage: lastMessage.text.slice(0, 30) + (lastMessage.text.length > 30 ? '...' : ''),
         lastMessageTime: chat.lastMessageTime,
+        blocked: chat.blocked,
       };
     });
   } catch (error) {}
@@ -293,17 +301,20 @@ const reportChat = async (chatId) => {
   if (activeSwipedChat.value === chatId) activeSwipedChat.value = null;
 };
 
-const submitReport = async (chatId, reportText) => {
+const submitReport = async (chatId) => {
   try {
     const response = await axios.post(
       `${BASE_URL}/api/report`,
-      { chatId, reason: reportText },
+      { chatId, reason: modalInputValue.value },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
     if (response.data.success) {
       showNotification('Жалоба отправлена');
+      const statusResponse = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      });
       chats.value = chats.value.map(chat =>
-        chat.id === chatId ? { ...chat, blocked: true } : chat
+        chat.id === chatId ? { ...chat, blocked: statusResponse.data.blocked } : chat
       );
     } else {
       showNotification('Ошибка при отправке жалобы');

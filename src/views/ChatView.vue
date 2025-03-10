@@ -101,9 +101,7 @@ const fetchUserDetails = async () => {
     });
     nick.value = response.data.nick || 'Unknown';
     userPhoto.value = response.data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  } catch (error) {
-    console.error(error);
-  }
+  } catch (error) {}
 };
 
 const fetchJobDetails = async () => {
@@ -117,9 +115,7 @@ const fetchJobDetails = async () => {
       nick.value = job.nick || 'Unknown';
       isOwner.value = currentUserId.value === job.userId.toString();
     }
-  } catch (error) {
-    console.error(error);
-  }
+  } catch (error) {}
 };
 
 const fetchMessages = async () => {
@@ -132,9 +128,7 @@ const fetchMessages = async () => {
       isSender: msg.authorUserId.toString() === currentUserId.value
     }));
     scrollToBottom();
-  } catch (error) {
-    console.error(error);
-  }
+  } catch (error) {}
 };
 
 const checkChatStatus = async () => {
@@ -144,9 +138,7 @@ const checkChatStatus = async () => {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     isBlocked.value = blockCheck.data.blocked;
-  } catch (error) {
-    console.error('Error checking chat status:', error);
-  }
+  } catch (error) {}
 };
 
 const sendMessage = async () => {
@@ -158,6 +150,7 @@ const sendMessage = async () => {
     });
     if (blockCheck.data.blocked) {
       Telegram.WebApp.showAlert('Чат остановлен до вмешательства модерации и решения конфликта');
+      isBlocked.value = true;
       return;
     }
 
@@ -191,7 +184,6 @@ const sendMessage = async () => {
       }
     }
   } catch (error) {
-    console.error(error);
     Telegram.WebApp.showAlert('Failed to send message.');
   }
 };
