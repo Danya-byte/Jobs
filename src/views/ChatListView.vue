@@ -641,7 +641,7 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding-right: 25px;
+    padding-right: 30px;
     width: 120px;
     z-index: 10;
     background: linear-gradient(90deg, #181e29 0%, #2d3540 100%);
