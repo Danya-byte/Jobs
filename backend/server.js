@@ -983,15 +983,23 @@ app.delete("/api/chat/:chatId", async (req, res) => {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
 
+    const [jobId, targetUserId] = chatId.split('_');
     messagesData = messagesData.filter(
-      (msg) => !(msg.jobId === chatId.split('_')[0] &&
+      (msg) => !(msg.jobId === jobId &&
                  (msg.authorUserId.toString() === user.id.toString() ||
-                  msg.targetUserId.toString() === user.id.toString()))
+                  msg.targetUserId.toString() === user.id.toString()) &&
+                 (msg.authorUserId.toString() === targetUserId ||
+                  msg.targetUserId.toString() === targetUserId))
     );
     await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
+    // Уведомление обоих пользователей
+    const otherUserId = targetUserId === user.id.toString() ? messagesData.find(msg => msg.jobId === jobId)?.authorUserId : targetUserId;
+    await bot.api.sendMessage(user.id, `Чат с @${otherUserId} удалён`);
+    await bot.api.sendMessage(otherUserId, `Чат с @${user.id} удалён`);
+
     res.json({ success: true });
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -1032,11 +1040,11 @@ bot.on("callback_query:data", async (ctx) => {
     const release = await messagesMutex.acquire();
     try {
       if (chatUnlocksData[chatId]) {
-        const targetUserId = chatId.split('_')[1];
+        const [jobId, targetUserId] = chatId.split('_');
         const reporterId = chatUnlocksData[chatId].reporterId;
 
         messagesData = messagesData.filter(
-          (msg) => !(msg.jobId === chatId.split('_')[0] &&
+          (msg) => !(msg.jobId === jobId &&
                      (msg.authorUserId.toString() === reporterId.toString() ||
                       msg.targetUserId.toString() === targetUserId))
         );

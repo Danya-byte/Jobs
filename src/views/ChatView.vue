@@ -30,7 +30,7 @@
       </button>
     </div>
     <div v-if="isBlocked" class="chat-overlay">
-      <p class="overlay-text">Вы не можете отправлять сообщения, так как чат заблокирован до вмешательства модерации</p>
+      <p class="overlay-text">Чат остановлен до вмешательства модерации и решения конфликта</p>
     </div>
   </div>
 </template>

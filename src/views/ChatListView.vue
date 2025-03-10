@@ -13,6 +13,9 @@
           :key="chat.id"
           :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
           class="chat-item"
+          @touchstart="startSwipe($event, chat.id)"
+          @touchmove="moveSwipe($event)"
+          @touchend="endSwipe(chat.id)"
         >
           <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
           <div class="chat-info">
@@ -34,6 +37,9 @@ const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const chats = ref([]);
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
+const swipeStartX = ref(null);
+const swipeCurrentX = ref(null);
+const activeChatId = ref(null);
 
 const fetchChats = async () => {
   try {
@@ -137,6 +143,28 @@ const openOptions = (chatId) => {
   });
 };
 
+const startSwipe = (event, chatId) => {
+  swipeStartX.value = event.touches[0].clientX;
+  activeChatId.value = chatId;
+};
+
+const moveSwipe = (event) => {
+  if (swipeStartX.value === null) return;
+  swipeCurrentX.value = event.touches[0].clientX;
+};
+
+const endSwipe = (chatId) => {
+  if (swipeStartX.value !== null && swipeCurrentX.value !== null) {
+    const deltaX = swipeCurrentX.value - swipeStartX.value;
+    if (deltaX < -50) {
+      openOptions(chatId);
+    }
+  }
+  swipeStartX.value = null;
+  swipeCurrentX.value = null;
+  activeChatId.value = null;
+};
+
 const reportChat = async (chatId) => {
   Telegram.WebApp.showPopup({
     title: 'Пожаловаться',
@@ -164,11 +192,8 @@ const reportChat = async (chatId) => {
         input: true,
       }, async (submitButtonId, inputText) => {
         if (submitButtonId === 'submit' && inputText) {
-          reportText = inputText;
-        } else {
-          return;
+          await submitReport(chatId, inputText);
         }
-        await submitReport(chatId, reportText);
       });
       return;
     } else {
