@@ -4,42 +4,12 @@ body {
     background: linear-gradient(45deg, #0a0f1a, #141b2d);
     color: white;
     min-height: 100vh;
-    overflow: hidden;
-    overflow-x: hidden;
-    overflow-y: hidden;
+}
+
+html {
+    height: auto;
 }
 
 * {
     box-sizing: border-box;
-    transition: all 0.3s ease;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-    transition: opacity 0.3s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-    opacity: 0;
-}
-
-@keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-.dynamic-bg {
-    animation: gradient-shift 15s ease infinite;
-    background-size: 200% 200%;
-}
-
-button, a, input, textarea, select {
-    -webkit-tap-highlight-color: transparent;
-}
-
-html {
-    overflow: hidden !important;
-    height: auto !important;
 }
