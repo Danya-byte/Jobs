@@ -26,7 +26,7 @@
               <p class="nick">{{ chat.nick }}</p>
               <p class="last-message">{{ chat.lastMessage }}</p>
             </div>
-            <button v-if="!isMobile()" class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
+            <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.id)">⋮</button>
           </RouterLink>
         </div>
       </div>
