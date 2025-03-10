@@ -11,6 +11,9 @@
         <RouterLink
           v-for="chat in chats"
           :key="chat.id"
+          @touchstart="touchStart($event, chat.id)"
+          @touchmove="touchMove"
+          @touchend="touchEnd(chat.id)"
           :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
           class="chat-item"
         >
@@ -20,6 +23,10 @@
             <p class="last-message">{{ chat.lastMessage }}</p>
           </div>
           <button class="options-btn" @click.stop="openOptions(chat.id)">⋮</button>
+          <div v-if="showContextMenu === chat.id" class="context-menu">
+            <button @click="reportChat(chat.id)">Пожаловаться</button>
+            <button @click="deleteChat(chat.id)">Удалить чат</button>
+          </div>
         </RouterLink>
       </div>
     </div>
@@ -27,13 +34,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import axios from 'axios';
+import { useModal } from 'vue-final-modal';
+import ConfirmationModal from './ConfirmationModal.vue';
 
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
 const chats = ref([]);
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
+const touch = reactive({ startX: 0, offset: 0 });
+const showContextMenu = ref(null);
 
 const fetchChats = async () => {
   try {
@@ -119,64 +130,81 @@ const handleImageError = (event) => {
   event.target.src = defaultPhoto;
 };
 
-const openOptions = (chatId) => {
-  const action = prompt('Выберите действие: 1 - Пожаловаться, 2 - Удалить чат');
-  if (action === '1') {
-    reportChat(chatId);
-  } else if (action === '2') {
-    deleteChat(chatId);
+const touchStart = (e, chatId) => {
+  if (window.innerWidth > 768) return;
+  touch.startX = e.touches[0].clientX;
+  touch.chatId = chatId;
+};
+
+const touchMove = (e) => {
+  if (window.innerWidth > 768) return;
+  touch.offset = e.touches[0].clientX - touch.startX;
+};
+
+const touchEnd = (chatId) => {
+  if (window.innerWidth > 768) return;
+  if (touch.offset < -50) {
+    showContextMenu.value = chatId;
   }
+  touch.offset = 0;
+};
+
+const openOptions = (chatId) => {
+  if (window.innerWidth <= 768) return;
+  showContextMenu.value = chatId;
 };
 
 const reportChat = async (chatId) => {
-  const reason = prompt('Выберите причину жалобы: 1 - Спам, 2 - Оскорбления, 3 - Другое');
-  let reportText = '';
-  if (reason === '1') {
-    reportText = 'Спам';
-  } else if (reason === '2') {
-    reportText = 'Оскорбления';
-  } else if (reason === '3') {
-    reportText = prompt('Введите текст жалобы:');
-  } else {
-    return;
-  }
-
-  try {
-    const response = await axios.post(
-      `${BASE_URL}/api/report`,
-      { chatId, reason: reportText },
-      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-    );
-    if (response.data.success) {
-      alert('Жалоба отправлена');
-      chats.value = chats.value.map(chat =>
-        chat.id === chatId ? { ...chat, blocked: true } : chat
-      );
-    } else {
-      alert('Ошибка при отправке жалобы');
+  const { open, close } = useModal({
+    component: ConfirmationModal,
+    attrs: {
+      title: 'Причина жалобы',
+      options: ['Спам', 'Оскорбления', 'Другое'],
+      allowCustom: true,
+      onConfirm: async (reason) => {
+        try {
+          const response = await axios.post(
+            `${BASE_URL}/api/report`,
+            { chatId, reason },
+            { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+          );
+          if (response.data.success) {
+            chats.value = chats.value.map(chat =>
+              chat.id === chatId ? { ...chat, blocked: true } : chat
+            );
+          }
+        } catch (error) {
+          console.error(error);
+        }
+        close();
+      }
     }
-  } catch (error) {
-    console.error('Error reporting chat:', error);
-    alert('Ошибка при отправке жалобы');
-  }
+  });
+  open();
 };
 
 const deleteChat = async (chatId) => {
-  if (confirm('Вы точно хотите удалить данный чат? История чата не удаляется тоже')) {
-    try {
-      const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-      });
-      if (response.data.success) {
-        chats.value = chats.value.filter((chat) => chat.id !== chatId);
-      } else {
-        alert('Ошибка при удалении чата');
+  const { open, close } = useModal({
+    component: ConfirmationModal,
+    attrs: {
+      title: 'Удалить чат?',
+      message: 'История чата сохранится в архиве',
+      onConfirm: async () => {
+        try {
+          const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
+            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+          });
+          if (response.data.success) {
+            chats.value = chats.value.filter(c => c.id !== chatId);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+        close();
       }
-    } catch (error) {
-      console.error('Error deleting chat:', error);
-      alert('Ошибка при удалении чата');
     }
-  }
+  });
+  open();
 };
 
 onMounted(() => {
@@ -322,6 +350,35 @@ h1 {
 
 .options-btn:hover {
   background: rgba(151, 244, 146, 0.2);
+}
+
+.context-menu {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: #1a2233;
+  border: 1px solid #2d3540;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+
+.context-menu button {
+  padding: 8px 12px;
+  background: #272e38;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.context-menu button:hover {
+  background: #97f492;
+  color: #000;
 }
 
 @media (max-width: 768px) {
