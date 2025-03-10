@@ -531,7 +531,7 @@ h1 {
     border: 1px solid #2d3540;
     transition: transform 0.3s ease;
     width: 100%;
-    margin-right: 120px; /* Отступ для иконок */
+    margin-right: 120px;
 }
 
 .chat-item:hover {
@@ -697,15 +697,24 @@ h1 {
 .swipe-actions {
     position: absolute;
     top: 0;
-    right: -120px; /* Иконки скрыты справа, появляются при свайпе */
+    right: -120px;
     bottom: 0;
     display: flex;
     align-items: center;
     gap: 10px;
     padding-right: 15px;
     width: 120px;
-    z-index: 10; /* Убедимся, что иконки поверх */
-    background: green !important; /* Для теста */
+    z-index: 10;
+    background: linear-gradient(90deg, #181e29 0%, #2d3540 100%);
+    border-radius: 0 20px 20px 0;
+    transition: right 0.2s ease;
+}
+
+/* Скрываем .swipe-actions на ПК */
+@media (min-width: 769px) {
+    .swipe-actions {
+        display: none !important;
+    }
 }
 
 .swipe-icon {
@@ -715,28 +724,33 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 20px;
     user-select: none;
     pointer-events: auto;
     cursor: pointer;
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.swipe-icon:hover {
+    transform: scale(1.1);
 }
 
 .report-icon {
-    background: #ffd700;
-    color: #000;
+    background: linear-gradient(135deg, #ffd700 0%, #e6c200 100%);
 }
 
 .delete-icon {
-    background: #ff4444;
-    color: white;
+    background: linear-gradient(135deg, #ff5555 0%, #e63939 100%);
 }
 
 .chat-item-container.swiped {
-    background: red !important;
+    background: #181e29;
 }
 
 .chat-item-container.swiped .swipe-actions {
-    right: 0 !important; /* Показываем иконки при свайпе */
+    right: 0 !important;
 }
 
 .log-overlay {
