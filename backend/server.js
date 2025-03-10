@@ -1109,23 +1109,62 @@ bot.on('callback_query:data', async (ctx) => {
     }
 
     if (data.startsWith('view_')) {
-      const [jobId, targetUserId] = chatId.split('_');
-      const reporterId = chatUnlocksData[chatId]?.reporterId;
+      const parts = chatId.split('_');
+      let jobId, adminId, targetUserId;
+
+      if (parts.length === 2) {
+        [jobId, targetUserId] = parts;
+        adminId = null;
+        logger.info(`Processing old format chatId: ${chatId}, jobId: ${jobId}, targetUserId: ${targetUserId}`);
+      } else if (parts.length === 3) {
+        [jobId, adminId, targetUserId] = parts;
+        logger.info(`Processing new format chatId: ${chatId}, jobId: ${jobId}, adminId: ${adminId}, targetUserId: ${targetUserId}`);
+      } else {
+        logger.error(`Invalid chatId format: ${chatId}`);
+        await ctx.reply('Неверный формат chatId.');
+        await ctx.answerCallbackQuery();
+        return;
+      }
+
+      const reporterId = chatUnlocksData[chatId]?.reporterId?.toString() || (chatUnlocksData[chatId] === true ? null : null);
 
       if (!reporterId) {
+        logger.error(`Reporter ID not found for chatId: ${chatId}`);
         await ctx.reply('Репортёр не найден в данных чата.');
         await ctx.answerCallbackQuery();
         return;
       }
 
-      const chatMessages = messagesData.filter(
-        (msg) =>
-          msg.jobId === jobId &&
-          ((msg.authorUserId.toString() === reporterId && msg.targetUserId.toString() === targetUserId) ||
-           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === reporterId))
-      ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      logger.info(`Fetching messages for chatId: ${chatId}, reporterId: ${reporterId}, targetUserId: ${targetUserId}`);
+
+      if (!Array.isArray(messagesData) || messagesData.length === 0) {
+        logger.error(`messagesData is empty or not an array: ${JSON.stringify(messagesData)}`);
+        await ctx.reply('Не удалось загрузить сообщения. Проверьте логи.');
+        await ctx.answerCallbackQuery();
+        return;
+      }
+
+      logger.debug(`Total messages in messagesData: ${messagesData.length}`);
+      logger.debug(`All messages: ${JSON.stringify(messagesData)}`);
+
+      const chatMessages = messagesData.filter((msg) => {
+        const matchesJobId = adminId
+          ? msg.jobId === `${jobId}_${adminId}`
+          : (!msg.jobId || msg.jobId === jobId);
+
+        const msgAuthorId = msg.authorUserId.toString();
+        const msgTargetId = msg.targetUserId.toString();
+        const matchesUsers =
+          (msgAuthorId === reporterId && msgTargetId === targetUserId) ||
+          (msgAuthorId === targetUserId && msgTargetId === reporterId);
+
+        logger.debug(`Checking message: ${JSON.stringify(msg)}, matchesJobId: ${matchesJobId}, matchesUsers: ${matchesUsers}`);
+
+        return matchesJobId && matchesUsers;
+      }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (chatMessages.length === 0) {
+        logger.info(`No messages found for chatId: ${chatId}, jobId: ${jobId}, adminId: ${adminId || 'null'}, targetUserId: ${targetUserId}, reporterId: ${reporterId}`);
         await ctx.reply('Переписка не найдена.');
         await ctx.answerCallbackQuery();
         return;
@@ -1144,7 +1183,8 @@ bot.on('callback_query:data', async (ctx) => {
       chatUnlocksData[chatId].blocked = false;
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
-      const [jobId, targetUserId] = chatId.split('_');
+      const parts = chatId.split('_');
+      const targetUserId = parts.length === 3 ? parts[2] : parts[1];
       const reporterId = chatUnlocksData[chatId].reporterId;
 
       try {
@@ -1155,17 +1195,28 @@ bot.on('callback_query:data', async (ctx) => {
 
         await bot.api.sendMessage(reporterId, `Чат с ${targetName} был разблокирован администратором`);
         await bot.api.sendMessage(targetUserId, `Чат с ${reporterName} был разблокирован администратором`);
-      } catch (error) {}
+      } catch (error) {
+        logger.error(`Error notifying users for unblock: ${error.message}`);
+      }
 
       await ctx.answerCallbackQuery({ text: 'Чат разблокирован' });
     } else if (data.startsWith('delete_')) {
-      const [jobId, targetUserId] = chatId.split('_');
+      const parts = chatId.split('_');
+      const jobId = parts[0];
+      const targetUserId = parts.length === 3 ? parts[2] : parts[1];
       const reporterId = chatUnlocksData[chatId].reporterId;
 
       messagesData = messagesData.filter(
-        (msg) => !(msg.jobId === jobId &&
-                   (msg.authorUserId.toString() === reporterId.toString() ||
-                    msg.targetUserId.toString() === targetUserId))
+        (msg) => {
+          if (parts.length === 3) {
+            return !(msg.jobId === `${jobId}_${parts[1]}` &&
+                     (msg.authorUserId.toString() === reporterId.toString() ||
+                      msg.targetUserId.toString() === targetUserId));
+          } else {
+            return !(msg.authorUserId.toString() === reporterId.toString() ||
+                     msg.targetUserId.toString() === targetUserId);
+          }
+        }
       );
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
@@ -1180,11 +1231,14 @@ bot.on('callback_query:data', async (ctx) => {
 
         await bot.api.sendMessage(reporterId, `Чат с ${targetName} был удалён администратором`);
         await bot.api.sendMessage(targetUserId, `Чат с ${reporterName} был удалён администратором`);
-      } catch (error) {}
+      } catch (error) {
+        logger.error(`Error notifying users for delete: ${error.message}`);
+      }
 
       await ctx.answerCallbackQuery({ text: 'Чат удалён' });
     }
   } catch (error) {
+    logger.error(`Error processing callback query ${data}: ${error.message}`);
     await ctx.answerCallbackQuery({ text: 'Ошибка при обработке' });
   } finally {
     release();
