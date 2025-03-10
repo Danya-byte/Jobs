@@ -67,19 +67,11 @@
         </div>
       </div>
     </transition>
-    <div v-if="isMobile()" class="log-overlay">
-      <button class="toggle-logs" @click="showLogs = !showLogs">
-        {{ showLogs ? 'Скрыть логи' : 'Показать логи' }}
-      </button>
-      <div v-if="showLogs" class="log-content">
-        <pre>{{ logs.join('\n') }}</pre>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
@@ -94,32 +86,10 @@ const modalButtons = ref([]);
 const modalCallback = ref(null);
 const modalInput = ref(false);
 const modalInputValue = ref('');
-const logs = ref([]);
-const showLogs = ref(false);
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-const logToFile = (message) => {
-  const timestamp = new Date().toISOString();
-  logs.value.push(`${timestamp}: ${message}`);
-  if (logs.value.length > 50) logs.value.shift();
-};
-
-// Логирование видимости
-const logVisibility = (chatId) => {
-  const wrapper = document.querySelector(`[data-v-xxx] .chat-item-wrapper`); // Замените xxx на реальный data-v атрибут
-  if (wrapper) {
-    const actions = wrapper.querySelector('.swipe-actions');
-    if (actions && window.getComputedStyle(actions).display !== 'none' && window.getComputedStyle(actions).visibility !== 'hidden') {
-      logToFile(`Swipe actions visible for chat ${chatId}`);
-    } else {
-      logToFile(`Swipe actions not visible for chat ${chatId} (display: ${window.getComputedStyle(actions).display}, visibility: ${window.getComputedStyle(actions).visibility})`);
-    }
-  }
-};
-
 const fetchChats = async () => {
-  logToFile('Fetching chats');
   try {
     const messagesResponse = await axios.get(`${BASE_URL}/api/chats`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
@@ -194,10 +164,7 @@ const fetchChats = async () => {
         lastMessageTime: chat.lastMessageTime,
       };
     });
-    logToFile('Chats fetched successfully');
-  } catch (error) {
-    logToFile(`Error fetching chats: ${error.message}`);
-  }
+  } catch (error) {}
 };
 
 const handleImageError = (event) => {
@@ -205,8 +172,6 @@ const handleImageError = (event) => {
 };
 
 const showCustomPopup = (options, callback) => {
-  logToFile(`Opening popup: ${JSON.stringify(options)}`);
-  // Убираем Telegram.WebApp.showPopup, используем только кастомное модальное окно
   closeModal();
   modalTitle.value = options.title;
   modalMessage.value = options.message;
@@ -218,8 +183,6 @@ const showCustomPopup = (options, callback) => {
 };
 
 const showCustomConfirm = (message, callback) => {
-  logToFile(`Opening confirm: ${message}`);
-  // Убираем Telegram.WebApp.showConfirm, используем кастомное модальное окно
   closeModal();
   modalTitle.value = 'Подтверждение';
   modalMessage.value = message;
@@ -232,19 +195,15 @@ const showCustomConfirm = (message, callback) => {
   showModal.value = true;
 };
 
-// Функция для показа уведомлений через Telegram-алерт
 const showNotification = (message) => {
-  logToFile(`Showing notification: ${message}`);
   if (window.Telegram && window.Telegram.WebApp) {
     Telegram.WebApp.showAlert(message);
   } else {
-    // Фallback для десктопа или если Telegram WebApp недоступен
     alert(message);
   }
 };
 
 const handleModalAction = (buttonId) => {
-  logToFile(`Modal action triggered: ${buttonId}, Input value: ${modalInput.value ? modalInputValue.value : null}`);
   if (modalCallback.value && buttonId) {
     modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : null);
   }
@@ -255,7 +214,6 @@ const closeModal = () => {
   showModal.value = false;
   modalCallback.value = null;
   modalInputValue.value = '';
-  logToFile('Modal closed');
 };
 
 const openOptions = (chatId) => {
@@ -267,7 +225,6 @@ const openOptions = (chatId) => {
       { id: 'delete', type: 'destructive', text: 'Удалить чат' }
     ],
   }, (buttonId) => {
-    logToFile(`Options callback: ${buttonId}`);
     if (buttonId === 'report') reportChat(chatId);
     else if (buttonId === 'delete') deleteChat(chatId);
   });
@@ -275,13 +232,11 @@ const openOptions = (chatId) => {
 
 const startSwipe = (event, chatId) => {
   if (!isMobile()) return;
-  event.preventDefault();
   const touch = event.touches[0];
   touch.startX = touch.clientX;
   touch.startY = touch.clientY;
   touch.chatId = chatId;
   event.target.touchData = touch;
-  logToFile(`Swipe started for chat ${chatId} at x: ${touch.startX}, y: ${touch.startY}`);
 };
 
 const moveSwipe = (event, chatId) => {
@@ -290,34 +245,27 @@ const moveSwipe = (event, chatId) => {
 
   const deltaX = event.touches[0].clientX - touch.startX;
   const deltaY = event.touches[0].clientY - touch.startY;
-  logToFile(`Swipe moved for chat ${chatId}: deltaX=${deltaX}, deltaY=${deltaY}`);
-  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+  if (Math.abs(deltaX) > 10) {
     event.preventDefault();
     if (deltaX < 0) {
-      swipeOffset.value[chatId] = Math.max(deltaX, -120); // Свайп влево
+      swipeOffset.value[chatId] = Math.max(deltaX, -120);
     } else if (swipeOffset.value[chatId] === -120) {
-      swipeOffset.value[chatId] = Math.min(deltaX, 0); // Свайп вправо, если уже открыт
+      swipeOffset.value[chatId] = Math.min(deltaX, 0);
     }
   }
 };
 
 const endSwipe = (chatId) => {
   const delta = swipeOffset.value[chatId];
-  logToFile(`Swipe ended for chat ${chatId}: delta=${delta}, swipeOffset=${swipeOffset.value[chatId]}`);
   if (delta < -60) {
     swipeOffset.value[chatId] = -120;
-    logToFile(`Swipe fixed at -120 for chat ${chatId}`);
-    logVisibility(chatId);
-    // Убрали автоматический сброс
   } else if (delta > -60) {
     swipeOffset.value[chatId] = 0;
-    logToFile(`Swipe reset to 0 for chat ${chatId}`);
   }
   delete event.target.touchData;
 };
 
 const reportChat = async (chatId) => {
-  logToFile(`Reporting chat: ${chatId}`);
   setTimeout(() => {
     showCustomPopup({
       title: 'Пожаловаться',
@@ -327,7 +275,6 @@ const reportChat = async (chatId) => {
       ],
       input: true,
     }, async (buttonId, inputText) => {
-      logToFile(`Report submitted: ${buttonId}, ${inputText}`);
       if (buttonId === 'submit' && inputText) {
         await submitReport(chatId, inputText);
       }
@@ -337,14 +284,12 @@ const reportChat = async (chatId) => {
 };
 
 const submitReport = async (chatId, reportText) => {
-  logToFile(`Submitting report: chatId=${chatId}, reportText=${reportText}`);
   try {
     const response = await axios.post(
       `${BASE_URL}/api/report`,
       { chatId, reason: reportText },
       { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
     );
-    logToFile(`Report response: ${JSON.stringify(response.data)}`);
     if (response.data.success) {
       showNotification('Жалоба отправлена');
       chats.value = chats.value.map(chat =>
@@ -354,31 +299,26 @@ const submitReport = async (chatId, reportText) => {
       showNotification('Ошибка при отправке жалобы');
     }
   } catch (error) {
-    logToFile(`Error reporting chat: ${error.message}`);
     showNotification('Ошибка при отправке жалобы');
   }
 };
 
 const deleteChat = async (chatId) => {
-  logToFile(`Deleting chat: ${chatId}`);
   setTimeout(() => {
     showCustomConfirm(
       'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
       async (buttonId) => {
-        logToFile(`Delete confirmation: ${buttonId}`);
         if (buttonId === 'confirm') {
           try {
             const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
               headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
             });
-            logToFile(`Delete response: ${JSON.stringify(response.data)}`);
             if (response.data.success) {
               chats.value = chats.value.filter((chat) => chat.id !== chatId);
             } else {
               showNotification('Ошибка при удалении чата');
             }
           } catch (error) {
-            logToFile(`Error deleting chat: ${error.message}`);
             showNotification('Ошибка при удалении чата');
           }
         }
@@ -389,9 +329,6 @@ const deleteChat = async (chatId) => {
 };
 
 onMounted(() => {
-  if (!window.Telegram || !window.Telegram.WebApp) {
-    logToFile('Telegram Web App not initialized');
-  }
   fetchChats();
   if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
 });
@@ -532,7 +469,7 @@ h1 {
     border: 1px solid #2d3540;
     transition: transform 0.3s ease;
     width: 100%;
-    margin-right: 120px; /* Отступ для иконок */
+    margin-right: 120px;
 }
 
 .chat-item:hover {
@@ -703,7 +640,7 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding-right: 15px;
+    padding-right: 25px;
     width: 120px;
     z-index: 10;
     background: linear-gradient(90deg, #181e29 0%, #2d3540 100%);
@@ -711,7 +648,6 @@ h1 {
     transition: right 0.2s ease;
 }
 
-/* Скрываем .swipe-actions на ПК */
 @media (min-width: 769px) {
     .swipe-actions {
         display: none !important;
@@ -745,6 +681,7 @@ h1 {
 .report-icon svg {
     width: 24px;
     height: 24px;
+    transform: scaleY(-1);
 }
 
 .delete-icon {
@@ -757,37 +694,6 @@ h1 {
 
 .chat-item-container.swiped .swipe-actions {
     right: 0 !important;
-}
-
-.log-overlay {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-.toggle-logs {
-    background: #97f492;
-    color: #000;
-    padding: 8px 16px;
-    border-radius: 20px;
-    border: none;
-    cursor: pointer;
-}
-
-.toggle-logs:hover {
-    background: #6de06a;
-}
-
-.log-content {
-    background: rgba(0, 0, 0, 0.8);
-    padding: 10px;
-    border-radius: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-    color: #fff;
-    font-size: 12px;
 }
 
 @media (max-width: 768px) {
