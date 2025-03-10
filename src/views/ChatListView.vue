@@ -186,8 +186,8 @@ const showCustomConfirm = (message, callback) => {
 };
 
 const handleModalAction = (buttonId) => {
-  if (modalCallback.value) {
-    modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : undefined);
+  if (modalCallback.value && buttonId) {
+    modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : null);
   }
   closeModal();
 };
@@ -195,6 +195,7 @@ const handleModalAction = (buttonId) => {
 const closeModal = () => {
   showModal.value = false;
   modalCallback.value = null;
+  modalInputValue.value = '';
 };
 
 const openOptions = (chatId) => {
@@ -204,7 +205,7 @@ const openOptions = (chatId) => {
     buttons: [
       { id: 'report', type: 'default', text: 'Пожаловаться' },
       { id: 'delete', type: 'destructive', text: 'Удалить чат' },
-      { type: 'cancel', text: 'Отмена' },
+      { id: 'cancel', type: 'cancel', text: 'Отмена' },
     ],
   }, (buttonId) => {
     if (buttonId === 'report') reportChat(chatId);
@@ -243,9 +244,11 @@ const reportChat = async (chatId) => {
       { id: 'spam', type: 'default', text: 'Спам' },
       { id: 'insult', type: 'default', text: 'Оскорбления' },
       { id: 'other', type: 'default', text: 'Другое' },
-      { type: 'cancel', text: 'Отмена' },
+      { id: 'cancel', type: 'cancel', text: 'Отмена' },
     ],
-  }, async (buttonId, inputText) => {
+  }, async (buttonId) => {
+    if (buttonId === 'cancel') return;
+
     let reportText = '';
     if (buttonId === 'spam') reportText = 'Спам';
     else if (buttonId === 'insult') reportText = 'Оскорбления';
@@ -255,13 +258,16 @@ const reportChat = async (chatId) => {
         message: 'Введите текст жалобы',
         buttons: [
           { id: 'submit', type: 'default', text: 'Отправить' },
-          { type: 'cancel', text: 'Отмена' },
+          { id: 'cancel', type: 'cancel', text: 'Отмена' },
         ],
         input: true,
       }, async (submitButtonId, inputText) => {
-        if (submitButtonId === 'submit' && inputText) await submitReport(chatId, inputText);
+        if (submitButtonId === 'submit' && inputText) {
+          await submitReport(chatId, inputText);
+        }
       });
-    } else return;
+      return;
+    }
     if (reportText) await submitReport(chatId, reportText);
   });
   swipeOffset.value[chatId] = 0;
@@ -291,8 +297,8 @@ const submitReport = async (chatId, reportText) => {
 const deleteChat = async (chatId) => {
   showCustomConfirm(
     'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
-    async (confirmed) => {
-      if (confirmed === 'confirm') {
+    async (buttonId) => {
+      if (buttonId === 'confirm') {
         try {
           const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
             headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
