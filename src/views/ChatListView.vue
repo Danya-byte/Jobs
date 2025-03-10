@@ -342,7 +342,7 @@ body {
     color: white;
     min-height: 100vh;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 
 * {
