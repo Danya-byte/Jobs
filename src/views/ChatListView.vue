@@ -316,7 +316,7 @@ const submitReport = async (chatId, reportText) => {
 const deleteChat = async (chatId) => {
   setTimeout(() => {
     showCustomConfirm(
-      'Вы точно хотите удалить данный чат? История чата не удаляется тоже',
+      'Вы точно хотите удалить данный чат? История чата удаляется тоже',
       async (buttonId) => {
         if (buttonId === 'confirm') {
           try {
