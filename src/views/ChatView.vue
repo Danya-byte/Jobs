@@ -32,6 +32,9 @@
     <div v-if="isBlocked" class="chat-overlay">
       <p class="overlay-text">Чат остановлен до вмешательства модерации и решения конфликта</p>
     </div>
+    <div v-if="isChatDeleted" class="chat-overlay">
+      <p class="overlay-text">Чат был удалён</p>
+    </div>
     <transition name="modal">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal-content">
@@ -73,6 +76,7 @@ const isOwner = ref(false);
 const isInputFocused = ref(false);
 const isMobile = ref(window.innerWidth <= 768);
 const isBlocked = ref(false);
+const isChatDeleted = ref(false);
 const showModal = ref(false);
 const modalTitle = ref('');
 const modalMessage = ref('');
@@ -101,7 +105,11 @@ const fetchUserDetails = async () => {
     });
     nick.value = response.data.nick || 'Unknown';
     userPhoto.value = response.data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  } catch (error) {}
+  } catch (error) {
+    if (error.response?.status === 404) {
+      isChatDeleted.value = true;
+    }
+  }
 };
 
 const fetchJobDetails = async () => {
@@ -114,11 +122,18 @@ const fetchJobDetails = async () => {
     if (job) {
       nick.value = job.nick || 'Unknown';
       isOwner.value = currentUserId.value === job.userId.toString();
+    } else {
+      isChatDeleted.value = true;
     }
-  } catch (error) {}
+  } catch (error) {
+    if (error.response?.status === 404) {
+      isChatDeleted.value = true;
+    }
+  }
 };
 
 const fetchMessages = async () => {
+  if (isChatDeleted.value) return;
   try {
     const response = await axios.get(`${BASE_URL}/api/chat/${targetUserId.value}?jobId=${jobId.value}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
@@ -128,21 +143,39 @@ const fetchMessages = async () => {
       isSender: msg.authorUserId.toString() === currentUserId.value
     }));
     scrollToBottom();
-  } catch (error) {}
+  } catch (error) {
+    if (error.response?.status === 404) {
+      isChatDeleted.value = true;
+    }
+  }
 };
 
 const checkChatStatus = async () => {
+  if (isChatDeleted.value) return;
+  if (currentUserId.value === targetUserId.value) {
+    isChatDeleted.value = true;
+    return;
+  }
   try {
     const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     isBlocked.value = blockCheck.data.blocked;
-  } catch (error) {}
+  } catch (error) {
+    if (error.response?.status === 400 || error.response?.status === 404) {
+      isChatDeleted.value = true;
+    }
+  }
 };
 
 const sendMessage = async () => {
-  if (!newMessage.value.trim()) return;
+  if (!newMessage.value.trim() || isChatDeleted.value) return;
+  if (currentUserId.value === targetUserId.value) {
+    isChatDeleted.value = true;
+    Telegram.WebApp.showAlert('Чат недоступен');
+    return;
+  }
   try {
     const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
@@ -187,6 +220,9 @@ const sendMessage = async () => {
     if (error.response?.status === 403) {
       Telegram.WebApp.showAlert('Чат заблокирован для обоих пользователей до решения модерации');
       isBlocked.value = true;
+    } else if (error.response?.status === 400 || error.response?.status === 404) {
+      isChatDeleted.value = true;
+      Telegram.WebApp.showAlert('Чат недоступен');
     } else {
       Telegram.WebApp.showAlert('Failed to send message.');
     }
@@ -292,7 +328,9 @@ onMounted(() => {
   messageInput.value.addEventListener('blur', handleInputBlur);
   window.addEventListener('resize', handleResize);
 
-  const pollInterval = setInterval(fetchMessages, 5000);
+  const pollInterval = setInterval(() => {
+    if (!isChatDeleted.value) fetchMessages();
+  }, 5000);
   onUnmounted(() => clearInterval(pollInterval));
 });
 </script>

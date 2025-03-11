@@ -24,7 +24,7 @@ const TASKS_FILE = path.join(__dirname, "tasks.json");
 const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
-const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
+const ADMIN_IDS = ["1029594875", "#", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
@@ -1092,12 +1092,14 @@ app.get('/api/chat/status/:chatId', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    logger.info(`Checking status for chatId: ${chatId}`); // Добавляем логирование
     const parts = chatId.split('_');
     if (parts.length !== 2 && parts.length !== 3) {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
 
     const blocked = chatUnlocksData[chatId]?.blocked || false;
+    logger.info(`Chat ${chatId} status: blocked = ${blocked}`); // Логируем результат
     res.json({ blocked });
   } catch (error) {
     logger.error(`Error in /api/chat/status/:chatId: ${error.message}`);

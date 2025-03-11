@@ -118,30 +118,7 @@
     ],
     "contact": "https://t.me/workiks_admin",
     "createdAt": "2025-03-08T20:50:56.115Z",
-    "pinned": true
-  },
-  {
-    "id": "1741468431639_1940359844",
-    "adminId": 1940359844,
-    "userId": 5164023566,
-    "username": "test",
-    "nick": "test",
-    "position": "test",
-    "profileLink": "/profile/5164023566",
-    "experience": 12,
-    "description": "test",
-    "requirements": [
-      "test"
-    ],
-    "tags": [
-      "test"
-    ],
-    "categories": [
-      "it"
-    ],
-    "contact": "https://t.me/workiks_admin",
-    "createdAt": "2025-03-08T21:13:51.639Z",
-    "pinned": true
+    "pinned": false
   },
   {
     "id": "1741473414939_1940359844",
@@ -188,5 +165,28 @@
     "contact": "https://t.me/workiks_admin",
     "createdAt": "2025-03-08T23:09:20.033Z",
     "pinned": false
+  },
+  {
+    "id": "1741712029730_1940359844",
+    "adminId": 1940359844,
+    "userId": 5164023566,
+    "username": "deniska_ivashin",
+    "nick": "TEST",
+    "position": "TEST",
+    "profileLink": "/profile/5164023566",
+    "experience": 12,
+    "description": "TEST",
+    "requirements": [
+      "TEST"
+    ],
+    "tags": [
+      "TEST"
+    ],
+    "categories": [
+      "it"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "createdAt": "2025-03-11T16:53:49.730Z",
+    "pinned": true
   }
 ]
