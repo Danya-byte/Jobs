@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue';
+import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
