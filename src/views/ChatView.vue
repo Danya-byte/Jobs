@@ -73,7 +73,6 @@ const isOwner = ref(false);
 const isInputFocused = ref(false);
 const isMobile = ref(window.innerWidth <= 768);
 const isBlocked = ref(false);
-const isChatBlockedForBoth = ref(false);
 const showModal = ref(false);
 const modalTitle = ref('');
 const modalMessage = ref('');
@@ -102,7 +101,9 @@ const fetchUserDetails = async () => {
     });
     nick.value = response.data.nick || 'Unknown';
     userPhoto.value = response.data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-  } catch (error) {}
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+  }
 };
 
 const fetchJobDetails = async () => {
@@ -121,7 +122,9 @@ const fetchJobDetails = async () => {
       nick.value = vacancy.companyName || 'Unknown';
       isOwner.value = currentUserId.value === vacancy.companyUserId.toString();
     }
-  } catch (error) {}
+  } catch (error) {
+    console.error('Error fetching job details:', error);
+  }
 };
 
 const fetchMessages = async () => {
@@ -134,17 +137,19 @@ const fetchMessages = async () => {
       isSender: msg.authorUserId.toString() === currentUserId.value
     }));
     scrollToBottom();
-  } catch (error) {}
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+  }
 };
 
 const checkChatStatus = async () => {
   try {
-    const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
+    const userIds = [currentUserId.value, targetUserId.value].sort();
+    const chatId = `${jobId.value}_${userIds[0]}_${userIds[1]}`; // Канонический chatId
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     isBlocked.value = blockCheck.data.blocked;
-    isChatBlockedForBoth.value = blockCheck.data.blocked;
   } catch (error) {
     console.error('Error checking chat status:', error);
   }
@@ -153,14 +158,14 @@ const checkChatStatus = async () => {
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
-    const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
+    const userIds = [currentUserId.value, targetUserId.value].sort();
+    const chatId = `${jobId.value}_${userIds[0]}_${userIds[1]}`; // Канонический chatId
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     if (blockCheck.data.blocked) {
       Telegram.WebApp.showAlert('Чат остановлен до вмешательства модерации и решения конфликта');
       isBlocked.value = true;
-      isChatBlockedForBoth.value = true;
       return;
     }
 
@@ -195,6 +200,7 @@ const sendMessage = async () => {
     }
   } catch (error) {
     Telegram.WebApp.showAlert('Failed to send message.');
+    console.error('Error sending message:', error);
   }
 };
 

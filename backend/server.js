@@ -989,12 +989,14 @@ app.post('/api/report', async (req, res) => {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
 
-    const chatKey = chatId;
-    if (!chatUnlocksData[chatKey]) {
-      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
+    const userIds = [user.id.toString(), targetUserId].sort();
+    const canonicalChatId = `${jobId}_${userIds[0]}_${userIds[1]}`;
+
+    if (!chatUnlocksData[canonicalChatId]) {
+      chatUnlocksData[canonicalChatId] = { blocked: true, reporterId: user.id };
     } else {
-      chatUnlocksData[chatKey].blocked = true;
-      chatUnlocksData[chatKey].reporterId = user.id;
+      chatUnlocksData[canonicalChatId].blocked = true;
+      chatUnlocksData[canonicalChatId].reporterId = user.id;
     }
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
@@ -1013,10 +1015,10 @@ app.post('/api/report', async (req, res) => {
 
     const message = `Пользователь ${reporterUsername} (${reporterName}) пожаловался на чат с ${targetUsername} (${targetName}) по причине: ${reason}`;
     const keyboard = new InlineKeyboard()
-      .text('Посмотреть переписку', `view_${chatId}`)
+      .text('Посмотреть переписку', `view_${canonicalChatId}`)
       .row()
-      .text('Разблокировать', `unblock_${chatId}`)
-      .text('Удалить', `delete_${chatId}`);
+      .text('Разблокировать', `unblock_${canonicalChatId}`)
+      .text('Удалить', `delete_${canonicalChatId}`);
 
     for (const adminId of ADMIN_IDS) {
       try {
@@ -1028,8 +1030,8 @@ app.post('/api/report', async (req, res) => {
 
     const notification = 'Ваш чат был остановлен до вмешательства модерации и решения конфликта.';
     try {
-      await bot.api.sendMessage(user.id, notification); // Уведомление репортеру
-      await bot.api.sendMessage(targetUserId, notification); // Уведомление цели
+      await bot.api.sendMessage(user.id, notification);
+      await bot.api.sendMessage(targetUserId, notification);
     } catch (error) {
       logger.error(`Failed to notify chat participants ${user.id} and ${targetUserId}: ${error.message}`);
     }
@@ -1042,18 +1044,28 @@ app.post('/api/report', async (req, res) => {
     release();
   }
 });
-app.get("/api/chat/status/:chatId", async (req, res) => {
+app.get('/api/chat/status/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
+    const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const blocked = chatUnlocksData[chatId]?.blocked || false;
+    const parts = chatId.split('_');
+    if (parts.length !== 3) {
+      return res.status(400).json({ error: 'Invalid chatId format' });
+    }
+
+    const [jobId, userId1, userId2] = parts;
+    const userIds = [userId1, userId2].sort();
+    const canonicalChatId = `${jobId}_${userIds[0]}_${userIds[1]}`; // Канонический chatId
+
+    const blocked = chatUnlocksData[canonicalChatId]?.blocked || false;
     res.json({ blocked });
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
+  } catch (error) {
+    logger.error(`Error in /api/chat/status/:chatId: ${error.message}`);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 app.delete("/api/chat/:chatId", async (req, res) => {
@@ -1143,15 +1155,11 @@ bot.on('callback_query:data', async (ctx) => {
 
     if (data.startsWith('view_')) {
       const parts = chatId.split('_');
-      let jobId, adminId, targetUserId;
+      let jobId, userId1, userId2;
 
-      if (parts.length === 2) {
-        [jobId, targetUserId] = parts;
-        adminId = null;
-        logger.info(`Processing old format chatId: ${chatId}, jobId: ${jobId}, targetUserId: ${targetUserId}`);
-      } else if (parts.length === 3) {
-        [jobId, adminId, targetUserId] = parts;
-        logger.info(`Processing new format chatId: ${chatId}, jobId: ${jobId}, adminId: ${adminId}, targetUserId: ${targetUserId}`);
+      if (parts.length === 3) {
+        [jobId, userId1, userId2] = parts;
+        logger.info(`Processing chatId: ${chatId}, jobId: ${jobId}, userId1: ${userId1}, userId2: ${userId2}`);
       } else {
         logger.error(`Invalid chatId format: ${chatId}`);
         await ctx.reply('Неверный формат chatId.');
@@ -1159,8 +1167,7 @@ bot.on('callback_query:data', async (ctx) => {
         return;
       }
 
-      const reporterId = chatUnlocksData[chatId]?.reporterId?.toString() || (chatUnlocksData[chatId] === true ? null : null);
-
+      const reporterId = chatUnlocksData[chatId]?.reporterId?.toString();
       if (!reporterId) {
         logger.error(`Reporter ID not found for chatId: ${chatId}`);
         await ctx.reply('Репортёр не найден в данных чата.');
@@ -1168,7 +1175,7 @@ bot.on('callback_query:data', async (ctx) => {
         return;
       }
 
-      logger.info(`Fetching messages for chatId: ${chatId}, reporterId: ${reporterId}, targetUserId: ${targetUserId}`);
+      logger.info(`Fetching messages for chatId: ${chatId}, reporterId: ${reporterId}, targetUserId: ${userId2}`);
 
       if (!Array.isArray(messagesData) || messagesData.length === 0) {
         logger.error(`messagesData is empty or not an array: ${JSON.stringify(messagesData)}`);
@@ -1181,23 +1188,19 @@ bot.on('callback_query:data', async (ctx) => {
       logger.debug(`All messages: ${JSON.stringify(messagesData)}`);
 
       const chatMessages = messagesData.filter((msg) => {
-        const matchesJobId = adminId
-          ? msg.jobId === `${jobId}_${adminId}`
-          : (!msg.jobId || msg.jobId === jobId);
-
+        const matchesJobId = msg.jobId === jobId;
         const msgAuthorId = msg.authorUserId.toString();
         const msgTargetId = msg.targetUserId.toString();
         const matchesUsers =
-          (msgAuthorId === reporterId && msgTargetId === targetUserId) ||
-          (msgAuthorId === targetUserId && msgTargetId === reporterId);
+          (msgAuthorId === reporterId && msgTargetId === userId2) ||
+          (msgAuthorId === userId2 && msgTargetId === reporterId);
 
         logger.debug(`Checking message: ${JSON.stringify(msg)}, matchesJobId: ${matchesJobId}, matchesUsers: ${matchesUsers}`);
-
         return matchesJobId && matchesUsers;
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (chatMessages.length === 0) {
-        logger.info(`No messages found for chatId: ${chatId}, jobId: ${jobId}, adminId: ${adminId || 'null'}, targetUserId: ${targetUserId}, reporterId: ${reporterId}`);
+        logger.info(`No messages found for chatId: ${chatId}, jobId: ${jobId}, userId1: ${userId1}, userId2: ${userId2}, reporterId: ${reporterId}`);
         await ctx.reply('Переписка не найдена.');
         await ctx.answerCallbackQuery();
         return;
@@ -1217,17 +1220,17 @@ bot.on('callback_query:data', async (ctx) => {
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
       const parts = chatId.split('_');
-      const targetUserId = parts.length === 3 ? parts[2] : parts[1];
-      const reporterId = chatUnlocksData[chatId].reporterId;
+      const userId1 = parts[1];
+      const userId2 = parts[2];
 
       try {
-        const reporterData = await bot.api.getChat(reporterId);
-        const targetData = await bot.api.getChat(targetUserId);
-        const reporterName = reporterData.first_name || 'Пользователь';
-        const targetName = targetData.first_name || 'Пользователь';
+        const user1Data = await bot.api.getChat(userId1);
+        const user2Data = await bot.api.getChat(userId2);
+        const user1Name = user1Data.first_name || 'Пользователь';
+        const user2Name = user2Data.first_name || 'Пользователь';
 
-        await bot.api.sendMessage(reporterId, `Чат с ${targetName} был разблокирован администратором`);
-        await bot.api.sendMessage(targetUserId, `Чат с ${reporterName} был разблокирован администратором`);
+        await bot.api.sendMessage(userId1, `Чат с ${user2Name} был разблокирован администратором`);
+        await bot.api.sendMessage(userId2, `Чат с ${user1Name} был разблокирован администратором`);
       } catch (error) {
         logger.error(`Error notifying users for unblock: ${error.message}`);
       }
@@ -1236,19 +1239,15 @@ bot.on('callback_query:data', async (ctx) => {
     } else if (data.startsWith('delete_')) {
       const parts = chatId.split('_');
       const jobId = parts[0];
-      const targetUserId = parts.length === 3 ? parts[2] : parts[1];
+      const userId1 = parts[1];
+      const userId2 = parts[2];
       const reporterId = chatUnlocksData[chatId].reporterId;
 
       messagesData = messagesData.filter(
         (msg) => {
-          if (parts.length === 3) {
-            return !(msg.jobId === `${jobId}_${parts[1]}` &&
-                     (msg.authorUserId.toString() === reporterId.toString() ||
-                      msg.targetUserId.toString() === targetUserId));
-          } else {
-            return !(msg.authorUserId.toString() === reporterId.toString() ||
-                     msg.targetUserId.toString() === targetUserId);
-          }
+          return !(msg.jobId === jobId &&
+                   (msg.authorUserId.toString() === userId1 ||
+                    msg.targetUserId.toString() === userId2));
         }
       );
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
@@ -1257,13 +1256,13 @@ bot.on('callback_query:data', async (ctx) => {
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
       try {
-        const reporterData = await bot.api.getChat(reporterId);
-        const targetData = await bot.api.getChat(targetUserId);
-        const reporterName = reporterData.first_name || 'Пользователь';
-        const targetName = targetData.first_name || 'Пользователь';
+        const user1Data = await bot.api.getChat(userId1);
+        const user2Data = await bot.api.getChat(userId2);
+        const user1Name = user1Data.first_name || 'Пользователь';
+        const user2Name = user2Data.first_name || 'Пользователь';
 
-        await bot.api.sendMessage(reporterId, `Чат с ${targetName} был удалён администратором`);
-        await bot.api.sendMessage(targetUserId, `Чат с ${reporterName} был удалён администратором`);
+        await bot.api.sendMessage(userId1, `Чат с ${user2Name} был удалён администратором`);
+        await bot.api.sendMessage(userId2, `Чат с ${user1Name} был удалён администратором`);
       } catch (error) {
         logger.error(`Error notifying users for delete: ${error.message}`);
       }
@@ -1406,18 +1405,19 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid data' });
     }
 
-    const chatId = `${jobId}_${user.id}_${targetUserId}`;
+    // Формируем канонический chatId
+    const userIds = [user.id.toString(), targetUserId].sort();
+    const chatId = `${jobId}_${userIds[0]}_${userIds[1]}`;
+
     if (chatUnlocksData[chatId]?.blocked) {
       return res.status(403).json({ error: 'Chat is blocked' });
     }
 
-    const [jobsResponse, vacanciesResponse] = await Promise.all([
-      fs.readFile(JOBS_FILE, 'utf-8').then(data => JSON.parse(data || '[]')),
-      fs.readFile(VACANCIES_FILE, 'utf-8').then(data => JSON.parse(data || '[]'))
-    ]);
-    const job = jobsResponse.find(j => j.id === jobId);
-    const vacancy = vacanciesResponse.find(v => v.id === jobId);
-    const isOwner = job && job.userId.toString() === user.id.toString() || vacancy && vacancy.companyUserId.toString() === user.id.toString();
+    // Проверяем, является ли пользователь владельцем карточки
+    const job = jobsData.find(j => j.id === jobId);
+    const vacancy = vacanciesData.find(v => v.id === jobId);
+    const isOwner = (job && job.userId.toString() === user.id.toString()) ||
+                    (vacancy && vacancy.companyUserId.toString() === user.id.toString());
 
     if (isOwner) {
       const message = {
@@ -1455,26 +1455,10 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
 
       res.json({ success: true, message, updatedMessages: messagesData });
     } else {
-      const invoiceResponse = await axios.post(
-        `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: targetUserId, text: newMessage.value, jobId: jobId.value },
-        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-      );
-      if (invoiceResponse.data.success) {
-        window.Telegram.WebApp.openInvoice(invoiceResponse.data.invoiceLink, (status) => {
-          if (status === 'paid') {
-            fetchMessages();
-            newMessage.value = '';
-            Telegram.WebApp.showAlert('Message sent successfully!');
-          } else if (status === 'cancelled') {
-            newMessage.value = '';
-            Telegram.WebApp.showAlert('Payment cancelled.');
-          }
-        });
-      }
+      res.status(403).json({ error: 'Payment required' });
     }
   } catch (error) {
-    logger.error(`Error in /api/chat/: ${error.message}`);
+    logger.error(`Error in /api/chat/:targetUserId: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     release();
