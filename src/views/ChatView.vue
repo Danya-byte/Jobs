@@ -4,7 +4,7 @@
       <button class="back-button" @click="goBack">←</button>
       <div class="chat-title">
         <span>{{ targetUserDetails.firstName || 'Пользователь' }}</span>
-        <span class="job-title">{{ jobDetails.title || 'Название вакансии' }}</span>
+        <span class="job-title">{{ jobDetails.position || 'Название вакансии' }}</span>
       </div>
       <div class="chat-actions">
         <button class="report-button" @click="reportChat">Пожаловаться</button>
@@ -216,8 +216,12 @@ export default {
       fetchJobDetails();
       fetchMessages();
       checkChatStatus();
-      messageInput.value.addEventListener('focus', handleInputFocus);
-      messageInput.value.addEventListener('blur', handleInputBlur);
+
+      // Добавляем слушатели только если messageInput.value существует
+      if (messageInput.value) {
+        messageInput.value.addEventListener('focus', handleInputFocus);
+        messageInput.value.addEventListener('blur', handleInputBlur);
+      }
       window.addEventListener('resize', handleResize);
 
       const pollInterval = setInterval(() => {
@@ -230,8 +234,11 @@ export default {
     });
 
     onUnmounted(() => {
-      messageInput.value.removeEventListener('focus', handleInputFocus);
-      messageInput.value.removeEventListener('blur', handleInputBlur);
+      // Проверяем, существует ли messageInput.value перед удалением слушателей
+      if (messageInput.value) {
+        messageInput.value.removeEventListener('focus', handleInputFocus);
+        messageInput.value.removeEventListener('blur', handleInputBlur);
+      }
       window.removeEventListener('resize', handleResize);
     });
 
