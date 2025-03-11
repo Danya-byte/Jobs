@@ -133,7 +133,7 @@ const fetchMessages = async () => {
 
 const checkChatStatus = async () => {
   try {
-    const chatId = `${jobId.value}_${targetUserId.value}`;
+    const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
@@ -144,7 +144,7 @@ const checkChatStatus = async () => {
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
-    const chatId = `${jobId.value}_${targetUserId.value}`;
+    const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
@@ -662,4 +662,4 @@ onMounted(() => {
     transform: translateY(0);
   }
 }
-</style>
+</vue>

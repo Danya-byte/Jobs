@@ -109,7 +109,32 @@ async function initMessagesFile() {
     await fs.writeFile(MESSAGES_FILE, "[]");
   }
 }
+async function migrateChatUnlocksData() {
+  try {
+    const rawData = await fs.readFile(CHAT_UNLOCKS_FILE, "utf8");
+    const oldData = rawData.trim() ? JSON.parse(rawData) : {};
+    const newData = { ...oldData };
 
+    for (const [chatId, value] of Object.entries(oldData)) {
+      const parts = chatId.split('_');
+      if (parts.length !== 3) continue; // Пропускаем некорректные записи
+
+      const [jobId, userId1, userId2] = parts;
+      const mirrorChatId = `${jobId}_${userId2}_${userId1}`; // Зеркальное направление
+
+      // Если зеркальной записи нет, создаем её
+      if (!newData[mirrorChatId]) {
+        newData[mirrorChatId] = { ...value };
+      }
+    }
+
+    await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(newData, null, 2));
+    chatUnlocksData = newData;
+    logger.info('Chat unlocks data migrated successfully for bidirectional blocking');
+  } catch (error) {
+    logger.error(`Error migrating chatUnlocksData: ${error.message}`);
+  }
+}
 async function initJobsFile() {
   try {
     await fs.access(JOBS_FILE);
@@ -989,13 +1014,25 @@ app.post('/api/report', async (req, res) => {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
 
-    const chatKey = chatId; // Используем оригинальный chatId
-    if (!chatUnlocksData[chatKey]) {
-      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
+    // Формируем chatId для обоих направлений
+    const chatIdDirection1 = `${jobId}_${user.id}_${targetUserId}`; // A → B
+    const chatIdDirection2 = `${jobId}_${targetUserId}_${user.id}`; // B → A
+
+    // Блокируем чат для обоих направлений
+    if (!chatUnlocksData[chatIdDirection1]) {
+      chatUnlocksData[chatIdDirection1] = { blocked: true, reporterId: user.id };
     } else {
-      chatUnlocksData[chatKey].blocked = true;
-      chatUnlocksData[chatKey].reporterId = user.id;
+      chatUnlocksData[chatIdDirection1].blocked = true;
+      chatUnlocksData[chatIdDirection1].reporterId = user.id;
     }
+
+    if (!chatUnlocksData[chatIdDirection2]) {
+      chatUnlocksData[chatIdDirection2] = { blocked: true, reporterId: user.id };
+    } else {
+      chatUnlocksData[chatIdDirection2].blocked = true;
+      chatUnlocksData[chatIdDirection2].reporterId = user.id;
+    }
+
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
     let reporterName = user.first_name || user.username || user.id;
@@ -1013,10 +1050,23 @@ app.post('/api/report', async (req, res) => {
 
     const message = `Пользователь ${reporterUsername} (${reporterName}) пожаловался на чат с ${targetUsername} (${targetName}) по причине: ${reason}`;
     const keyboard = new InlineKeyboard()
-      .text('Посмотреть переписку', `view_${chatId}`)
+      .text('Посмотреть переписку', `view_${chatIdDirection1}`) // Используем направление A → B
       .row()
-      .text('Разблокировать', `unblock_${chatId}`)
-      .text('Удалить', `delete_${chatId}`);
+      .text('Разблокировать', `unblock_${chatIdDirection1}`)
+      .text('Удалить', `delete_${chatIdDirection1}`);
+
+    // Уведомляем обоих пользователей о блокировке
+    try {
+      const user1Data = await bot.api.getChat(user.id);
+      const user2Data = await bot.api.getChat(targetUserId);
+      const user1Name = user1Data.first_name || 'Пользователь';
+      const user2Name = user2Data.first_name || 'Пользователь';
+
+      await bot.api.sendMessage(user.id, `Чат с ${user2Name} заблокирован до решения модерации.`);
+      await bot.api.sendMessage(targetUserId, `Чат с ${user1Name} заблокирован до решения модерации.`);
+    } catch (error) {
+      logger.error(`Error notifying users about chat block: ${error.message}`);
+    }
 
     for (const adminId of ADMIN_IDS) {
       try {
@@ -1139,20 +1189,19 @@ bot.on('callback_query:data', async (ctx) => {
       return;
     }
 
+    const parts = chatId.split('_');
+    if (parts.length !== 3) {
+      logger.error(`Invalid chatId format: ${chatId}`);
+      await ctx.reply('Неверный формат chatId.');
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
+    const [jobId, userId1, userId2] = parts;
+    const chatIdDirection1 = `${jobId}_${userId1}_${userId2}`; // A → B
+    const chatIdDirection2 = `${jobId}_${userId2}_${userId1}`; // B → A
+
     if (data.startsWith('view_')) {
-      const parts = chatId.split('_');
-      let jobId, userId1, userId2;
-
-      if (parts.length === 3) {
-        [jobId, userId1, userId2] = parts;
-        logger.info(`Processing chatId: ${chatId}, jobId: ${jobId}, userId1: ${userId1}, userId2: ${userId2}`);
-      } else {
-        logger.error(`Invalid chatId format: ${chatId}`);
-        await ctx.reply('Неверный формат chatId.');
-        await ctx.answerCallbackQuery();
-        return;
-      }
-
       const reporterId = chatUnlocksData[chatId]?.reporterId?.toString();
       if (!reporterId) {
         logger.error(`Reporter ID not found for chatId: ${chatId}`);
@@ -1170,19 +1219,14 @@ bot.on('callback_query:data', async (ctx) => {
         return;
       }
 
-      logger.debug(`Total messages in messagesData: ${messagesData.length}`);
-      logger.debug(`All messages: ${JSON.stringify(messagesData)}`);
-
       const chatMessages = messagesData.filter((msg) => {
         const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : '';
         const matchesJobId = msgJobIdBase === jobId;
         const msgAuthorId = msg.authorUserId.toString();
         const msgTargetId = msg.targetUserId.toString();
         const matchesUsers =
-          (msgAuthorId === reporterId && msgTargetId === userId2) ||
-          (msgAuthorId === userId2 && msgTargetId === reporterId);
-
-        logger.debug(`Checking message: ${JSON.stringify(msg)}, matchesJobId: ${matchesJobId}, matchesUsers: ${matchesUsers}`);
+          (msgAuthorId === userId1 && msgTargetId === userId2) ||
+          (msgAuthorId === userId2 && msgTargetId === userId1);
         return matchesJobId && matchesUsers;
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -1203,12 +1247,10 @@ bot.on('callback_query:data', async (ctx) => {
       await ctx.reply(messageText.substring(0, 4096));
       await ctx.answerCallbackQuery({ text: 'Переписка показана' });
     } else if (data.startsWith('unblock_')) {
-      chatUnlocksData[chatId].blocked = false;
+      // Разблокируем оба направления
+      chatUnlocksData[chatIdDirection1].blocked = false;
+      chatUnlocksData[chatIdDirection2].blocked = false;
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
-
-      const parts = chatId.split('_');
-      const userId1 = parts[1];
-      const userId2 = parts[2];
 
       try {
         const user1Data = await bot.api.getChat(userId1);
@@ -1224,22 +1266,25 @@ bot.on('callback_query:data', async (ctx) => {
 
       await ctx.answerCallbackQuery({ text: 'Чат разблокирован' });
     } else if (data.startsWith('delete_')) {
-      const parts = chatId.split('_');
-      const jobId = parts[0];
-      const userId1 = parts[1];
-      const userId2 = parts[2];
       const reporterId = chatUnlocksData[chatId].reporterId;
 
       messagesData = messagesData.filter(
         (msg) => {
-          return !(msg.jobId === jobId &&
-                   (msg.authorUserId.toString() === userId1 ||
-                    msg.targetUserId.toString() === userId2));
+          const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : '';
+          const matchesJobId = msgJobIdBase === jobId;
+          const msgAuthorId = msg.authorUserId.toString();
+          const msgTargetId = msg.targetUserId.toString();
+          const matchesUsers =
+            (msgAuthorId === userId1 && msgTargetId === userId2) ||
+            (msgAuthorId === userId2 && msgTargetId === userId1);
+          return !(matchesJobId && matchesUsers);
         }
       );
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
-      delete chatUnlocksData[chatId];
+      // Удаляем оба направления
+      delete chatUnlocksData[chatIdDirection1];
+      delete chatUnlocksData[chatIdDirection2];
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
       try {
@@ -1338,12 +1383,17 @@ app.get("/api/chat/:targetUserId", async (req, res) => {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
 
+    const jobIdBase = jobId ? jobId.split('_')[0] : null;
+
     const chatMessages = messagesData
       .filter(
-        (msg) =>
-          (!jobId || msg.jobId === jobId) &&
-          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
-           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
+        (msg) => {
+          const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : null;
+          const matchesJobId = !jobId || msg.jobId === jobId || msgJobIdBase === jobIdBase;
+          return matchesJobId &&
+            ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
+             (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()));
+        }
       )
       .map((msg) => ({
         ...msg,
@@ -1351,8 +1401,10 @@ app.get("/api/chat/:targetUserId", async (req, res) => {
       }))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
+    logger.info(`Chat messages for user ${user.id}, target ${targetUserId}, jobId ${jobId}: ${JSON.stringify(chatMessages)}`);
     res.json(chatMessages);
-  } catch {
+  } catch (error) {
+    logger.error(`Error in /api/chat/: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1669,6 +1721,7 @@ Promise.all([
     await loadTasks();
     await loadCompanySubscriptions();
     await loadChatUnlocks();
+    await migrateChatUnlocksData(); // Добавляем миграцию
     await loadPendingMessages();
     app.listen(port, () => {
       bot.start();
