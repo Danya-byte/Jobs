@@ -291,6 +291,9 @@ onMounted(() => {
   messageInput.value.addEventListener('focus', handleInputFocus);
   messageInput.value.addEventListener('blur', handleInputBlur);
   window.addEventListener('resize', handleResize);
+
+  const pollInterval = setInterval(fetchMessages, 5000);
+  onUnmounted(() => clearInterval(pollInterval));
 });
 </script>
 

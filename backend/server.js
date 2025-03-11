@@ -989,13 +989,12 @@ app.post('/api/report', async (req, res) => {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
 
-    const chatKey = chatId;
+    const chatKey = chatId; // Используем оригинальный chatId
     if (!chatUnlocksData[chatKey]) {
-      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id, targetUserId: targetUserId };
+      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
     } else {
       chatUnlocksData[chatKey].blocked = true;
       chatUnlocksData[chatKey].reporterId = user.id;
-      chatUnlocksData[chatKey].targetUserId = targetUserId;
     }
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
@@ -1025,14 +1024,6 @@ app.post('/api/report', async (req, res) => {
       } catch (error) {
         logger.error(`Failed to send report notification to admin ${adminId}: ${error.message}`);
       }
-    }
-
-    const blockMessage = `Чат заблокирован из-за жалобы. Ожидайте решения модерации.`;
-    try {
-      await bot.api.sendMessage(user.id, blockMessage);
-      await bot.api.sendMessage(targetUserId, blockMessage);
-    } catch (error) {
-      logger.error(`Failed to notify users about chat block: ${error.message}`);
     }
 
     res.json({ success: true });
@@ -1183,7 +1174,8 @@ bot.on('callback_query:data', async (ctx) => {
       logger.debug(`All messages: ${JSON.stringify(messagesData)}`);
 
       const chatMessages = messagesData.filter((msg) => {
-        const matchesJobId = msg.jobId === jobId;
+        const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : '';
+        const matchesJobId = msgJobIdBase === jobId;
         const msgAuthorId = msg.authorUserId.toString();
         const msgTargetId = msg.targetUserId.toString();
         const matchesUsers =
@@ -1269,25 +1261,6 @@ bot.on('callback_query:data', async (ctx) => {
     await ctx.answerCallbackQuery({ text: 'Ошибка при обработке' });
   } finally {
     release();
-  }
-});
-app.get("/api/favorites", async (req, res) => {
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    let favoriteJobs = [];
-    try {
-      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
-    } catch {
-      favoriteJobs = [];
-    }
-
-    res.json(favoriteJobs);
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -1388,7 +1361,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
     const { targetUserId } = req.params;
-    const { text, jobId } = req.body;
+    const { text, jobId: rawJobId } = req.body;
     const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -1396,17 +1369,17 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get('user'));
 
-    if (!user.id || !text || !jobId) {
+    if (!user.id || !text || !rawJobId) {
       return res.status(400).json({ error: 'Invalid data' });
     }
 
-    const chatId1 = `${jobId}_${user.id}_${targetUserId}`;
-    const chatId2 = `${jobId}_${targetUserId}_${user.id}`;
-    if (chatUnlocksData[chatId1]?.blocked || chatUnlocksData[chatId2]?.blocked) {
-      return res.status(403).json({ error: 'Chat is blocked for both users' });
+    const jobId = rawJobId.split('_')[0];
+    const chatId = `${rawJobId}_${user.id}_${targetUserId}`;
+    if (chatUnlocksData[chatId]?.blocked) {
+      return res.status(403).json({ error: 'Chat is blocked' });
     }
 
-    const job = jobsData.find(j => j.id === jobId);
+    const job = jobsData.find(j => j.id === rawJobId);
     const isOwner = job && job.userId.toString() === user.id.toString();
 
     if (isOwner) {
@@ -1415,7 +1388,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
         text,
         authorUserId: user.id.toString(),
         targetUserId,
-        jobId,
+        jobId: jobId,
         timestamp: new Date().toISOString(),
         isSender: true,
       };
@@ -1433,7 +1406,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
         const keyboard = new InlineKeyboard().webApp(
           '💬 Open Chat',
-          `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${jobId}`
+          `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${rawJobId}`
         );
         await bot.api.sendMessage(targetUserId, notification, {
           parse_mode: 'MarkdownV2',
@@ -1447,7 +1420,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     } else {
       const invoiceResponse = await axios.post(
         `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: targetUserId, text, jobId },
+        { targetUserId: targetUserId, text, jobId: rawJobId },
         { headers: { 'X-Telegram-Data': telegramData } }
       );
       if (invoiceResponse.data.success) {
