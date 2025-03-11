@@ -73,6 +73,7 @@ const isOwner = ref(false);
 const isInputFocused = ref(false);
 const isMobile = ref(window.innerWidth <= 768);
 const isBlocked = ref(false);
+const isChatBlockedForBoth = ref(false);
 const showModal = ref(false);
 const modalTitle = ref('');
 const modalMessage = ref('');
@@ -107,13 +108,18 @@ const fetchUserDetails = async () => {
 const fetchJobDetails = async () => {
   if (!jobId.value) return;
   try {
-    const response = await axios.get(`${BASE_URL}/api/jobs`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-    });
-    const job = response.data.find(j => j.id === jobId.value);
+    const [jobsResponse, vacanciesResponse] = await Promise.all([
+      axios.get(`${BASE_URL}/api/jobs`, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }),
+      axios.get(`${BASE_URL}/api/vacancies`, { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } })
+    ]);
+    const job = jobsResponse.data.find(j => j.id === jobId.value);
+    const vacancy = vacanciesResponse.data.find(v => v.id === jobId.value);
     if (job) {
       nick.value = job.nick || 'Unknown';
       isOwner.value = currentUserId.value === job.userId.toString();
+    } else if (vacancy) {
+      nick.value = vacancy.companyName || 'Unknown';
+      isOwner.value = currentUserId.value === vacancy.companyUserId.toString();
     }
   } catch (error) {}
 };
@@ -133,24 +139,28 @@ const fetchMessages = async () => {
 
 const checkChatStatus = async () => {
   try {
-    const chatId = `${jobId.value}_${targetUserId.value}`;
+    const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     isBlocked.value = blockCheck.data.blocked;
-  } catch (error) {}
+    isChatBlockedForBoth.value = blockCheck.data.blocked;
+  } catch (error) {
+    console.error('Error checking chat status:', error);
+  }
 };
 
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   try {
-    const chatId = `${jobId.value}_${targetUserId.value}`;
+    const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
     const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     if (blockCheck.data.blocked) {
       Telegram.WebApp.showAlert('Чат остановлен до вмешательства модерации и решения конфликта');
       isBlocked.value = true;
+      isChatBlockedForBoth.value = true;
       return;
     }
 

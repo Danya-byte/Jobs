@@ -977,6 +977,18 @@ app.post('/api/report', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const parts = chatId.split('_');
+    let jobId, adminId, targetUserId;
+
+    if (parts.length === 3) {
+      [jobId, adminId, targetUserId] = parts;
+    } else if (parts.length === 2) {
+      [jobId, targetUserId] = parts;
+      adminId = null;
+    } else {
+      return res.status(400).json({ error: 'Invalid chatId format' });
+    }
+
     const chatKey = chatId;
     if (!chatUnlocksData[chatKey]) {
       chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
@@ -986,10 +998,20 @@ app.post('/api/report', async (req, res) => {
     }
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
-    const targetUserId = chatId.split('_')[1];
-    const jobId = chatId.split('_')[0];
-    const reporterName = user.first_name || user.username || user.id;
-    const message = `Пользователь ${reporterName} пожаловался на чат с @${targetUserId} по причине: ${reason}`;
+    let reporterName = user.first_name || user.username || user.id;
+    let reporterUsername = user.username ? `@${user.username}` : user.id.toString();
+    let targetName = 'Пользователь';
+    let targetUsername = targetUserId;
+
+    try {
+      const targetData = await bot.api.getChat(targetUserId);
+      targetName = targetData.first_name || 'Пользователь';
+      targetUsername = targetData.username ? `@${targetData.username}` : targetUserId;
+    } catch (error) {
+      logger.error(`Failed to get chat data for targetUserId ${targetUserId}: ${error.message}`);
+    }
+
+    const message = `Пользователь ${reporterUsername} (${reporterName}) пожаловался на чат с ${targetUsername} (${targetName}) по причине: ${reason}`;
     const keyboard = new InlineKeyboard()
       .text('Посмотреть переписку', `view_${chatId}`)
       .row()
@@ -999,11 +1021,22 @@ app.post('/api/report', async (req, res) => {
     for (const adminId of ADMIN_IDS) {
       try {
         await bot.api.sendMessage(adminId, message, { reply_markup: keyboard });
-      } catch (error) {}
+      } catch (error) {
+        logger.error(`Failed to send report notification to admin ${adminId}: ${error.message}`);
+      }
+    }
+
+    const notification = 'Ваш чат был остановлен до вмешательства модерации и решения конфликта.';
+    try {
+      await bot.api.sendMessage(user.id, notification); // Уведомление репортеру
+      await bot.api.sendMessage(targetUserId, notification); // Уведомление цели
+    } catch (error) {
+      logger.error(`Failed to notify chat participants ${user.id} and ${targetUserId}: ${error.message}`);
     }
 
     res.json({ success: true });
   } catch (error) {
+    logger.error(`Error in /api/report: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     release();
@@ -1357,33 +1390,36 @@ app.get("/api/chat/:targetUserId", async (req, res) => {
   }
 });
 
-app.post("/api/chat/:targetUserId", async (req, res) => {
+app.post('/api/chat/:targetUserId', async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
     const { targetUserId } = req.params;
     const { text, jobId } = req.body;
-    const telegramData = req.headers["x-telegram-data"];
+    const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
     const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
+    const user = JSON.parse(params.get('user'));
 
     if (!user.id || !text || !jobId) {
-      return res.status(400).json({ error: "Invalid data" });
+      return res.status(400).json({ error: 'Invalid data' });
     }
 
-    const chatId = `${jobId}_${targetUserId}`;
+    const chatId = `${jobId}_${user.id}_${targetUserId}`;
     if (chatUnlocksData[chatId]?.blocked) {
-      return res.status(403).json({ error: "Chat is blocked" });
+      return res.status(403).json({ error: 'Chat is blocked' });
     }
 
-    const job = jobsData.find((j) => j.id === jobId);
-    if (!job) {
-      return res.status(404).json({ error: "Job not found" });
-    }
+    const [jobsResponse, vacanciesResponse] = await Promise.all([
+      fs.readFile(JOBS_FILE, 'utf-8').then(data => JSON.parse(data || '[]')),
+      fs.readFile(VACANCIES_FILE, 'utf-8').then(data => JSON.parse(data || '[]'))
+    ]);
+    const job = jobsResponse.find(j => j.id === jobId);
+    const vacancy = vacanciesResponse.find(v => v.id === jobId);
+    const isOwner = job && job.userId.toString() === user.id.toString() || vacancy && vacancy.companyUserId.toString() === user.id.toString();
 
-    if (job.userId.toString() === user.id.toString()) {
+    if (isOwner) {
       const message = {
         id: `${user.id}_${Date.now()}`,
         text,
@@ -1399,28 +1435,47 @@ app.post("/api/chat/:targetUserId", async (req, res) => {
 
       try {
         const targetData = await bot.api.getChat(targetUserId);
-        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
+        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
         const notification =
           `*New Message\\!*\n\n` +
-          `User *${escapeMarkdownV2(user.first_name || "Unknown")}* sent you a message:\n` +
+          `User *${escapeMarkdownV2(user.first_name || 'Unknown')}* sent you a message:\n` +
           `> ${escapeMarkdownV2(text)}\n\n` +
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
         const keyboard = new InlineKeyboard().webApp(
-          "💬 Open Chat",
+          '💬 Open Chat',
           `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${jobId}`
         );
         await bot.api.sendMessage(targetUserId, notification, {
-          parse_mode: "MarkdownV2",
+          parse_mode: 'MarkdownV2',
           reply_markup: keyboard
         });
-      } catch {}
+      } catch (error) {
+        logger.error(`Failed to notify target user ${targetUserId}: ${error.message}`);
+      }
 
       res.json({ success: true, message, updatedMessages: messagesData });
     } else {
-      res.status(403).json({ error: "Payment required" });
+      const invoiceResponse = await axios.post(
+        `${BASE_URL}/api/createMessageInvoice`,
+        { targetUserId: targetUserId, text: newMessage.value, jobId: jobId.value },
+        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+      );
+      if (invoiceResponse.data.success) {
+        window.Telegram.WebApp.openInvoice(invoiceResponse.data.invoiceLink, (status) => {
+          if (status === 'paid') {
+            fetchMessages();
+            newMessage.value = '';
+            Telegram.WebApp.showAlert('Message sent successfully!');
+          } else if (status === 'cancelled') {
+            newMessage.value = '';
+            Telegram.WebApp.showAlert('Payment cancelled.');
+          }
+        });
+      }
     }
-  } catch {
-    res.status(500).json({ error: "Internal server error" });
+  } catch (error) {
+    logger.error(`Error in /api/chat/: ${error.message}`);
+    res.status(500).json({ error: 'Internal server error' });
   } finally {
     release();
   }
