@@ -54,6 +54,15 @@ export default {
     const isChatDeleted = ref(false);
     const isBlocked = ref(false);
 
+    const validateParams = () => {
+      if (!jobId.value || !targetUserId.value) {
+        Telegram.WebApp.showAlert('Ошибка: отсутствуют необходимые параметры чата');
+        router.push('/chats');
+        return false;
+      }
+      return true;
+    };
+
     const fetchUserDetails = async () => {
       try {
         const response = await axios.get(`${BASE_URL}/api/user/${targetUserId.value}`, {
@@ -196,6 +205,8 @@ export default {
         Telegram.WebApp.showAlert('Please open the app via Telegram.');
         return;
       }
+      if (!validateParams()) return;
+
       if (Telegram.WebApp.setHeaderColor) {
         Telegram.WebApp.setHeaderColor('#97f492');
       }

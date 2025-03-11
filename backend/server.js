@@ -1300,6 +1300,39 @@ bot.on('callback_query:data', async (ctx) => {
     release();
   }
 });
+app.get("/api/messages/:jobId/:targetUserId", async (req, res) => {
+  try {
+    const { jobId, targetUserId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+
+    if (!jobId || !targetUserId) {
+      return res.status(400).json({ error: "Missing jobId or targetUserId" });
+    }
+
+    const messages = messagesData
+      .filter(
+        (msg) =>
+          msg.jobId === jobId &&
+          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
+           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
+      )
+      .map((msg) => ({
+        ...msg,
+        isSender: msg.authorUserId.toString() === user.id.toString(),
+      }))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    res.json(messages);
+  } catch (error) {
+    logger.error(`Error in /api/messages/:jobId/:targetUserId: ${error.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 app.post("/api/createMessageInvoice", async (req, res) => {
   const release = await messagesMutex.acquire();
