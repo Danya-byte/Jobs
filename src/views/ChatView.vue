@@ -149,7 +149,7 @@ const sendMessage = async () => {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
     });
     if (blockCheck.data.blocked) {
-      Telegram.WebApp.showAlert('Чат остановлен до вмешательства модерации и решения конфликта');
+      Telegram.WebApp.showAlert('Чат заблокирован для обоих пользователей до решения модерации');
       isBlocked.value = true;
       return;
     }
@@ -184,7 +184,12 @@ const sendMessage = async () => {
       }
     }
   } catch (error) {
-    Telegram.WebApp.showAlert('Failed to send message.');
+    if (error.response?.status === 403) {
+      Telegram.WebApp.showAlert('Чат заблокирован для обоих пользователей до решения модерации');
+      isBlocked.value = true;
+    } else {
+      Telegram.WebApp.showAlert('Failed to send message.');
+    }
   }
 };
 

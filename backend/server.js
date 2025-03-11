@@ -989,12 +989,13 @@ app.post('/api/report', async (req, res) => {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
 
-    const chatKey = chatId; // Используем оригинальный chatId
+    const chatKey = chatId;
     if (!chatUnlocksData[chatKey]) {
-      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
+      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id, targetUserId: targetUserId };
     } else {
       chatUnlocksData[chatKey].blocked = true;
       chatUnlocksData[chatKey].reporterId = user.id;
+      chatUnlocksData[chatKey].targetUserId = targetUserId;
     }
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
@@ -1024,6 +1025,14 @@ app.post('/api/report', async (req, res) => {
       } catch (error) {
         logger.error(`Failed to send report notification to admin ${adminId}: ${error.message}`);
       }
+    }
+
+    const blockMessage = `Чат заблокирован из-за жалобы. Ожидайте решения модерации.`;
+    try {
+      await bot.api.sendMessage(user.id, blockMessage);
+      await bot.api.sendMessage(targetUserId, blockMessage);
+    } catch (error) {
+      logger.error(`Failed to notify users about chat block: ${error.message}`);
     }
 
     res.json({ success: true });
@@ -1391,9 +1400,10 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid data' });
     }
 
-    const chatId = `${jobId}_${user.id}_${targetUserId}`;
-    if (chatUnlocksData[chatId]?.blocked) {
-      return res.status(403).json({ error: 'Chat is blocked' });
+    const chatId1 = `${jobId}_${user.id}_${targetUserId}`;
+    const chatId2 = `${jobId}_${targetUserId}_${user.id}`;
+    if (chatUnlocksData[chatId1]?.blocked || chatUnlocksData[chatId2]?.blocked) {
+      return res.status(403).json({ error: 'Chat is blocked for both users' });
     }
 
     const job = jobsData.find(j => j.id === jobId);
@@ -1437,20 +1447,13 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     } else {
       const invoiceResponse = await axios.post(
         `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: targetUserId, text: newMessage.value, jobId: jobId.value },
-        { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+        { targetUserId: targetUserId, text, jobId },
+        { headers: { 'X-Telegram-Data': telegramData } }
       );
       if (invoiceResponse.data.success) {
-        window.Telegram.WebApp.openInvoice(invoiceResponse.data.invoiceLink, (status) => {
-          if (status === 'paid') {
-            fetchMessages();
-            newMessage.value = '';
-            Telegram.WebApp.showAlert('Message sent successfully!');
-          } else if (status === 'cancelled') {
-            newMessage.value = '';
-            Telegram.WebApp.showAlert('Payment cancelled.');
-          }
-        });
+        res.json({ success: true, invoiceLink: invoiceResponse.data.invoiceLink });
+      } else {
+        res.status(500).json({ error: 'Failed to create invoice' });
       }
     }
   } catch (error) {
