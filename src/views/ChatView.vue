@@ -662,4 +662,4 @@ onMounted(() => {
     transform: translateY(0);
   }
 }
-</vue>
+</style>
