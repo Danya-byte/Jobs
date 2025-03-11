@@ -1092,14 +1092,18 @@ app.get('/api/chat/status/:chatId', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    logger.info(`Checking status for chatId: ${chatId}`); // Добавляем логирование
     const parts = chatId.split('_');
-    if (parts.length !== 2 && parts.length !== 3) {
+    if (parts.length !== 3) {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
+    const [jobId, userId1, userId2] = parts;
 
-    const blocked = chatUnlocksData[chatId]?.blocked || false;
-    logger.info(`Chat ${chatId} status: blocked = ${blocked}`); // Логируем результат
+    const chatIdDirection1 = `${jobId}_${userId1}_${userId2}`;
+    const chatIdDirection2 = `${jobId}_${userId2}_${userId1}`;
+
+    const blocked = (chatUnlocksData[chatIdDirection1]?.blocked || false) ||
+                    (chatUnlocksData[chatIdDirection2]?.blocked || false);
+
     res.json({ blocked });
   } catch (error) {
     logger.error(`Error in /api/chat/status/:chatId: ${error.message}`);
@@ -1116,45 +1120,31 @@ app.delete("/api/chat/:chatId", async (req, res) => {
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-    const userFirstName = user.first_name || "Пользователь";
+    const currentUserId = user.id.toString();
 
     const parts = chatId.split('_');
-    if (parts.length < 1) {
+    if (parts.length !== 2) {
       return res.status(400).json({ error: "Invalid chatId format" });
     }
-    const jobId = chatId;
+    const [jobId, targetUserId] = parts;
 
-    if (!Array.isArray(messagesData)) {
-      throw new Error('messagesData is not an array');
-    }
-
-    const chatMessages = messagesData.filter(msg => msg.jobId === jobId);
-    if (chatMessages.length === 0) {
-      await bot.api.sendMessage(user.id, `Чат удалён`);
-      return res.json({ success: true });
-    }
-
-    messagesData = messagesData.filter(msg => msg.jobId !== jobId);
+    messagesData = messagesData.filter(msg =>
+      !(msg.jobId === jobId &&
+        ((msg.authorUserId === currentUserId && msg.targetUserId === targetUserId) ||
+         (msg.authorUserId === targetUserId && msg.targetUserId === currentUserId)))
+    );
     await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
-    const otherUserId = chatMessages[0].authorUserId.toString() === user.id.toString()
-      ? chatMessages[0].targetUserId
-      : chatMessages[0].authorUserId;
-
-    if (otherUserId) {
-      let otherUserFirstName = "Пользователь";
-      try {
-        const targetData = await bot.api.getChat(otherUserId);
-        otherUserFirstName = targetData.first_name || "Пользователь";
-      } catch (error) {
-        console.error(`Failed to get chat for ${otherUserId}:`, error);
-      }
-
-      await bot.api.sendMessage(user.id, `Чат с ${otherUserFirstName} удалён`);
-      await bot.api.sendMessage(otherUserId, `Чат с ${userFirstName} удалён`);
-    } else {
-      await bot.api.sendMessage(user.id, `Чат удалён`);
+    let currentUserFirstName = user.first_name || "Пользователь";
+    let otherUserFirstName = "Пользователь";
+    try {
+      const targetData = await bot.api.getChat(targetUserId);
+      otherUserFirstName = targetData.first_name || "Пользователь";
+    } catch (error) {
+      console.error(`Failed to get chat for ${targetUserId}:`, error);
     }
+    await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён`);
+    await bot.api.sendMessage(targetUserId, `Чат с ${currentUserFirstName} удалён`);
 
     res.json({ success: true });
   } catch (error) {
