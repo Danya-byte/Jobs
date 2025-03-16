@@ -42,7 +42,7 @@ export default {
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const jobId = ref(route.params.jobId);
+    const jobId = ref(route.query.jobId); // Изменено с params на query
     const targetUserId = ref(route.params.targetUserId);
     const currentUserId = ref('');
     const messages = ref([]);
@@ -149,20 +149,32 @@ export default {
     };
 
     const reportChat = () => {
-      Telegram.WebApp.showConfirm('Отправить жалобу на этот чат?', async (confirmed) => {
-        if (confirmed) {
-          try {
-            await axios.post(
-              `${BASE_URL}/api/report`,
-              { jobId: jobId.value, targetUserId: targetUserId.value },
-              { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-            );
-            isBlocked.value = true;
-          } catch (error) {
-            Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
+      Telegram.WebApp.showPopup(
+        {
+          title: 'Пожаловаться',
+          message: 'Укажите причину жалобы',
+          buttons: [{ id: 'submit', type: 'default', text: 'Отправить' }],
+        },
+        async (buttonId) => {
+          if (buttonId === 'submit') {
+            const reason = prompt('Укажите причину жалобы'); // Используем стандартный prompt, так как Telegram.WebApp не поддерживает input напрямую
+            if (reason) {
+              try {
+                const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
+                await axios.post(
+                  `${BASE_URL}/api/report`,
+                  { chatId, reason },
+                  { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
+                );
+                isBlocked.value = true;
+                Telegram.WebApp.showAlert('Жалоба отправлена');
+              } catch (error) {
+                Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
+              }
+            }
           }
         }
-      });
+      );
     };
 
     const checkChatStatus = async () => {
@@ -217,7 +229,6 @@ export default {
       fetchMessages();
       checkChatStatus();
 
-      // Добавляем слушатели только если messageInput.value существует
       if (messageInput.value) {
         messageInput.value.addEventListener('focus', handleInputFocus);
         messageInput.value.addEventListener('blur', handleInputBlur);
@@ -234,7 +245,6 @@ export default {
     });
 
     onUnmounted(() => {
-      // Проверяем, существует ли messageInput.value перед удалением слушателей
       if (messageInput.value) {
         messageInput.value.removeEventListener('focus', handleInputFocus);
         messageInput.value.removeEventListener('blur', handleInputBlur);

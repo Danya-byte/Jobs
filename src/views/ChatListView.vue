@@ -38,6 +38,7 @@
               <div class="chat-info">
                 <p class="nick">{{ chat.nick }}</p>
                 <p class="last-message">{{ chat.lastMessage }}</p>
+                <p v-if="chat.blocked" class="blocked-status">Заблокирован</p>
               </div>
               <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.id)">⋮</button>
             </RouterLink>
@@ -357,6 +358,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.blocked-status {
+  color: #ff4444;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+
 body {
     margin: 0;
     font-family: 'Geologica', sans-serif;

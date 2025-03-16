@@ -992,15 +992,15 @@ app.post('/api/report', async (req, res) => {
   try {
     const { chatId, reason } = req.body;
     const telegramData = req.headers['x-telegram-data'];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!telegramData) {
+      return res.status(401).json({ error: 'Telegram data is required' });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get('user') || '{}');
-
-    if (!chatId || !reason) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+    const reporterId = user.id.toString();
+    const reporterName = user.first_name || 'Пользователь';
+    const reporterUsername = user.username || 'без имени';
 
     const parts = chatId.split('_');
     let jobId, adminId, targetUserId;
@@ -1014,59 +1014,55 @@ app.post('/api/report', async (req, res) => {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
 
-    // Формируем chatId для обоих направлений
-    const chatIdDirection1 = `${jobId}_${user.id}_${targetUserId}`; // A → B
-    const chatIdDirection2 = `${jobId}_${targetUserId}_${user.id}`; // B → A
+    const chatIdDirection1 = `${jobId}_${reporterId}_${targetUserId}`; // A → B
+    const chatIdDirection2 = `${jobId}_${targetUserId}_${reporterId}`; // B → A
 
-    // Блокируем чат для обоих направлений
     if (!chatUnlocksData[chatIdDirection1]) {
-      chatUnlocksData[chatIdDirection1] = { blocked: true, reporterId: user.id };
+      chatUnlocksData[chatIdDirection1] = { blocked: true, reporterId };
     } else {
       chatUnlocksData[chatIdDirection1].blocked = true;
-      chatUnlocksData[chatIdDirection1].reporterId = user.id;
+      chatUnlocksData[chatIdDirection1].reporterId = reporterId;
     }
 
     if (!chatUnlocksData[chatIdDirection2]) {
-      chatUnlocksData[chatIdDirection2] = { blocked: true, reporterId: user.id };
+      chatUnlocksData[chatIdDirection2] = { blocked: true, reporterId };
     } else {
       chatUnlocksData[chatIdDirection2].blocked = true;
-      chatUnlocksData[chatIdDirection2].reporterId = user.id;
+      chatUnlocksData[chatIdDirection2].reporterId = reporterId;
     }
 
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
-    let reporterName = user.first_name || user.username || user.id;
-    let reporterUsername = user.username ? `@${user.username}` : user.id.toString();
-    let targetName = 'Пользователь';
-    let targetUsername = targetUserId;
-
+    // Уведомление пользователей
     try {
-      const targetData = await bot.api.getChat(targetUserId);
-      targetName = targetData.first_name || 'Пользователь';
-      targetUsername = targetData.username ? `@${targetData.username}` : targetUserId;
-    } catch (error) {
-      logger.error(`Failed to get chat data for targetUserId ${targetUserId}: ${error.message}`);
-    }
-
-    const message = `Пользователь ${reporterUsername} (${reporterName}) пожаловался на чат с ${targetUsername} (${targetName}) по причине: ${reason}`;
-    const keyboard = new InlineKeyboard()
-      .text('Посмотреть переписку', `view_${chatIdDirection1}`) // Используем направление A → B
-      .row()
-      .text('Разблокировать', `unblock_${chatIdDirection1}`)
-      .text('Удалить', `delete_${chatIdDirection1}`);
-
-    // Уведомляем обоих пользователей о блокировке
-    try {
-      const user1Data = await bot.api.getChat(user.id);
+      const user1Data = await bot.api.getChat(reporterId);
       const user2Data = await bot.api.getChat(targetUserId);
       const user1Name = user1Data.first_name || 'Пользователь';
       const user2Name = user2Data.first_name || 'Пользователь';
 
-      await bot.api.sendMessage(user.id, `Чат с ${user2Name} заблокирован до решения модерации.`);
+      await bot.api.sendMessage(reporterId, `Чат с ${user2Name} заблокирован до решения модерации.`);
       await bot.api.sendMessage(targetUserId, `Чат с ${user1Name} заблокирован до решения модерации.`);
     } catch (error) {
       logger.error(`Error notifying users about chat block: ${error.message}`);
     }
+
+    // Уведомление админов
+    let targetName = 'Пользователь';
+    let targetUsername = 'без имени';
+    try {
+      const targetData = await bot.api.getChat(targetUserId);
+      targetName = targetData.first_name || 'Пользователь';
+      targetUsername = targetData.username || 'без имени';
+    } catch (error) {
+      logger.error(`Failed to get target user data for ${targetUserId}: ${error.message}`);
+    }
+
+    const message = `Пользователь ${reporterUsername} (${reporterName}) пожаловался на чат с ${targetUsername} (${targetName}) по причине: ${reason}`;
+    const keyboard = new InlineKeyboard()
+      .text('Посмотреть переписку', `view_${chatIdDirection1}`)
+      .row()
+      .text('Разблокировать', `unblock_${chatIdDirection1}`)
+      .text('Удалить', `delete_${chatIdDirection1}`);
 
     for (const adminId of ADMIN_IDS) {
       try {
@@ -1088,25 +1084,28 @@ app.get('/api/chat/status/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
     const telegramData = req.headers['x-telegram-data'];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!telegramData) {
+      return res.status(401).json({ error: 'Telegram data is required' });
     }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get('user') || '{}');
+    const currentUserId = user.id.toString();
 
     const parts = chatId.split('_');
     if (parts.length !== 3) {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
-    const [jobId, userId1, userId2] = parts;
+    const [jobId, senderId, receiverId] = parts;
 
-    const chatIdDirection1 = `${jobId}_${userId1}_${userId2}`;
-    const chatIdDirection2 = `${jobId}_${userId2}_${userId1}`;
+    if (currentUserId !== senderId && currentUserId !== receiverId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
-    const blocked = (chatUnlocksData[chatIdDirection1]?.blocked || false) ||
-                    (chatUnlocksData[chatIdDirection2]?.blocked || false);
-
-    res.json({ blocked });
+    const chatStatus = chatUnlocksData[chatId] || { blocked: false };
+    res.json({ blocked: chatStatus.blocked });
   } catch (error) {
-    logger.error(`Error in /api/chat/status/:chatId: ${error.message}`);
+    logger.error(`Error in /api/chat/status: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1115,9 +1114,10 @@ app.delete("/api/chat/:chatId", async (req, res) => {
   try {
     const { chatId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
+    if (!telegramData) {
+      return res.status(401).json({ error: "Telegram data is required" });
     }
+
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
     const currentUserId = user.id.toString();
@@ -1143,8 +1143,10 @@ app.delete("/api/chat/:chatId", async (req, res) => {
     } catch (error) {
       console.error(`Failed to get chat for ${targetUserId}:`, error);
     }
-    await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён`);
-    await bot.api.sendMessage(targetUserId, `Чат с ${currentUserFirstName} удалён`);
+
+    // Обновленные уведомления
+    await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён вами`);
+    await bot.api.sendMessage(targetUserId, `${currentUserFirstName} удалил с вами чат`);
 
     res.json({ success: true });
   } catch (error) {
