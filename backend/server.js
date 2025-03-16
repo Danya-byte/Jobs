@@ -777,6 +777,52 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     release();
   }
 });
+app.delete("/api/chat/:chatId", async (req, res) => {
+  const release = await messagesMutex.acquire();
+  try {
+    const { chatId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData) {
+      return res.status(401).json({ error: "Telegram data is required" });
+    }
+
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    const currentUserId = user.id.toString();
+
+    const parts = chatId.split('_');
+    if (parts.length !== 2) {
+      return res.status(400).json({ error: "Invalid chatId format" });
+    }
+    const [jobId, targetUserId] = parts;
+
+    messagesData = messagesData.filter(msg =>
+      !(msg.jobId === jobId &&
+        ((msg.authorUserId.toString() === currentUserId && msg.targetUserId.toString() === targetUserId) ||
+         (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === currentUserId)))
+    );
+    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+
+    let currentUserFirstName = user.first_name || "Пользователь";
+    let otherUserFirstName = "Пользователь";
+    try {
+      const targetData = await bot.api.getChat(targetUserId);
+      otherUserFirstName = targetData.first_name || "Пользователь";
+    } catch (error) {
+      console.error(`Failed to get chat for ${targetUserId}:`, error);
+    }
+
+    await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён вами`);
+    await bot.api.sendMessage(targetUserId, `${currentUserFirstName} удалил с вами чат`);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting chat:', error);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    release();
+  }
+});
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -1093,12 +1139,12 @@ app.get('/api/chat/status/:chatId', async (req, res) => {
     const currentUserId = user.id.toString();
 
     const parts = chatId.split('_');
-    if (parts.length !== 3) {
+    if (parts.length !== 2) {
       return res.status(400).json({ error: 'Invalid chatId format' });
     }
-    const [jobId, senderId, receiverId] = parts;
+    const [jobId, targetUserId] = parts;
 
-    if (currentUserId !== senderId && currentUserId !== receiverId) {
+    if (currentUserId !== targetUserId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -1409,18 +1455,22 @@ app.get("/api/chats", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-app.get("/api/chat/:targetUserId", async (req, res) => {
+app.get('/api/chat/:targetUserId', async (req, res) => {
   try {
     const { targetUserId } = req.params;
     const { jobId } = req.query;
-    const telegramData = req.headers["x-telegram-data"];
+    const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
     const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
+    const user = JSON.parse(params.get('user') || '{}');
 
-    const jobIdBase = jobId ? jobId.split('_')[0] : null;
+    if (!jobId || !targetUserId) {
+      return res.status(400).json({ error: 'Missing jobId or targetUserId' });
+    }
+
+    const jobIdBase = jobId.split('_')[0];
 
     const chatMessages = messagesData
       .filter(
@@ -1442,7 +1492,7 @@ app.get("/api/chat/:targetUserId", async (req, res) => {
     res.json(chatMessages);
   } catch (error) {
     logger.error(`Error in /api/chat/: ${error.message}`);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1477,7 +1527,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
         text,
         authorUserId: user.id.toString(),
         targetUserId,
-        jobId: jobId,
+        jobId: rawJobId,
         timestamp: new Date().toISOString(),
         isSender: true,
       };
