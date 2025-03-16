@@ -72,7 +72,7 @@ export default {
 
     const fetchFreelancerDetails = async () => {
       try {
-        const response = await axios.get(`${BASE_URL}/api/job/${jobId.value}`, {
+        const response = await axios.get(`${BASE_URL}/api/jobs/${jobId.value}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
         jobDetails.value = response.data;
