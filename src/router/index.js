@@ -28,11 +28,11 @@ const router = createRouter({
       component: () => import('../views/NftView.vue'),
     },
     {
-      path: '/chat/:userId',
+      path: '/chat/:targetUserId', // Изменено с :userId на :targetUserId
       name: 'chat',
       component: () => import('../views/ChatView.vue'),
       props: (route) => ({
-        userId: route.params.userId,
+        targetUserId: route.params.targetUserId, // Изменено с userId на targetUserId
         username: route.query.username,
         jobId: route.query.jobId,
       }),
