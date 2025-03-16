@@ -24,7 +24,7 @@ const TASKS_FILE = path.join(__dirname, "tasks.json");
 const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
-const ADMIN_IDS = ["1029594875", "#", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
+const ADMIN_IDS = ["1029594875", "1871247390", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
@@ -109,32 +109,7 @@ async function initMessagesFile() {
     await fs.writeFile(MESSAGES_FILE, "[]");
   }
 }
-async function migrateChatUnlocksData() {
-  try {
-    const rawData = await fs.readFile(CHAT_UNLOCKS_FILE, "utf8");
-    const oldData = rawData.trim() ? JSON.parse(rawData) : {};
-    const newData = { ...oldData };
 
-    for (const [chatId, value] of Object.entries(oldData)) {
-      const parts = chatId.split('_');
-      if (parts.length !== 3) continue; // Пропускаем некорректные записи
-
-      const [jobId, userId1, userId2] = parts;
-      const mirrorChatId = `${jobId}_${userId2}_${userId1}`; // Зеркальное направление
-
-      // Если зеркальной записи нет, создаем её
-      if (!newData[mirrorChatId]) {
-        newData[mirrorChatId] = { ...value };
-      }
-    }
-
-    await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(newData, null, 2));
-    chatUnlocksData = newData;
-    logger.info('Chat unlocks data migrated successfully for bidirectional blocking');
-  } catch (error) {
-    logger.error(`Error migrating chatUnlocksData: ${error.message}`);
-  }
-}
 async function initJobsFile() {
   try {
     await fs.access(JOBS_FILE);
@@ -992,121 +967,93 @@ app.post('/api/report', async (req, res) => {
   try {
     const { chatId, reason } = req.body;
     const telegramData = req.headers['x-telegram-data'];
-    if (!telegramData) {
-      return res.status(401).json({ error: 'Telegram data is required' });
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get('user') || '{}');
-    const reporterId = user.id.toString();
-    const reporterName = user.first_name || 'Пользователь';
-    const reporterUsername = user.username || 'без имени';
 
-    const parts = chatId.split('_');
-    let jobId, adminId, targetUserId;
-
-    if (parts.length === 3) {
-      [jobId, adminId, targetUserId] = parts;
-    } else if (parts.length === 2) {
-      [jobId, targetUserId] = parts;
-      adminId = null;
-    } else {
-      return res.status(400).json({ error: 'Invalid chatId format' });
+    if (!chatId || !reason) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const chatIdDirection1 = `${jobId}_${reporterId}_${targetUserId}`; // A → B
-    const chatIdDirection2 = `${jobId}_${targetUserId}_${reporterId}`; // B → A
 
-    if (!chatUnlocksData[chatIdDirection1]) {
-      chatUnlocksData[chatIdDirection1] = { blocked: true, reporterId };
+
+
+
+
+
+
+
+
+
+
+
+    const chatKey = chatId;
+    if (!chatUnlocksData[chatKey]) {
+      chatUnlocksData[chatKey] = { blocked: true, reporterId: user.id };
     } else {
-      chatUnlocksData[chatIdDirection1].blocked = true;
-      chatUnlocksData[chatIdDirection1].reporterId = reporterId;
+      chatUnlocksData[chatKey].blocked = true;
+      chatUnlocksData[chatKey].reporterId = user.id;
     }
-
-    if (!chatUnlocksData[chatIdDirection2]) {
-      chatUnlocksData[chatIdDirection2] = { blocked: true, reporterId };
-    } else {
-      chatUnlocksData[chatIdDirection2].blocked = true;
-      chatUnlocksData[chatIdDirection2].reporterId = reporterId;
-    }
-
     await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
-    // Уведомление пользователей
-    try {
-      const user1Data = await bot.api.getChat(reporterId);
-      const user2Data = await bot.api.getChat(targetUserId);
-      const user1Name = user1Data.first_name || 'Пользователь';
-      const user2Name = user2Data.first_name || 'Пользователь';
+    const targetUserId = chatId.split('_')[1];
+    const jobId = chatId.split('_')[0];
+    const reporterName = user.first_name || user.username || user.id;
+    const message = `Пользователь ${reporterName} пожаловался на чат с @${targetUserId} по причине: ${reason}`;
 
-      await bot.api.sendMessage(reporterId, `Чат с ${user2Name} заблокирован до решения модерации.`);
-      await bot.api.sendMessage(targetUserId, `Чат с ${user1Name} заблокирован до решения модерации.`);
-    } catch (error) {
-      logger.error(`Error notifying users about chat block: ${error.message}`);
-    }
 
-    // Уведомление админов
-    let targetName = 'Пользователь';
-    let targetUsername = 'без имени';
-    try {
-      const targetData = await bot.api.getChat(targetUserId);
-      targetName = targetData.first_name || 'Пользователь';
-      targetUsername = targetData.username || 'без имени';
-    } catch (error) {
-      logger.error(`Failed to get target user data for ${targetUserId}: ${error.message}`);
-    }
 
-    const message = `Пользователь ${reporterUsername} (${reporterName}) пожаловался на чат с ${targetUsername} (${targetName}) по причине: ${reason}`;
+
+
+
+
+
+
+
     const keyboard = new InlineKeyboard()
-      .text('Посмотреть переписку', `view_${chatIdDirection1}`)
+      .text('Посмотреть переписку', `view_${chatId}`)
       .row()
-      .text('Разблокировать', `unblock_${chatIdDirection1}`)
-      .text('Удалить', `delete_${chatIdDirection1}`);
+      .text('Разблокировать', `unblock_${chatId}`)
+      .text('Удалить', `delete_${chatId}`);
 
     for (const adminId of ADMIN_IDS) {
       try {
         await bot.api.sendMessage(adminId, message, { reply_markup: keyboard });
-      } catch (error) {
-        logger.error(`Failed to send report notification to admin ${adminId}: ${error.message}`);
-      }
+      } catch (error) {}
+
+
+
+
+
+
+
+
+
+
     }
 
     res.json({ success: true });
   } catch (error) {
-    logger.error(`Error in /api/report: ${error.message}`);
+
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     release();
   }
 });
-app.get('/api/chat/status/:chatId', async (req, res) => {
+app.get("/api/chat/status/:chatId", async (req, res) => {
   try {
     const { chatId } = req.params;
-    const telegramData = req.headers['x-telegram-data'];
-    if (!telegramData) {
-      return res.status(401).json({ error: 'Telegram data is required' });
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get('user') || '{}');
-    const currentUserId = user.id.toString();
-
-    const parts = chatId.split('_');
-    if (parts.length !== 2) {
-      return res.status(400).json({ error: 'Invalid chatId format' });
-    }
-    const [jobId, targetUserId] = parts;
-
-    if (currentUserId !== targetUserId) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const chatStatus = chatUnlocksData[chatId] || { blocked: false };
-    res.json({ blocked: chatStatus.blocked });
-  } catch (error) {
-    logger.error(`Error in /api/chat/status: ${error.message}`);
-    res.status(500).json({ error: 'Internal server error' });
+    const blocked = chatUnlocksData[chatId]?.blocked || false;
+    res.json({ blocked });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 app.delete("/api/chat/:chatId", async (req, res) => {
@@ -1114,39 +1061,50 @@ app.delete("/api/chat/:chatId", async (req, res) => {
   try {
     const { chatId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData) {
-      return res.status(401).json({ error: "Telegram data is required" });
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
-
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-    const currentUserId = user.id.toString();
+    const userFirstName = user.first_name || "Пользователь";
 
     const parts = chatId.split('_');
-    if (parts.length !== 2) {
+    if (parts.length < 1) {
       return res.status(400).json({ error: "Invalid chatId format" });
     }
-    const [jobId, targetUserId] = parts;
+    const jobId = chatId;
 
-    messagesData = messagesData.filter(msg =>
-      !(msg.jobId === jobId &&
-        ((msg.authorUserId === currentUserId && msg.targetUserId === targetUserId) ||
-         (msg.authorUserId === targetUserId && msg.targetUserId === currentUserId)))
-    );
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-
-    let currentUserFirstName = user.first_name || "Пользователь";
-    let otherUserFirstName = "Пользователь";
-    try {
-      const targetData = await bot.api.getChat(targetUserId);
-      otherUserFirstName = targetData.first_name || "Пользователь";
-    } catch (error) {
-      console.error(`Failed to get chat for ${targetUserId}:`, error);
+    if (!Array.isArray(messagesData)) {
+      throw new Error('messagesData is not an array');
     }
 
-    // Обновленные уведомления
-    await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён вами`);
-    await bot.api.sendMessage(targetUserId, `${currentUserFirstName} удалил с вами чат`);
+    const chatMessages = messagesData.filter(msg => msg.jobId === jobId);
+    if (chatMessages.length === 0) {
+      await bot.api.sendMessage(user.id, `Чат удалён`);
+      return res.json({ success: true });
+    }
+
+    messagesData = messagesData.filter(msg => msg.jobId !== jobId);
+    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
+
+    const otherUserId = chatMessages[0].authorUserId.toString() === user.id.toString()
+      ? chatMessages[0].targetUserId
+      : chatMessages[0].authorUserId;
+
+    if (otherUserId) {
+      let otherUserFirstName = "Пользователь";
+      try {
+        const targetData = await bot.api.getChat(otherUserId);
+        otherUserFirstName = targetData.first_name || "Пользователь";
+      } catch (error) {
+        console.error(`Failed to get chat for ${otherUserId}:`, error);
+      }
+
+      await bot.api.sendMessage(user.id, `Чат с ${otherUserFirstName} удалён`);
+      await bot.api.sendMessage(otherUserId, `Чат с ${userFirstName} удалён`);
+    } else {
+      await bot.api.sendMessage(user.id, `Чат удалён`);
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -1183,20 +1141,26 @@ bot.on('callback_query:data', async (ctx) => {
       return;
     }
 
-    const parts = chatId.split('_');
-    if (parts.length !== 3) {
-      logger.error(`Invalid chatId format: ${chatId}`);
-      await ctx.reply('Неверный формат chatId.');
-      await ctx.answerCallbackQuery();
-      return;
-    }
-
-    const [jobId, userId1, userId2] = parts;
-    const chatIdDirection1 = `${jobId}_${userId1}_${userId2}`; // A → B
-    const chatIdDirection2 = `${jobId}_${userId2}_${userId1}`; // B → A
-
     if (data.startsWith('view_')) {
-      const reporterId = chatUnlocksData[chatId]?.reporterId?.toString();
+      const parts = chatId.split('_');
+      let jobId, adminId, targetUserId;
+
+      if (parts.length === 2) {
+        [jobId, targetUserId] = parts;
+        adminId = null;
+        logger.info(`Processing old format chatId: ${chatId}, jobId: ${jobId}, targetUserId: ${targetUserId}`);
+      } else if (parts.length === 3) {
+        [jobId, adminId, targetUserId] = parts;
+        logger.info(`Processing new format chatId: ${chatId}, jobId: ${jobId}, adminId: ${adminId}, targetUserId: ${targetUserId}`);
+      } else {
+        logger.error(`Invalid chatId format: ${chatId}`);
+        await ctx.reply('Неверный формат chatId.');
+        await ctx.answerCallbackQuery();
+        return;
+      }
+
+      const reporterId = chatUnlocksData[chatId]?.reporterId?.toString() || (chatUnlocksData[chatId] === true ? null : null);
+
       if (!reporterId) {
         logger.error(`Reporter ID not found for chatId: ${chatId}`);
         await ctx.reply('Репортёр не найден в данных чата.');
@@ -1204,7 +1168,7 @@ bot.on('callback_query:data', async (ctx) => {
         return;
       }
 
-      logger.info(`Fetching messages for chatId: ${chatId}, reporterId: ${reporterId}, targetUserId: ${userId2}`);
+      logger.info(`Fetching messages for chatId: ${chatId}, reporterId: ${reporterId}, targetUserId: ${targetUserId}`);
 
       if (!Array.isArray(messagesData) || messagesData.length === 0) {
         logger.error(`messagesData is empty or not an array: ${JSON.stringify(messagesData)}`);
@@ -1213,19 +1177,27 @@ bot.on('callback_query:data', async (ctx) => {
         return;
       }
 
+      logger.debug(`Total messages in messagesData: ${messagesData.length}`);
+      logger.debug(`All messages: ${JSON.stringify(messagesData)}`);
+
       const chatMessages = messagesData.filter((msg) => {
-        const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : '';
-        const matchesJobId = msgJobIdBase === jobId;
+        const matchesJobId = adminId
+          ? msg.jobId === `${jobId}_${adminId}`
+          : (!msg.jobId || msg.jobId === jobId);
+
         const msgAuthorId = msg.authorUserId.toString();
         const msgTargetId = msg.targetUserId.toString();
         const matchesUsers =
-          (msgAuthorId === userId1 && msgTargetId === userId2) ||
-          (msgAuthorId === userId2 && msgTargetId === userId1);
+          (msgAuthorId === reporterId && msgTargetId === targetUserId) ||
+          (msgAuthorId === targetUserId && msgTargetId === reporterId);
+
+        logger.debug(`Checking message: ${JSON.stringify(msg)}, matchesJobId: ${matchesJobId}, matchesUsers: ${matchesUsers}`);
+
         return matchesJobId && matchesUsers;
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (chatMessages.length === 0) {
-        logger.info(`No messages found for chatId: ${chatId}, jobId: ${jobId}, userId1: ${userId1}, userId2: ${userId2}, reporterId: ${reporterId}`);
+        logger.info(`No messages found for chatId: ${chatId}, jobId: ${jobId}, adminId: ${adminId || 'null'}, targetUserId: ${targetUserId}, reporterId: ${reporterId}`);
         await ctx.reply('Переписка не найдена.');
         await ctx.answerCallbackQuery();
         return;
@@ -1241,54 +1213,57 @@ bot.on('callback_query:data', async (ctx) => {
       await ctx.reply(messageText.substring(0, 4096));
       await ctx.answerCallbackQuery({ text: 'Переписка показана' });
     } else if (data.startsWith('unblock_')) {
-      // Разблокируем оба направления
-      chatUnlocksData[chatIdDirection1].blocked = false;
-      chatUnlocksData[chatIdDirection2].blocked = false;
+      chatUnlocksData[chatId].blocked = false;
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
-      try {
-        const user1Data = await bot.api.getChat(userId1);
-        const user2Data = await bot.api.getChat(userId2);
-        const user1Name = user1Data.first_name || 'Пользователь';
-        const user2Name = user2Data.first_name || 'Пользователь';
+      const parts = chatId.split('_');
+      const targetUserId = parts.length === 3 ? parts[2] : parts[1];
+      const reporterId = chatUnlocksData[chatId].reporterId;
 
-        await bot.api.sendMessage(userId1, `Чат с ${user2Name} был разблокирован администратором`);
-        await bot.api.sendMessage(userId2, `Чат с ${user1Name} был разблокирован администратором`);
+      try {
+        const reporterData = await bot.api.getChat(reporterId);
+        const targetData = await bot.api.getChat(targetUserId);
+        const reporterName = reporterData.first_name || 'Пользователь';
+        const targetName = targetData.first_name || 'Пользователь';
+
+        await bot.api.sendMessage(reporterId, `Чат с ${targetName} был разблокирован администратором`);
+        await bot.api.sendMessage(targetUserId, `Чат с ${reporterName} был разблокирован администратором`);
       } catch (error) {
         logger.error(`Error notifying users for unblock: ${error.message}`);
       }
 
       await ctx.answerCallbackQuery({ text: 'Чат разблокирован' });
     } else if (data.startsWith('delete_')) {
+      const parts = chatId.split('_');
+      const jobId = parts[0];
+      const targetUserId = parts.length === 3 ? parts[2] : parts[1];
       const reporterId = chatUnlocksData[chatId].reporterId;
 
       messagesData = messagesData.filter(
         (msg) => {
-          const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : '';
-          const matchesJobId = msgJobIdBase === jobId;
-          const msgAuthorId = msg.authorUserId.toString();
-          const msgTargetId = msg.targetUserId.toString();
-          const matchesUsers =
-            (msgAuthorId === userId1 && msgTargetId === userId2) ||
-            (msgAuthorId === userId2 && msgTargetId === userId1);
-          return !(matchesJobId && matchesUsers);
+          if (parts.length === 3) {
+            return !(msg.jobId === `${jobId}_${parts[1]}` &&
+                     (msg.authorUserId.toString() === reporterId.toString() ||
+                      msg.targetUserId.toString() === targetUserId));
+          } else {
+            return !(msg.authorUserId.toString() === reporterId.toString() ||
+                     msg.targetUserId.toString() === targetUserId);
+          }
         }
       );
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
-      // Удаляем оба направления
-      delete chatUnlocksData[chatIdDirection1];
-      delete chatUnlocksData[chatIdDirection2];
+      delete chatUnlocksData[chatId];
       await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
 
       try {
-        const user1Data = await bot.api.getChat(userId1);
-        const user2Data = await bot.api.getChat(userId2);
-        const user1Name = user1Data.first_name || 'Пользователь';
-        const user2Name = user2Data.first_name || 'Пользователь';
+        const reporterData = await bot.api.getChat(reporterId);
+        const targetData = await bot.api.getChat(targetUserId);
+        const reporterName = reporterData.first_name || 'Пользователь';
+        const targetName = targetData.first_name || 'Пользователь';
 
-        await bot.api.sendMessage(userId1, `Чат с ${user2Name} был удалён администратором`);
-        await bot.api.sendMessage(userId2, `Чат с ${user1Name} был удалён администратором`);
+        await bot.api.sendMessage(reporterId, `Чат с ${targetName} был удалён администратором`);
+        await bot.api.sendMessage(targetUserId, `Чат с ${reporterName} был удалён администратором`);
       } catch (error) {
         logger.error(`Error notifying users for delete: ${error.message}`);
       }
@@ -1302,46 +1277,22 @@ bot.on('callback_query:data', async (ctx) => {
     release();
   }
 });
-app.get("/api/messages/:jobId/:targetUserId", async (req, res) => {
+app.get("/api/favorites", async (req, res) => {
   try {
-    const { jobId, targetUserId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
 
-    if (!jobId || !targetUserId) {
-      return res.status(400).json({ error: "Missing jobId or targetUserId" });
+    let favoriteJobs = [];
+    try {
+      favoriteJobs = JSON.parse(await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8") || "[]");
+    } catch {
+      favoriteJobs = [];
     }
 
-    // Извлекаем базовый jobId (без userId)
-    const jobIdBase = jobId.split('_')[0];
-
-    const messages = messagesData
-      .filter((msg) => {
-        const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : null;
-        const matchesJobId = !msg.jobId || msgJobIdBase === jobIdBase; // Учитываем сообщения без jobId
-        return (
-          matchesJobId &&
-          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
-           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
-        );
-      })
-      .map((msg) => ({
-        ...msg,
-        isSender: msg.authorUserId.toString() === user.id.toString(),
-      }))
-      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    if (messages.length === 0) {
-      return res.status(404).json({ error: "Messages not found" });
-    }
-
-    res.json(messages);
-  } catch (error) {
-    logger.error(`Error in /api/messages/:jobId/:targetUserId: ${error.message}`);
+    res.json(favoriteJobs);
+  } catch {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1409,32 +1360,23 @@ app.get("/api/chats", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-app.get('/api/chat/:targetUserId', async (req, res) => {
+app.get("/api/chat/:targetUserId", async (req, res) => {
   try {
     const { targetUserId } = req.params;
     const { jobId } = req.query;
-    const telegramData = req.headers['x-telegram-data'];
+    const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get('user') || '{}');
-
-    if (!jobId || !targetUserId) {
-      return res.status(400).json({ error: 'Missing jobId or targetUserId' });
-    }
-
-    const jobIdBase = jobId.split('_')[0];
+    const user = JSON.parse(params.get("user") || "{}");
 
     const chatMessages = messagesData
       .filter(
-        (msg) => {
-          const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : null;
-          const matchesJobId = !jobId || msg.jobId === jobId || msgJobIdBase === jobIdBase;
-          return matchesJobId &&
-            ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
-             (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()));
-        }
+        (msg) =>
+          (!jobId || msg.jobId === jobId) &&
+          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
+           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
       )
       .map((msg) => ({
         ...msg,
@@ -1442,46 +1384,48 @@ app.get('/api/chat/:targetUserId', async (req, res) => {
       }))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    logger.info(`Chat messages for user ${user.id}, target ${targetUserId}, jobId ${jobId}: ${JSON.stringify(chatMessages)}`);
     res.json(chatMessages);
-  } catch (error) {
-    logger.error(`Error in /api/chat/: ${error.message}`);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.post('/api/chat/:targetUserId', async (req, res) => {
+app.post("/api/chat/:targetUserId", async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
     const { targetUserId } = req.params;
-    const { text, jobId: rawJobId } = req.body;
-    const telegramData = req.headers['x-telegram-data'];
+    const { text, jobId } = req.body;
+    const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get('user'));
+    const user = JSON.parse(params.get("user"));
 
-    if (!user.id || !text || !rawJobId) {
-      return res.status(400).json({ error: 'Invalid data' });
+    if (!user.id || !text || !jobId) {
+      return res.status(400).json({ error: "Invalid data" });
     }
 
-    const jobId = rawJobId.split('_')[0];
-    const chatId = `${rawJobId}_${user.id}_${targetUserId}`;
+    const chatId = `${jobId}_${targetUserId}`;
     if (chatUnlocksData[chatId]?.blocked) {
-      return res.status(403).json({ error: 'Chat is blocked' });
+      return res.status(403).json({ error: "Chat is blocked" });
     }
 
-    const job = jobsData.find(j => j.id === rawJobId);
-    const isOwner = job && job.userId.toString() === user.id.toString();
+    const job = jobsData.find((j) => j.id === jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
 
-    if (isOwner) {
+
+
+
+    if (job.userId.toString() === user.id.toString()) {
       const message = {
         id: `${user.id}_${Date.now()}`,
         text,
         authorUserId: user.id.toString(),
         targetUserId,
-        jobId: rawJobId,
+        jobId,
         timestamp: new Date().toISOString(),
         isSender: true,
       };
@@ -1491,40 +1435,47 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
 
       try {
         const targetData = await bot.api.getChat(targetUserId);
-        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
+        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
         const notification =
           `*New Message\\!*\n\n` +
-          `User *${escapeMarkdownV2(user.first_name || 'Unknown')}* sent you a message:\n` +
+          `User *${escapeMarkdownV2(user.first_name || "Unknown")}* sent you a message:\n` +
           `> ${escapeMarkdownV2(text)}\n\n` +
           `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
         const keyboard = new InlineKeyboard().webApp(
-          '💬 Open Chat',
-          `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${rawJobId}`
+          "💬 Open Chat",
+          `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${jobId}`
         );
         await bot.api.sendMessage(targetUserId, notification, {
-          parse_mode: 'MarkdownV2',
+          parse_mode: "MarkdownV2",
           reply_markup: keyboard
         });
-      } catch (error) {
-        logger.error(`Failed to notify target user ${targetUserId}: ${error.message}`);
-      }
+      } catch {}
+
+
 
       res.json({ success: true, message, updatedMessages: messagesData });
     } else {
-      const invoiceResponse = await axios.post(
-        `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: targetUserId, text, jobId: rawJobId },
-        { headers: { 'X-Telegram-Data': telegramData } }
-      );
-      if (invoiceResponse.data.success) {
-        res.json({ success: true, invoiceLink: invoiceResponse.data.invoiceLink });
-      } else {
-        res.status(500).json({ error: 'Failed to create invoice' });
-      }
+      res.status(403).json({ error: "Payment required" });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }
-  } catch (error) {
-    logger.error(`Error in /api/chat/: ${error.message}`);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+
   } finally {
     release();
   }
@@ -1762,7 +1713,6 @@ Promise.all([
     await loadTasks();
     await loadCompanySubscriptions();
     await loadChatUnlocks();
-    await migrateChatUnlocksData(); // Добавляем миграцию
     await loadPendingMessages();
     app.listen(port, () => {
       bot.start();
@@ -1775,4 +1725,3 @@ Promise.all([
   });
 
 process.on("uncaughtException", (err) => logger.error(`Uncaught Exception: ${err.message}`));
-process.on("unhandledRejection", (reason) => logger.error(`Unhandled Rejection: ${reason}`));
