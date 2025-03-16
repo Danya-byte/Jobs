@@ -38,6 +38,7 @@
               <div class="chat-info">
                 <p class="nick">{{ chat.nick }}</p>
                 <p class="last-message">{{ chat.lastMessage }}</p>
+                <p v-if="chat.blocked" class="blocked-status">Заблокирован</p>
               </div>
               <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.id)">⋮</button>
             </RouterLink>
@@ -153,6 +154,7 @@ const fetchChats = async () => {
         });
         chat.blocked = statusResponse.data.blocked;
       } catch (error) {
+        console.error(`Ошибка загрузки данных для targetUserId ${chat.targetUserId}:`, error);
         chat.nick = 'Unknown';
         chat.photoUrl = defaultPhoto;
         chat.blocked = false;
@@ -173,7 +175,10 @@ const fetchChats = async () => {
         blocked: chat.blocked,
       };
     });
-  } catch (error) {}
+    console.log('Chats loaded:', chats.value); // Отладка
+  } catch (error) {
+    console.error('Ошибка загрузки чатов:', error);
+  }
 };
 
 const handleImageError = (event) => {
@@ -357,6 +362,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .blocked-status { color: #ff4444; font-size: 12px; margin: 5px 0 0; }
 body { margin: 0; font-family: 'Geologica', sans-serif; background: linear-gradient(45deg, #0a0f1a, #141b2d); color: white; min-height: 100vh; overflow-x: hidden; overflow-y: hidden; }
 html { overflow-x: hidden; overflow-y: hidden; height: 100%; }
