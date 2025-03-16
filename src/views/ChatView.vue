@@ -17,6 +17,9 @@
     <div v-else-if="isBlocked" class="chat-overlay">
       <p class="overlay-text">Чат остановлен до вмешательства модерации и решения конфликта</p>
     </div>
+    <div v-else-if="messages.length === 0" class="chat-overlay">
+      <p class="overlay-text">Сообщений пока нет</p>
+    </div>
     <div v-else class="messages-container" ref="messagesContainer">
       <div v-for="message in messages" :key="message.id" :class="['message', message.authorUserId === currentUserId ? 'sent' : 'received']">
         <span class="message-text">{{ message.text }}</span>
@@ -42,7 +45,7 @@ export default {
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const jobId = ref(route.query.jobId); // Изменено с params на query
+    const jobId = ref(route.query.jobId);
     const targetUserId = ref(route.params.targetUserId);
     const currentUserId = ref('');
     const messages = ref([]);
@@ -70,7 +73,7 @@ export default {
         });
         targetUserDetails.value = response.data;
       } catch (error) {
-        Telegram.WebApp.showAlert('Ошибка при загрузке данных пользователя');
+        console.error('Ошибка при загрузке данных пользователя:', error);
       }
     };
 
@@ -81,7 +84,7 @@ export default {
         });
         jobDetails.value = response.data;
       } catch (error) {
-        Telegram.WebApp.showAlert('Ошибка при загрузке данных вакансии');
+        console.error('Ошибка при загрузке данных вакансии:', error);
       }
     };
 
@@ -90,11 +93,13 @@ export default {
         const response = await axios.get(`${BASE_URL}/api/messages/${jobId.value}/${targetUserId.value}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
-        messages.value = response.data.sort((a, b) => a.timestamp - b.timestamp);
+        messages.value = response.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         setTimeout(() => scrollToBottom(), 100);
       } catch (error) {
         if (error.response?.status === 404) {
-          isChatDeleted.value = true;
+          messages.value = []; // Просто очищаем сообщения, не считаем чат удалённым
+        } else {
+          console.error('Ошибка при загрузке сообщений:', error);
         }
       }
     };
@@ -103,12 +108,8 @@ export default {
       if (!newMessage.value.trim()) return;
       try {
         await axios.post(
-          `${BASE_URL}/api/messages`,
-          {
-            jobId: jobId.value,
-            targetUserId: targetUserId.value,
-            text: newMessage.value,
-          },
+          `${BASE_URL}/api/chat/${targetUserId.value}`,
+          { text: newMessage.value, jobId: jobId.value },
           { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
         );
         newMessage.value = '';
@@ -136,7 +137,8 @@ export default {
       Telegram.WebApp.showConfirm('Вы уверены, что хотите удалить чат?', async (confirmed) => {
         if (confirmed) {
           try {
-            await axios.delete(`${BASE_URL}/api/chat/${jobId.value}_${targetUserId.value}`, {
+            const chatId = `${jobId.value}_${targetUserId.value}`;
+            await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
               headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
             });
             isChatDeleted.value = true;
@@ -157,7 +159,7 @@ export default {
         },
         async (buttonId) => {
           if (buttonId === 'submit') {
-            const reason = prompt('Укажите причину жалобы'); // Используем стандартный prompt, так как Telegram.WebApp не поддерживает input напрямую
+            const reason = prompt('Укажите причину жалобы');
             if (reason) {
               try {
                 const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
@@ -179,10 +181,6 @@ export default {
 
     const checkChatStatus = async () => {
       if (isChatDeleted.value) return;
-      if (currentUserId.value === targetUserId.value) {
-        isChatDeleted.value = true;
-        return;
-      }
       try {
         const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
         const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
@@ -217,6 +215,8 @@ export default {
         Telegram.WebApp.showAlert('Please open the app via Telegram.');
         return;
       }
+      console.log('jobId:', jobId.value);
+      console.log('targetUserId:', targetUserId.value);
       if (!validateParams()) return;
 
       if (Telegram.WebApp.setHeaderColor) {

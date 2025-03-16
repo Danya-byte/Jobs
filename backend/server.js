@@ -1316,18 +1316,28 @@ app.get("/api/messages/:jobId/:targetUserId", async (req, res) => {
       return res.status(400).json({ error: "Missing jobId or targetUserId" });
     }
 
+    // Извлекаем базовый jobId (без userId)
+    const jobIdBase = jobId.split('_')[0];
+
     const messages = messagesData
-      .filter(
-        (msg) =>
-          msg.jobId === jobId &&
+      .filter((msg) => {
+        const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : null;
+        const matchesJobId = !msg.jobId || msgJobIdBase === jobIdBase; // Учитываем сообщения без jobId
+        return (
+          matchesJobId &&
           ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
            (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
-      )
+        );
+      })
       .map((msg) => ({
         ...msg,
         isSender: msg.authorUserId.toString() === user.id.toString(),
       }))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    if (messages.length === 0) {
+      return res.status(404).json({ error: "Messages not found" });
+    }
 
     res.json(messages);
   } catch (error) {
