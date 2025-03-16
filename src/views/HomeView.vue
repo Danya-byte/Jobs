@@ -352,7 +352,7 @@ import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
+const BASE_URL = 'https://jobs.cloudpub.ru';
 
 const open = ref(false);
 const showAddModal = ref(false);

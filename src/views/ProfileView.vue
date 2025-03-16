@@ -115,7 +115,7 @@ const loadProfileData = async () => {
     console.log('Using current user data:', profileData);
   } else {
     try {
-      const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/user/${userId.value}`, {
+      const response = await fetch(`https://jobs.cloudpub.ru/api/user/${userId.value}`, {
         headers: {
           'X-Telegram-Data': Telegram.WebApp.initData
         }
@@ -137,7 +137,7 @@ const loadProfileData = async () => {
 
 const loadReviews = async () => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews?targetUserId=${userId.value}`, {
+    const response = await fetch(`https://jobs.cloudpub.ru/api/reviews?targetUserId=${userId.value}`, {
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData
       }
@@ -173,7 +173,7 @@ const loadReviews = async () => {
 
 const deleteReview = async (reviewId) => {
   try {
-    const response = await fetch(`https://impotently-dutiful-hare.cloudpub.ru/api/reviews/${reviewId}`, {
+    const response = await fetch(`https://jobs.cloudpub.ru/api/reviews/${reviewId}`, {
       method: 'DELETE',
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData
@@ -189,7 +189,7 @@ const deleteReview = async (reviewId) => {
 
 const initiatePayment = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/createInvoiceLink', {
+    const response = await fetch('https://jobs.cloudpub.ru/api/createInvoiceLink', {
       method: 'POST',
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData,
@@ -221,7 +221,7 @@ const initiatePayment = async () => {
 
 const checkAdminStatus = async () => {
   try {
-    const response = await fetch('https://impotently-dutiful-hare.cloudpub.ru/api/isAdmin', {
+    const response = await fetch('https://jobs.cloudpub.ru/api/isAdmin', {
       headers: {
         'X-Telegram-Data': Telegram.WebApp.initData
       }

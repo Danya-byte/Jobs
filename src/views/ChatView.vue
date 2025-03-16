@@ -41,7 +41,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://impotently-dutiful-hare.cloudpub.ru';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://jobs.cloudpub.ru';
 
 export default {
   name: 'ChatPage',
@@ -254,29 +254,6 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.chat-container { display: flex; flex-direction: column; height: 100vh; background-color: #f0f0f0; font-family: Arial, sans-serif; }
-.chat-header { display: flex; align-items: center; padding: 10px; background-color: #97f492; color: #000; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
-.back-button { background: none; border: none; font-size: 24px; cursor: pointer; color: #000; }
-.chat-title { flex-grow: 1; display: flex; align-items: center; padding-left: 10px; }
-.chat-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; }
-.chat-title div { display: flex; flex-direction: column; }
-.job-title { font-size: 14px; color: #555; }
-.chat-actions { display: flex; gap: 10px; }
-.report-button, .delete-button { background-color: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-.messages-container { flex-grow: 1; padding: 70px 10px 60px; overflow-y: auto; }
-.message { display: flex; flex-direction: column; margin: 5px 0; padding: 10px; border-radius: 10px; max-width: 70%; }
-.sent { align-self: flex-end; background-color: #97f492; color: #000; }
-.received { align-self: flex-start; background-color: #fff; color: #000; }
-.message-text { word-wrap: break-word; }
-.message-time { font-size: 12px; color: #666; align-self: flex-end; }
-.input-container { display: flex; padding: 10px; background-color: #fff; position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid #ddd; }
-textarea { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: none; overflow-y: auto; max-height: 100px; }
-.send-button { margin-left: 10px; padding: 10px 20px; background-color: #97f492; color: #000; border: none; border-radius: 5px; cursor: pointer; }
-.chat-overlay, .chat-deleted-overlay { position: fixed; top: 50px; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 10; }
-.overlay-text { color: white; font-size: 18px; text-align: center; padding: 20px; background-color: #333; border-radius: 10px; }
-</style>
 
 <style scoped>
 .chat-container { display: flex; flex-direction: column; height: 100vh; background-color: #f0f0f0; font-family: Arial, sans-serif; }

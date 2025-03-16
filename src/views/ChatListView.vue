@@ -75,7 +75,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-const BASE_URL = 'https://impotently-dutiful-hare.cloudpub.ru';
+const BASE_URL = 'https://jobs.cloudpub.ru';
 const chats = ref([]);
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
 const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
