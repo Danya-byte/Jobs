@@ -154,6 +154,7 @@ const fetchChats = async () => {
         });
         chat.blocked = statusResponse.data.blocked;
       } catch (error) {
+        console.error(`Ошибка загрузки данных для targetUserId ${chat.targetUserId}:`, error);
         chat.nick = 'Unknown';
         chat.photoUrl = defaultPhoto;
         chat.blocked = false;
@@ -169,11 +170,12 @@ const fetchChats = async () => {
         nick: chat.nick,
         username: chat.username,
         photoUrl: chat.photoUrl,
-        lastMessage: lastMessage ? lastMessage.text.slice(0, 30) + (lastMessage.text.length > 30 ? '...' : '') : '',
+        lastMessage: lastMessage.text.slice(0, 30) + (lastMessage.text.length > 30 ? '...' : ''),
         lastMessageTime: chat.lastMessageTime,
         blocked: chat.blocked,
       };
     });
+    console.log('Chats loaded:', chats.value); // Отладка
   } catch (error) {
     console.error('Ошибка загрузки чатов:', error);
   }
@@ -360,6 +362,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .blocked-status { color: #ff4444; font-size: 12px; margin: 5px 0 0; }
 body { margin: 0; font-family: 'Geologica', sans-serif; background: linear-gradient(45deg, #0a0f1a, #141b2d); color: white; min-height: 100vh; overflow-x: hidden; overflow-y: hidden; }
 html { overflow-x: hidden; overflow-y: hidden; height: 100%; }

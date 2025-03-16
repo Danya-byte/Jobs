@@ -777,52 +777,6 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     release();
   }
 });
-app.delete("/api/chat/:chatId", async (req, res) => {
-  const release = await messagesMutex.acquire();
-  try {
-    const { chatId } = req.params;
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData) {
-      return res.status(401).json({ error: "Telegram data is required" });
-    }
-
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user") || "{}");
-    const currentUserId = user.id.toString();
-
-    const parts = chatId.split('_');
-    if (parts.length !== 2) {
-      return res.status(400).json({ error: "Invalid chatId format" });
-    }
-    const [jobId, targetUserId] = parts;
-
-    messagesData = messagesData.filter(msg =>
-      !(msg.jobId === jobId &&
-        ((msg.authorUserId.toString() === currentUserId && msg.targetUserId.toString() === targetUserId) ||
-         (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === currentUserId)))
-    );
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-
-    let currentUserFirstName = user.first_name || "Пользователь";
-    let otherUserFirstName = "Пользователь";
-    try {
-      const targetData = await bot.api.getChat(targetUserId);
-      otherUserFirstName = targetData.first_name || "Пользователь";
-    } catch (error) {
-      console.error(`Failed to get chat for ${targetUserId}:`, error);
-    }
-
-    await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён вами`);
-    await bot.api.sendMessage(targetUserId, `${currentUserFirstName} удалил с вами чат`);
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting chat:', error);
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;

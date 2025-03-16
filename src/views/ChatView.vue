@@ -72,16 +72,13 @@ export default {
 
     const fetchFreelancerDetails = async () => {
       try {
-        const response = await axios.get(`${BASE_URL}/api/jobs`, {
+        const response = await axios.get(`${BASE_URL}/api/jobs/${jobId.value}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
-        const job = response.data.find(j => j.id === jobId.value);
-        if (job) {
-          jobDetails.value = job;
-          freelancerNick.value = job.nick;
-          if (job.username) {
-            freelancerPhotoUrl.value = `https://t.me/i/userpic/160/${job.username}.jpg`;
-          }
+        jobDetails.value = response.data;
+        freelancerNick.value = response.data.nick;
+        if (response.data.username) {
+          freelancerPhotoUrl.value = `https://t.me/i/userpic/160/${response.data.username}.jpg`;
         }
       } catch (error) {
         console.error('Ошибка загрузки данных фрилансера:', error);
@@ -107,7 +104,6 @@ export default {
     const sendMessage = async () => {
       if (!newMessage.value.trim()) return;
       try {
-        const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
         await axios.post(
           `${BASE_URL}/api/chat/${targetUserId.value}`,
           { text: newMessage.value, jobId: jobId.value },
