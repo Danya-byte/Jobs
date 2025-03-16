@@ -3,8 +3,11 @@
     <div class="chat-header">
       <button class="back-button" @click="goBack">←</button>
       <div class="chat-title">
-        <span>{{ targetUserDetails.firstName || 'Пользователь' }}</span>
-        <span class="job-title">{{ jobDetails.position || 'Название вакансии' }}</span>
+        <img :src="freelancerPhotoUrl" class="chat-avatar" @error="handleImageError" />
+        <div>
+          <span>{{ freelancerNick || 'Пользователь' }}</span>
+          <span class="job-title">{{ jobDetails.position || 'Название вакансии' }}</span>
+        </div>
       </div>
       <div class="chat-actions">
         <button class="report-button" @click="reportChat">Пожаловаться</button>
@@ -15,13 +18,13 @@
       <p class="overlay-text">Чат удалён</p>
     </div>
     <div v-else-if="isBlocked" class="chat-overlay">
-      <p class="overlay-text">Чат остановлен до вмешательства модерации и решения конфликта</p>
+      <p class="overlay-text">Чат остановлен до вмешательства модерации</p>
     </div>
     <div v-else-if="messages.length === 0" class="chat-overlay">
       <p class="overlay-text">Сообщений пока нет</p>
     </div>
     <div v-else class="messages-container" ref="messagesContainer">
-      <div v-for="message in messages" :key="message.id" :class="['message', message.authorUserId === currentUserId ? 'sent' : 'received']">
+      <div v-for="message in messages" :key="message.id" :class="['message', message.isSender ? 'sent' : 'received']">
         <span class="message-text">{{ message.text }}</span>
         <span class="message-time">{{ formatTime(message.timestamp) }}</span>
       </div>
@@ -52,40 +55,33 @@ export default {
     const newMessage = ref('');
     const messagesContainer = ref(null);
     const messageInput = ref(null);
-    const targetUserDetails = ref({});
+    const freelancerNick = ref('');
+    const freelancerPhotoUrl = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
     const jobDetails = ref({});
     const isChatDeleted = ref(false);
     const isBlocked = ref(false);
 
     const validateParams = () => {
       if (!jobId.value || !targetUserId.value) {
-        console.error('Missing parameters:', { jobId: jobId.value, targetUserId: targetUserId.value });
-        Telegram.WebApp.showAlert('Ошибка: отсутствуют необходимые параметры чата');
+        Telegram.WebApp.showAlert('Ошибка: отсутствуют параметры чата');
         router.push('/chats');
         return false;
       }
       return true;
     };
 
-    const fetchUserDetails = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/api/user/${targetUserId.value}`, {
-          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-        });
-        targetUserDetails.value = response.data;
-      } catch (error) {
-        console.error('Ошибка при загрузке данных пользователя:', error);
-      }
-    };
-
-    const fetchJobDetails = async () => {
+    const fetchFreelancerDetails = async () => {
       try {
         const response = await axios.get(`${BASE_URL}/api/job/${jobId.value}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
         jobDetails.value = response.data;
+        freelancerNick.value = response.data.nick;
+        if (response.data.username) {
+          freelancerPhotoUrl.value = `https://t.me/i/userpic/160/${response.data.username}.jpg`;
+        }
       } catch (error) {
-        console.error('Ошибка при загрузке данных вакансии:', error);
+        console.error('Ошибка загрузки данных фрилансера:', error);
       }
     };
 
@@ -100,7 +96,7 @@ export default {
         if (error.response?.status === 404) {
           messages.value = [];
         } else {
-          console.error('Ошибка при загрузке сообщений:', error);
+          console.error('Ошибка загрузки сообщений:', error);
         }
       }
     };
@@ -184,10 +180,10 @@ export default {
       if (isChatDeleted.value) return;
       try {
         const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
-        const blockCheck = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
+        const response = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
-        isBlocked.value = blockCheck.data.blocked;
+        isBlocked.value = response.data.blocked;
       } catch (error) {
         if (error.response?.status === 400 || error.response?.status === 404) {
           isChatDeleted.value = true;
@@ -195,48 +191,25 @@ export default {
       }
     };
 
-    const handleInputFocus = () => {
-      setTimeout(() => {
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-      }, 300);
-    };
-
-    const handleInputBlur = () => {};
-
-    const handleResize = () => {
-      scrollToBottom();
+    const handleImageError = (event) => {
+      event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     };
 
     onMounted(() => {
       if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         currentUserId.value = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
       } else {
-        Telegram.WebApp.showAlert('Please open the app via Telegram.');
+        Telegram.WebApp.showAlert('Откройте приложение через Telegram.');
         return;
       }
-      console.log('Route params:', route.params);
-      console.log('Route query:', route.query);
-      console.log('jobId:', jobId.value);
-      console.log('targetUserId:', targetUserId.value);
       if (!validateParams()) return;
 
-      if (Telegram.WebApp.setHeaderColor) {
-        Telegram.WebApp.setHeaderColor('#97f492');
-      }
+      Telegram.WebApp.setHeaderColor('#97f492');
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
-      fetchUserDetails();
-      fetchJobDetails();
+      fetchFreelancerDetails();
       fetchMessages();
       checkChatStatus();
-
-      if (messageInput.value) {
-        messageInput.value.addEventListener('focus', handleInputFocus);
-        messageInput.value.addEventListener('blur', handleInputBlur);
-      }
-      window.addEventListener('resize', handleResize);
 
       const pollInterval = setInterval(() => {
         if (!isChatDeleted.value) {
@@ -244,15 +217,8 @@ export default {
           checkChatStatus();
         }
       }, 5000);
-      onUnmounted(() => clearInterval(pollInterval));
-    });
 
-    onUnmounted(() => {
-      if (messageInput.value) {
-        messageInput.value.removeEventListener('focus', handleInputFocus);
-        messageInput.value.removeEventListener('blur', handleInputBlur);
-      }
-      window.removeEventListener('resize', handleResize);
+      onUnmounted(() => clearInterval(pollInterval));
     });
 
     return {
@@ -263,7 +229,8 @@ export default {
       newMessage,
       messagesContainer,
       messageInput,
-      targetUserDetails,
+      freelancerNick,
+      freelancerPhotoUrl,
       jobDetails,
       isChatDeleted,
       isBlocked,
@@ -274,6 +241,7 @@ export default {
       deleteChat,
       reportChat,
       checkChatStatus,
+      handleImageError,
     };
   },
 };
@@ -283,8 +251,9 @@ export default {
 .chat-container { display: flex; flex-direction: column; height: 100vh; background-color: #f0f0f0; font-family: Arial, sans-serif; }
 .chat-header { display: flex; align-items: center; padding: 10px; background-color: #97f492; color: #000; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
 .back-button { background: none; border: none; font-size: 24px; cursor: pointer; color: #000; }
-.chat-title { flex-grow: 1; text-align: left; padding-left: 10px; }
-.chat-title span { display: block; }
+.chat-title { flex-grow: 1; display: flex; align-items: center; padding-left: 10px; }
+.chat-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; }
+.chat-title div { display: flex; flex-direction: column; }
 .job-title { font-size: 14px; color: #555; }
 .chat-actions { display: flex; gap: 10px; }
 .report-button, .delete-button { background-color: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
