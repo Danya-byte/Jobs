@@ -1302,9 +1302,9 @@ bot.on('callback_query:data', async (ctx) => {
     release();
   }
 });
-app.get("/api/messages/:jobId/:targetUserId", async (req, res) => {
+app.get("/api/messages/:chatId", async (req, res) => {
   try {
-    const { jobId, targetUserId } = req.params;
+    const { chatId } = req.params;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -1312,19 +1312,16 @@ app.get("/api/messages/:jobId/:targetUserId", async (req, res) => {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
 
-    if (!jobId || !targetUserId) {
-      return res.status(400).json({ error: "Missing jobId or targetUserId" });
+    const parts = chatId.split('_');
+    if (parts.length !== 2) {
+      return res.status(400).json({ error: "Invalid chatId format" });
     }
-
-    // Извлекаем базовый jobId (без userId)
-    const jobIdBase = jobId.split('_')[0];
+    const [jobId, targetUserId] = parts;
 
     const messages = messagesData
       .filter((msg) => {
-        const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : null;
-        const matchesJobId = !msg.jobId || msgJobIdBase === jobIdBase; // Учитываем сообщения без jobId
         return (
-          matchesJobId &&
+          msg.jobId === jobId &&
           ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
            (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
         );
@@ -1341,7 +1338,7 @@ app.get("/api/messages/:jobId/:targetUserId", async (req, res) => {
 
     res.json(messages);
   } catch (error) {
-    logger.error(`Error in /api/messages/:jobId/:targetUserId: ${error.message}`);
+    logger.error(`Error in /api/messages/:chatId: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1356,9 +1353,15 @@ app.post("/api/createMessageInvoice", async (req, res) => {
 
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user"));
-    const { targetUserId, text, jobId } = req.body;
+    const { chatId, text } = req.body;
 
-    if (!user?.id || !targetUserId || !text || !jobId) {
+    const parts = chatId.split('_');
+    if (parts.length !== 2) {
+      return res.status(400).json({ error: "Invalid chatId format" });
+    }
+    const [jobId, targetUserId] = parts;
+
+    if (!user?.id || !text) {
       return res.status(400).json({ error: "Invalid data" });
     }
 
@@ -1385,7 +1388,8 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     );
 
     res.json({ success: true, invoiceLink });
-  } catch {
+  } catch (error) {
+    logger.error(`Error in /api/createMessageInvoice: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
   } finally {
     release();
@@ -1625,7 +1629,6 @@ bot.on("message:successful_payment", async (ctx) => {
       try {
         const authorData = await bot.api.getChat(authorUserId);
         const targetData = await bot.api.getChat(targetUserId);
-        const authorUsername = authorData.username ? `@${authorData.username}` : "Unknown";
         const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, "\\$1");
 
         const notification =
@@ -1636,7 +1639,7 @@ bot.on("message:successful_payment", async (ctx) => {
 
         const keyboard = new InlineKeyboard().webApp(
           "💬 Open Chat",
-          `https://jobs-iota-one.vercel.app/chat/${authorUserId}?jobId=${jobId}`
+          `https://jobs-iota-one.vercel.app/chat/${jobId}_${authorUserId}`
         );
 
         await bot.api.sendMessage(
@@ -1647,10 +1650,10 @@ bot.on("message:successful_payment", async (ctx) => {
             reply_markup: keyboard
           }
         );
-      } catch {}
-    }
-
-    else if (pendingReview && pendingReview.type === "review") {
+      } catch (error) {
+        logger.error(`Failed to notify target user ${targetUserId}: ${error.message}`);
+      }
+    } else if (pendingReview && pendingReview.type === "review") {
       const { text, authorUserId, targetUserId } = pendingReview;
       const review = {
         id: `${authorUserId}_${Date.now()}`,
@@ -1691,11 +1694,11 @@ bot.on("message:successful_payment", async (ctx) => {
           }
         );
       } catch {}
-    }
-    else {
+    } else {
       await ctx.reply("Error: Payment data not found.");
     }
-  } catch {
+  } catch (error) {
+    logger.error(`Error processing payment: ${error.message}`);
     await ctx.reply("Error processing payment.");
   } finally {
     releaseMessages();

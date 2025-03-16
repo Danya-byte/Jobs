@@ -28,7 +28,7 @@
             }"
           >
             <RouterLink
-              :to="{ path: `/chat/${chat.targetUserId}`, query: { username: chat.username, jobId: chat.jobId } }"
+              :to="`/chat/${chat.id}`"
               class="chat-item"
               @touchstart="isMobile() && startSwipe($event, chat.id)"
               @touchmove="isMobile() && moveSwipe($event, chat.id)"
@@ -121,9 +121,9 @@ const fetchChats = async () => {
               jobId: msg.jobId,
               targetUserId: otherUserId,
               messages: [],
-              nick: '',
+              nick: job.nick || 'Unknown',
               username: job.username || '',
-              photoUrl: '',
+              photoUrl: job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : defaultPhoto,
               lastMessageTime: new Date(0),
             });
           }
@@ -141,22 +141,13 @@ const fetchChats = async () => {
     const sortedChats = Array.from(chatMap.values()).sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
     for (const chat of sortedChats) {
+      const chatId = `${chat.jobId}_${chat.targetUserId}`;
       try {
-        const userResponse = await axios.get(`${BASE_URL}/api/profile/${chat.targetUserId}`, {
-          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-        });
-        chat.nick = userResponse.data.nick || 'Unknown';
-        chat.photoUrl = userResponse.data.photoUrl || defaultPhoto;
-
-        const chatId = `${chat.jobId}_${chat.targetUserId}`;
         const statusResponse = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
         chat.blocked = statusResponse.data.blocked;
       } catch (error) {
-        console.error(`Ошибка загрузки данных для targetUserId ${chat.targetUserId}:`, error);
-        chat.nick = 'Unknown';
-        chat.photoUrl = defaultPhoto;
         chat.blocked = false;
       }
     }
@@ -175,7 +166,6 @@ const fetchChats = async () => {
         blocked: chat.blocked,
       };
     });
-    console.log('Chats loaded:', chats.value); // Отладка
   } catch (error) {
     console.error('Ошибка загрузки чатов:', error);
   }
@@ -362,7 +352,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Стили остаются без изменений */
 .blocked-status { color: #ff4444; font-size: 12px; margin: 5px 0 0; }
 body { margin: 0; font-family: 'Geologica', sans-serif; background: linear-gradient(45deg, #0a0f1a, #141b2d); color: white; min-height: 100vh; overflow-x: hidden; overflow-y: hidden; }
 html { overflow-x: hidden; overflow-y: hidden; height: 100%; }

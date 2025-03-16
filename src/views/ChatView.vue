@@ -45,11 +45,16 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'https://impotently-dutiful-har
 
 export default {
   name: 'ChatPage',
-  setup() {
+  props: {
+    chatId: {
+      type: String,
+      required: true,
+    },
+  },
+  setup(props) {
     const route = useRoute();
     const router = useRouter();
-    const jobId = ref(route.query.jobId);
-    const targetUserId = ref(route.params.targetUserId);
+    const [jobId, targetUserId] = props.chatId.split('_');
     const currentUserId = ref('');
     const messages = ref([]);
     const newMessage = ref('');
@@ -62,7 +67,7 @@ export default {
     const isBlocked = ref(false);
 
     const validateParams = () => {
-      if (!jobId.value || !targetUserId.value) {
+      if (!jobId || !targetUserId) {
         Telegram.WebApp.showAlert('Ошибка: отсутствуют параметры чата');
         router.push('/chats');
         return false;
@@ -72,13 +77,16 @@ export default {
 
     const fetchFreelancerDetails = async () => {
       try {
-        const response = await axios.get(`${BASE_URL}/api/jobs/${jobId.value}`, {
+        const response = await axios.get(`${BASE_URL}/api/jobs`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
-        jobDetails.value = response.data;
-        freelancerNick.value = response.data.nick;
-        if (response.data.username) {
-          freelancerPhotoUrl.value = `https://t.me/i/userpic/160/${response.data.username}.jpg`;
+        const job = response.data.find(j => j.id === jobId);
+        if (job) {
+          jobDetails.value = job;
+          freelancerNick.value = job.nick;
+          freelancerPhotoUrl.value = job.username
+            ? `https://t.me/i/userpic/160/${job.username}.jpg`
+            : freelancerPhotoUrl.value;
         }
       } catch (error) {
         console.error('Ошибка загрузки данных фрилансера:', error);
@@ -87,10 +95,13 @@ export default {
 
     const fetchMessages = async () => {
       try {
-        const response = await axios.get(`${BASE_URL}/api/messages/${jobId.value}/${targetUserId.value}`, {
+        const response = await axios.get(`${BASE_URL}/api/messages/${props.chatId}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
-        messages.value = response.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        messages.value = response.data.map(msg => ({
+          ...msg,
+          isSender: msg.authorUserId.toString() === currentUserId.value,
+        })).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         setTimeout(() => scrollToBottom(), 100);
       } catch (error) {
         if (error.response?.status === 404) {
@@ -105,8 +116,8 @@ export default {
       if (!newMessage.value.trim()) return;
       try {
         await axios.post(
-          `${BASE_URL}/api/chat/${targetUserId.value}`,
-          { text: newMessage.value, jobId: jobId.value },
+          `${BASE_URL}/api/chat/${props.chatId}`,
+          { text: newMessage.value },
           { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
         );
         newMessage.value = '';
@@ -134,8 +145,7 @@ export default {
       Telegram.WebApp.showConfirm('Вы уверены, что хотите удалить чат?', async (confirmed) => {
         if (confirmed) {
           try {
-            const chatId = `${jobId.value}_${targetUserId.value}`;
-            await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
+            await axios.delete(`${BASE_URL}/api/chat/${props.chatId}`, {
               headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
             });
             isChatDeleted.value = true;
@@ -159,10 +169,9 @@ export default {
             const reason = prompt('Укажите причину жалобы');
             if (reason) {
               try {
-                const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
                 await axios.post(
                   `${BASE_URL}/api/report`,
-                  { chatId, reason },
+                  { chatId: props.chatId, reason },
                   { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
                 );
                 isBlocked.value = true;
@@ -179,8 +188,7 @@ export default {
     const checkChatStatus = async () => {
       if (isChatDeleted.value) return;
       try {
-        const chatId = `${jobId.value}_${currentUserId.value}_${targetUserId.value}`;
-        const response = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
+        const response = await axios.get(`${BASE_URL}/api/chat/status/${props.chatId}`, {
           headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
         });
         isBlocked.value = response.data.blocked;
@@ -246,6 +254,29 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.chat-container { display: flex; flex-direction: column; height: 100vh; background-color: #f0f0f0; font-family: Arial, sans-serif; }
+.chat-header { display: flex; align-items: center; padding: 10px; background-color: #97f492; color: #000; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+.back-button { background: none; border: none; font-size: 24px; cursor: pointer; color: #000; }
+.chat-title { flex-grow: 1; display: flex; align-items: center; padding-left: 10px; }
+.chat-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; }
+.chat-title div { display: flex; flex-direction: column; }
+.job-title { font-size: 14px; color: #555; }
+.chat-actions { display: flex; gap: 10px; }
+.report-button, .delete-button { background-color: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+.messages-container { flex-grow: 1; padding: 70px 10px 60px; overflow-y: auto; }
+.message { display: flex; flex-direction: column; margin: 5px 0; padding: 10px; border-radius: 10px; max-width: 70%; }
+.sent { align-self: flex-end; background-color: #97f492; color: #000; }
+.received { align-self: flex-start; background-color: #fff; color: #000; }
+.message-text { word-wrap: break-word; }
+.message-time { font-size: 12px; color: #666; align-self: flex-end; }
+.input-container { display: flex; padding: 10px; background-color: #fff; position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid #ddd; }
+textarea { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: none; overflow-y: auto; max-height: 100px; }
+.send-button { margin-left: 10px; padding: 10px 20px; background-color: #97f492; color: #000; border: none; border-radius: 5px; cursor: pointer; }
+.chat-overlay, .chat-deleted-overlay { position: fixed; top: 50px; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 10; }
+.overlay-text { color: white; font-size: 18px; text-align: center; padding: 20px; background-color: #333; border-radius: 10px; }
+</style>
 
 <style scoped>
 .chat-container { display: flex; flex-direction: column; height: 100vh; background-color: #f0f0f0; font-family: Arial, sans-serif; }

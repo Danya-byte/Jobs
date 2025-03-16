@@ -1,48 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import ChatView from './views/ChatView.vue';
+import ChatListView from './views/ChatListView.vue';
+import HomeView from './views/HomeView.vue';
+import ProfileView from './views/ProfileView.vue';
+
+const routes = [
+  { path: '/', component: HomeView },
+  { path: '/chats', component: ChatListView },
+  { path: '/chat/:chatId', component: ChatView, props: true },
+  { path: '/profile/:userId', component: ProfileView },
+];
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      name: 'home',
-      component: () => import('../views/HomeView.vue'),
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: () => import('../views/ProfileView.vue'),
-    },
-    {
-      path: '/profile/:userId',
-      name: 'profileWithId',
-      component: () => import('../views/ProfileView.vue'),
-      props: (route) => ({
-        userId: route.params.userId,
-        username: route.query.username,
-      }),
-    },
-    {
-      path: '/nft',
-      name: 'nft',
-      component: () => import('../views/NftView.vue'),
-    },
-    {
-      path: '/chat/:targetUserId', // Изменено с :userId на :targetUserId
-      name: 'chat',
-      component: () => import('../views/ChatView.vue'),
-      props: (route) => ({
-        targetUserId: route.params.targetUserId, // Изменено с userId на targetUserId
-        username: route.query.username,
-        jobId: route.query.jobId,
-      }),
-    },
-    {
-      path: '/chats',
-      name: 'chatList',
-      component: () => import('../views/ChatListView.vue'),
-    },
-  ],
+  history: createWebHistory(),
+  routes,
 });
 
 export default router;
