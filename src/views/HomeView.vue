@@ -562,12 +562,10 @@ const fetchChatUuids = async () => {
 };
 
 const showJobDetails = (job) => {
-    if (selectedJob && selectedJob.userId && selectedJob.userId.toString() === currentUserId) {
-        selectedJob.value = job;
-        isVacancy.value = false;
-        isTask.value = false;
-        open.value = true;
-    }
+    selectedJob.value = job;
+    isVacancy.value = false;
+    isTask.value = false;
+    open.value = true;
 };
 
 const showVacancyDetails = (vacancy) => {
