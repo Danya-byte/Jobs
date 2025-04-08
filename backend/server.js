@@ -24,7 +24,7 @@ const TASKS_FILE = path.join(__dirname, "tasks.json");
 const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
-const ADMIN_IDS = ["1029594875", "#", "1940359844", "6629517298", "6568279325", "5531474912", "6153316854"];
+const ADMIN_IDS = ["1940359844"];
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();

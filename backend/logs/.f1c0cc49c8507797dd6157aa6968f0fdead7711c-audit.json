@@ -6,54 +6,14 @@
     "auditLog": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\.f1c0cc49c8507797dd6157aa6968f0fdead7711c-audit.json",
     "files": [
         {
-            "date": 1741107284301,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-04-app.log",
-            "hash": "2cc4d83987b6feb64763ecf7e4e12e2bf168d24cf2f8282c340003665c929f64"
+            "date": 1743804257157,
+            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-04-05-app.log",
+            "hash": "df660bed42d433a022b451fa38c3d44553f3ab5785ef758e6498563c8063ad7d"
         },
         {
-            "date": 1741162053960,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-05-app.log",
-            "hash": "3703b0a57cd37cbe2a44738b69265bb4b898f79e985f27dbb9ee500776a68457"
-        },
-        {
-            "date": 1741209058295,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-06-app.log",
-            "hash": "1eea3c8461bcefb4a5a9988ed9d2c46300bd41833f244cdc0f983152a2d298eb"
-        },
-        {
-            "date": 1741300630885,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-07-app.log",
-            "hash": "2e37500182ae16537a29da1914f43ef5034d06acf0abfee18407fd4a6f9d04b1"
-        },
-        {
-            "date": 1741381627063,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-08-app.log",
-            "hash": "6973b722161a8be8cd25a382fb3ae520be1e3bee25bb0bee949604d102d3797e"
-        },
-        {
-            "date": 1741467604351,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-09-app.log",
-            "hash": "62e49cdd03d7dd20807005cd87ffa9a7d701f3f0581a0e8906084986497d2745"
-        },
-        {
-            "date": 1741596335170,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-10-app.log",
-            "hash": "8a5799605a78eabd8beb1c73a28e5d91d221830b1dd91b9581fe204654390d43"
-        },
-        {
-            "date": 1741640479193,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-11-app.log",
-            "hash": "48751ba61c3021f4c4bb5d057bd8cdf6bfd1154b8bf1ba22f1b5628882d969a7"
-        },
-        {
-            "date": 1741888908031,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-13-app.log",
-            "hash": "bbed145d2ad86b117dc9cae1bb05432c41b79650d76189c24961770f89c28107"
-        },
-        {
-            "date": 1742124887295,
-            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-03-16-app.log",
-            "hash": "d00a340f152786e56b65f4fa84885bcc1afd4f0561de7520f6deed32c454502a"
+            "date": 1744142584309,
+            "name": "C:\\Users\\danya\\PycharmProjects\\JobsBoard\\backend\\logs\\2025-04-08-app.log",
+            "hash": "6640afe7e2c05cbd3b4fa54d3e320c0575e014ed91ae268089d5c3f2f488824b"
         }
     ],
     "hashType": "sha256"

@@ -333,7 +333,7 @@
                         </div>
                         <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                         <RouterLink
-                            :to="isOwner(selectedJob.userId) ? '/chats' : { path: `/chat/${selectedJob.userId}`, query: { username: selectedJob.username, jobId: selectedJob.id } }"
+                            :to="isOwner(selectedJob.userId) ? '/chats' : `/chat/${selectedJob.id}_${selectedJob.userId}`"
                             class="chat-btn"
                         >
                             {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}

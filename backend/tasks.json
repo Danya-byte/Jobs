@@ -16,5 +16,26 @@
     "photoUrl": "https://i.postimg.cc/Yq9BtRJH/tasks.webp",
     "createdAt": "2025-03-09T00:16:32.455Z",
     "pinned": false
+  },
+  {
+    "id": "1743806949876_881335801",
+    "adminId": 881335801,
+    "title": "продажа людей",
+    "reward": 999,
+    "deadline": "2025-04-05",
+    "description": "продаем людей\n",
+    "tags": [
+      "люди",
+      "финансы",
+      "дипломатия",
+      "бизнес"
+    ],
+    "categories": [
+      "finance"
+    ],
+    "contact": "https://t.me/workiks_admin",
+    "photoUrl": "https://i.postimg.cc/Yq9BtRJH/tasks.webp",
+    "createdAt": "2025-04-04T22:49:09.876Z",
+    "pinned": true
   }
 ]
