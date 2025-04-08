@@ -36,223 +36,216 @@
   </div>
 </template>
 
-<script>
-import { ref, onMounted, onUnmounted } from 'vue';
+<script setup>
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://jobs.cloudpub.ru';
+const WS_URL = 'wss://jobs.cloudpub.ru';
 
-export default {
-  name: 'ChatPage',
-  props: {
-    chatId: {
-      type: String,
-      required: true,
-    },
-  },
-  setup(props) {
-    const route = useRoute();
-    const router = useRouter();
-    const [jobId, targetUserId] = props.chatId.split('_');
-    const currentUserId = ref('');
-    const messages = ref([]);
-    const newMessage = ref('');
-    const messagesContainer = ref(null);
-    const messageInput = ref(null);
-    const freelancerNick = ref('');
-    const freelancerPhotoUrl = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
-    const jobDetails = ref({});
-    const isChatDeleted = ref(false);
-    const isBlocked = ref(false);
+const route = useRoute();
+const router = useRouter();
+const chatUuid = ref(route.params.chatUuid);
+const jobId = ref(route.query.jobId);
+const targetUserId = ref(route.query.targetUserId);
+const currentUserId = ref('');
+const messages = ref([]);
+const newMessage = ref('');
+const messagesContainer = ref(null);
+const messageInput = ref(null);
+const freelancerNick = ref('');
+const freelancerPhotoUrl = ref('https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
+const jobDetails = ref({});
+const isChatDeleted = ref(false);
+const isBlocked = ref(false);
+const ws = ref(null);
 
-    const validateParams = () => {
-      if (!jobId || !targetUserId) {
-        Telegram.WebApp.showAlert('Ошибка: отсутствуют параметры чата');
-        router.push('/chats');
-        return false;
-      }
-      return true;
-    };
-
-    const fetchFreelancerDetails = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/api/jobs`, {
-          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-        });
-        const job = response.data.find(j => j.id === jobId);
-        if (job) {
-          jobDetails.value = job;
-          freelancerNick.value = job.nick;
-          freelancerPhotoUrl.value = job.username
-            ? `https://t.me/i/userpic/160/${job.username}.jpg`
-            : freelancerPhotoUrl.value;
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки данных фрилансера:', error);
-      }
-    };
-
-    const fetchMessages = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/api/messages/${props.chatId}`, {
-          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-        });
-        messages.value = response.data.map(msg => ({
-          ...msg,
-          isSender: msg.authorUserId.toString() === currentUserId.value,
-        })).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        setTimeout(() => scrollToBottom(), 100);
-      } catch (error) {
-        if (error.response?.status === 404) {
-          messages.value = [];
-        } else {
-          console.error('Ошибка загрузки сообщений:', error);
-        }
-      }
-    };
-
-    const sendMessage = async () => {
-      if (!newMessage.value.trim()) return;
-      try {
-        await axios.post(
-          `${BASE_URL}/api/chat/${props.chatId}`,
-          { text: newMessage.value },
-          { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-        );
-        newMessage.value = '';
-        fetchMessages();
-      } catch (error) {
-        Telegram.WebApp.showAlert('Ошибка при отправке сообщения');
-      }
-    };
-
-    const scrollToBottom = () => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
-    };
-
-    const formatTime = (timestamp) => {
-      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const goBack = () => {
-      router.push('/chats');
-    };
-
-    const deleteChat = async () => {
-      Telegram.WebApp.showConfirm('Вы уверены, что хотите удалить чат?', async (confirmed) => {
-        if (confirmed) {
-          try {
-            await axios.delete(`${BASE_URL}/api/chat/${props.chatId}`, {
-              headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-            });
-            isChatDeleted.value = true;
-            setTimeout(() => router.push('/chats'), 1000);
-          } catch (error) {
-            Telegram.WebApp.showAlert('Ошибка при удалении чата');
-          }
-        }
-      });
-    };
-
-    const reportChat = () => {
-      Telegram.WebApp.showPopup(
-        {
-          title: 'Пожаловаться',
-          message: 'Укажите причину жалобы',
-          buttons: [{ id: 'submit', type: 'default', text: 'Отправить' }],
-        },
-        async (buttonId) => {
-          if (buttonId === 'submit') {
-            const reason = prompt('Укажите причину жалобы');
-            if (reason) {
-              try {
-                await axios.post(
-                  `${BASE_URL}/api/report`,
-                  { chatId: props.chatId, reason },
-                  { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-                );
-                isBlocked.value = true;
-                Telegram.WebApp.showAlert('Жалоба отправлена');
-              } catch (error) {
-                Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
-              }
-            }
-          }
-        }
-      );
-    };
-
-    const checkChatStatus = async () => {
-      if (isChatDeleted.value) return;
-      try {
-        const response = await axios.get(`${BASE_URL}/api/chat/status/${props.chatId}`, {
-          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-        });
-        isBlocked.value = response.data.blocked;
-      } catch (error) {
-        if (error.response?.status === 400 || error.response?.status === 404) {
-          isChatDeleted.value = true;
-        }
-      }
-    };
-
-    const handleImageError = (event) => {
-      event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    };
-
-    onMounted(() => {
-      if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-        currentUserId.value = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
-      } else {
-        Telegram.WebApp.showAlert('Откройте приложение через Telegram.');
-        return;
-      }
-      if (!validateParams()) return;
-
-      Telegram.WebApp.setHeaderColor('#97f492');
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
-      fetchFreelancerDetails();
-      fetchMessages();
-      checkChatStatus();
-
-      const pollInterval = setInterval(() => {
-        if (!isChatDeleted.value) {
-          fetchMessages();
-          checkChatStatus();
-        }
-      }, 5000);
-
-      onUnmounted(() => clearInterval(pollInterval));
-    });
-
-    return {
-      jobId,
-      targetUserId,
-      currentUserId,
-      messages,
-      newMessage,
-      messagesContainer,
-      messageInput,
-      freelancerNick,
-      freelancerPhotoUrl,
-      jobDetails,
-      isChatDeleted,
-      isBlocked,
-      fetchMessages,
-      sendMessage,
-      formatTime,
-      goBack,
-      deleteChat,
-      reportChat,
-      checkChatStatus,
-      handleImageError,
-    };
-  },
+const validateParams = () => {
+  if (!chatUuid.value) {
+    Telegram.WebApp.showAlert('Ошибка: отсутствует идентификатор чата');
+    router.push('/chats');
+    return false;
+  }
+  return true;
 };
+
+const fetchFreelancerDetails = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/user/${targetUserId.value}/avatar`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    freelancerNick.value = response.data.firstName;
+    freelancerPhotoUrl.value = response.data.photoUrl;
+
+    const jobsResponse = await axios.get(`${BASE_URL}/api/jobs`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    const job = jobsResponse.data.find(j => j.id === jobId.value);
+    if (job) {
+      jobDetails.value = job;
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки данных фрилансера:', error);
+  }
+};
+
+const fetchMessages = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/messages/${chatUuid.value}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    messages.value = response.data;
+    nextTick(() => scrollToBottom());
+  } catch (error) {
+    if (error.response?.status === 404) {
+      messages.value = [];
+    } else {
+      console.error('Ошибка загрузки сообщений:', error);
+    }
+  }
+};
+
+const sendMessage = async () => {
+  if (!newMessage.value.trim()) return;
+  try {
+    const response = await axios.post(`${BASE_URL}/api/chat/${targetUserId.value}`, {
+      text: newMessage.value,
+      jobId: jobId.value
+    }, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    if (response.data.invoiceLink) {
+      window.open(response.data.invoiceLink, '_blank');
+    } else {
+      newMessage.value = '';
+      fetchMessages();
+    }
+  } catch (error) {
+    console.error('Ошибка при отправке сообщения:', error);
+    Telegram.WebApp.showAlert('Ошибка при отправке сообщения');
+  }
+};
+
+const scrollToBottom = () => {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+  }
+};
+
+const formatTime = (timestamp) => {
+  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const goBack = () => {
+  router.push('/chats');
+};
+
+const deleteChat = async () => {
+  Telegram.WebApp.showConfirm('Вы уверены, что хотите удалить чат?', async (confirmed) => {
+    if (confirmed) {
+      try {
+        await axios.delete(`${BASE_URL}/api/chat/${chatUuid.value}`, {
+          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        });
+        isChatDeleted.value = true;
+        setTimeout(() => router.push('/chats'), 1000);
+      } catch (error) {
+        console.error('Ошибка при удалении чата:', error);
+        Telegram.WebApp.showAlert('Ошибка при удалении чата');
+      }
+    }
+  });
+};
+
+const reportChat = () => {
+  Telegram.WebApp.showPopup(
+    {
+      title: 'Пожаловаться',
+      message: 'Укажите причину жалобы',
+      buttons: [{ id: 'submit', type: 'default', text: 'Отправить' }],
+    },
+    async (buttonId) => {
+      if (buttonId === 'submit') {
+        const reason = prompt('Укажите причину жалобы');
+        if (reason) {
+          try {
+            await axios.post(`${BASE_URL}/api/report`, {
+              chatUuid: chatUuid.value,
+              reason
+            }, {
+              headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+            });
+            isBlocked.value = true;
+            Telegram.WebApp.showAlert('Жалоба отправлена');
+          } catch (error) {
+            console.error('Ошибка при отправке жалобы:', error);
+            Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
+          }
+        }
+      }
+    }
+  );
+};
+
+const checkChatStatus = async () => {
+  if (isChatDeleted.value) return;
+  try {
+    const response = await axios.get(`${BASE_URL}/api/chat/status/${chatUuid.value}`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    isBlocked.value = response.data.blocked;
+  } catch (error) {
+    if (error.response?.status === 400 || error.response?.status === 404) {
+      isChatDeleted.value = true;
+    }
+    console.error('Ошибка проверки статуса чата:', error);
+  }
+};
+
+const handleImageError = (event) => {
+  event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+};
+
+const setupWebSocket = () => {
+  ws.value = new WebSocket(WS_URL, [], {
+    headers: { 'user-id': currentUserId.value }
+  });
+  ws.value.onopen = () => console.log('WebSocket connected');
+  ws.value.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'newMessage' && data.chatUuid === chatUuid.value) {
+      fetchMessages();
+    }
+  };
+  ws.value.onerror = (error) => console.error('WebSocket error:', error);
+  ws.value.onclose = () => console.log('WebSocket disconnected');
+};
+
+onMounted(() => {
+  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+    currentUserId.value = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
+  } else {
+    Telegram.WebApp.showAlert('Откройте приложение через Telegram.');
+    router.push('/chats');
+    return;
+  }
+  if (!validateParams()) return;
+
+  Telegram.WebApp.setHeaderColor('#97f492');
+  window.Telegram.WebApp.ready();
+  window.Telegram.WebApp.expand();
+  fetchFreelancerDetails();
+  fetchMessages();
+  checkChatStatus();
+  setupWebSocket();
+});
+
+onUnmounted(() => {
+  if (ws.value) {
+    ws.value.close();
+  }
+});
 </script>
 
 <style scoped>

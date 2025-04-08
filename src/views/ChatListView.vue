@@ -8,31 +8,31 @@
     <div class="chat-list">
       <p v-if="chats.length === 0" class="no-chats">No chats available.</p>
       <div class="chat-list-wrapper">
-        <div v-for="chat in chats" :key="chat.id" class="chat-item-wrapper" :style="{ position: 'relative' }">
-          <div v-if="isMobile()" class="swipe-actions" :style="{ right: swipeOffset[chat.id] === -120 ? '0' : '-120px', display: 'flex' }">
-            <div class="swipe-icon report-icon" @click.stop="reportChat(chat.id)">
+        <div v-for="chat in chats" :key="chat.chatUuid" class="chat-item-wrapper" :style="{ position: 'relative' }">
+          <div v-if="isMobile()" class="swipe-actions" :style="{ right: swipeOffset[chat.chatUuid] === -120 ? '0' : '-120px', display: 'flex' }">
+            <div class="swipe-icon report-icon" @click.stop="reportChat(chat.chatUuid)">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3 3H21L12 21L3 3Z" fill="currentColor" />
                 <path d="M12 7V13" stroke="#000" stroke-width="2" stroke-linecap="round" />
                 <circle cx="12" cy="15" r="1" fill="#000" />
               </svg>
             </div>
-            <div class="swipe-icon delete-icon" @click.stop="deleteChat(chat.id)">🗑️</div>
+            <div class="swipe-icon delete-icon" @click.stop="deleteChat(chat.chatUuid)">🗑️</div>
           </div>
           <div
             class="chat-item-container"
-            :class="{ swiped: swipeOffset[chat.id] === -120 }"
+            :class="{ swiped: swipeOffset[chat.chatUuid] === -120 }"
             :style="{
-              transform: `translateX(${swipeOffset[chat.id] || 0}px)`,
-              transition: swipeOffset[chat.id] ? 'none' : 'transform 0.2s ease'
+              transform: `translateX(${swipeOffset[chat.chatUuid] || 0}px)`,
+              transition: swipeOffset[chat.chatUuid] ? 'none' : 'transform 0.2s ease'
             }"
           >
             <RouterLink
-              :to="`/chat/${chat.id}`"
+              :to="{ path: `/chat/${chat.chatUuid}`, query: { jobId: chat.jobId, targetUserId: chat.targetUserId } }"
               class="chat-item"
-              @touchstart="isMobile() && startSwipe($event, chat.id)"
-              @touchmove="isMobile() && moveSwipe($event, chat.id)"
-              @touchend="isMobile() && endSwipe(chat.id)"
+              @touchstart="isMobile() && startSwipe($event, chat.chatUuid)"
+              @touchmove="isMobile() && moveSwipe($event, chat.chatUuid)"
+              @touchend="isMobile() && endSwipe(chat.chatUuid)"
             >
               <img :src="chat.photoUrl" class="chat-icon" loading="lazy" @error="handleImageError" />
               <div class="chat-info">
@@ -40,7 +40,7 @@
                 <p class="last-message">{{ chat.lastMessage }}</p>
                 <p v-if="chat.blocked" class="blocked-status">Заблокирован</p>
               </div>
-              <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.id)">⋮</button>
+              <button v-if="!isMobile()" class="options-btn" @click.stop.prevent="openOptions(chat.chatUuid)">⋮</button>
             </RouterLink>
           </div>
         </div>
@@ -72,13 +72,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
-const chats = ref([]);
+const WS_URL = 'wss://jobs.cloudpub.ru';
 const defaultPhoto = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-const currentUserId = ref(window.Telegram.WebApp.initDataUnsafe.user.id.toString());
+const chats = ref([]);
+const currentUserId = ref('');
 const swipeOffset = ref({});
 const showModal = ref(false);
 const modalTitle = ref('');
@@ -88,86 +89,27 @@ const modalCallback = ref(null);
 const modalInput = ref(false);
 const modalInputValue = ref('');
 const activeSwipedChat = ref(null);
+const ws = ref(null);
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 const fetchChats = async () => {
   try {
-    const messagesResponse = await axios.get(`${BASE_URL}/api/chats`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+    const response = await axios.get(`${BASE_URL}/api/chats`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
-    const messages = messagesResponse.data.filter(msg =>
-      msg.authorUserId.toString() === currentUserId.value ||
-      msg.targetUserId.toString() === currentUserId.value
-    );
-
-    const jobsResponse = await axios.get(`${BASE_URL}/api/jobs`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-    });
-    const jobs = jobsResponse.data;
-
-    const chatMap = new Map();
-    messages.forEach((msg) => {
-      if (msg.jobId) {
-        const otherUserId = msg.authorUserId.toString() === currentUserId.value
-          ? msg.targetUserId.toString()
-          : msg.authorUserId.toString();
-        const key = `${msg.jobId}_${otherUserId}`;
-
-        if (!chatMap.has(key)) {
-          const job = jobs.find((j) => j.id === msg.jobId);
-          if (job) {
-            chatMap.set(key, {
-              jobId: msg.jobId,
-              targetUserId: otherUserId,
-              messages: [],
-              nick: job.nick || 'Unknown',
-              username: job.username || '',
-              photoUrl: job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : defaultPhoto,
-              lastMessageTime: new Date(0),
-            });
-          }
-        }
-        if (chatMap.has(key)) {
-          chatMap.get(key).messages.push(msg);
-          const msgTime = new Date(msg.timestamp);
-          if (msgTime > chatMap.get(key).lastMessageTime) {
-            chatMap.get(key).lastMessageTime = msgTime;
-          }
-        }
-      }
-    });
-
-    const sortedChats = Array.from(chatMap.values()).sort((a, b) => b.lastMessageTime - a.lastMessageTime);
-
-    for (const chat of sortedChats) {
-      const chatId = `${chat.jobId}_${chat.targetUserId}`;
-      try {
-        const statusResponse = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
-          headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-        });
-        chat.blocked = statusResponse.data.blocked;
-      } catch (error) {
-        chat.blocked = false;
-      }
-    }
-
-    chats.value = sortedChats.map((chat) => {
-      const lastMessage = chat.messages[chat.messages.length - 1];
-      return {
-        id: `${chat.jobId}_${chat.targetUserId}`,
-        targetUserId: chat.targetUserId,
-        jobId: chat.jobId,
-        nick: chat.nick,
-        username: chat.username,
-        photoUrl: chat.photoUrl,
-        lastMessage: lastMessage.text.slice(0, 30) + (lastMessage.text.length > 30 ? '...' : ''),
-        lastMessageTime: chat.lastMessageTime,
-        blocked: chat.blocked,
-      };
-    });
+    chats.value = response.data.map(chat => ({
+      chatUuid: chat.chatUuid,
+      jobId: chat.jobId,
+      targetUserId: chat.targetUserId,
+      nick: chat.nick,
+      photoUrl: chat.photoUrl || defaultPhoto,
+      lastMessage: chat.lastMessage ? chat.lastMessage.slice(0, 30) + (chat.lastMessage.length > 30 ? '...' : '') : '',
+      blocked: chat.blocked || false
+    }));
   } catch (error) {
     console.error('Ошибка загрузки чатов:', error);
+    Telegram.WebApp.showAlert('Ошибка загрузки чатов');
   }
 };
 
@@ -199,14 +141,6 @@ const showCustomConfirm = (message, callback) => {
   showModal.value = true;
 };
 
-const showNotification = (message) => {
-  if (window.Telegram && window.Telegram.WebApp) {
-    Telegram.WebApp.showAlert(message);
-  } else {
-    alert(message);
-  }
-};
-
 const handleModalAction = (buttonId) => {
   if (modalCallback.value && buttonId) {
     modalCallback.value(buttonId, modalInput.value ? modalInputValue.value : null);
@@ -220,134 +154,148 @@ const closeModal = () => {
   modalInputValue.value = '';
 };
 
-const openOptions = (chatId) => {
+const openOptions = (chatUuid) => {
   showCustomPopup({
     title: 'Действия с чатом',
     message: 'Выберите действие',
     buttons: [
       { id: 'report', type: 'default', text: 'Пожаловаться' },
       { id: 'delete', type: 'destructive', text: 'Удалить чат' }
-    ],
+    ]
   }, (buttonId) => {
-    if (buttonId === 'report') reportChat(chatId);
-    else if (buttonId === 'delete') deleteChat(chatId);
+    if (buttonId === 'report') reportChat(chatUuid);
+    else if (buttonId === 'delete') deleteChat(chatUuid);
   });
 };
 
-const startSwipe = (event, chatId) => {
+const startSwipe = (event, chatUuid) => {
   if (!isMobile()) return;
   const touch = event.touches[0];
   touch.startX = touch.clientX;
   touch.startY = touch.clientY;
-  touch.chatId = chatId;
+  touch.chatUuid = chatUuid;
   event.target.touchData = touch;
 };
 
-const moveSwipe = (event, chatId) => {
+const moveSwipe = (event, chatUuid) => {
   const touch = event.target.touchData;
-  if (!touch || touch.chatId !== chatId) return;
+  if (!touch || touch.chatUuid !== chatUuid) return;
 
   const deltaX = event.touches[0].clientX - touch.startX;
   const deltaY = event.touches[0].clientY - touch.startY;
   if (Math.abs(deltaX) > 10) {
     event.preventDefault();
     if (deltaX < 0) {
-      if (activeSwipedChat.value && activeSwipedChat.value !== chatId) {
+      if (activeSwipedChat.value && activeSwipedChat.value !== chatUuid) {
         swipeOffset.value[activeSwipedChat.value] = 0;
         activeSwipedChat.value = null;
       }
-      swipeOffset.value[chatId] = Math.max(deltaX, -120);
-    } else if (swipeOffset.value[chatId] === -120) {
-      swipeOffset.value[chatId] = Math.min(deltaX, 0);
+      swipeOffset.value[chatUuid] = Math.max(deltaX, -120);
+    } else if (swipeOffset.value[chatUuid] === -120) {
+      swipeOffset.value[chatUuid] = Math.min(deltaX, 0);
     }
   }
 };
 
-const endSwipe = (chatId) => {
-  const delta = swipeOffset.value[chatId];
+const endSwipe = (chatUuid) => {
+  const delta = swipeOffset.value[chatUuid];
   if (delta < -60) {
-    swipeOffset.value[chatId] = -120;
-    activeSwipedChat.value = chatId;
+    swipeOffset.value[chatUuid] = -120;
+    activeSwipedChat.value = chatUuid;
   } else if (delta > -60) {
-    swipeOffset.value[chatId] = 0;
-    if (activeSwipedChat.value === chatId) {
+    swipeOffset.value[chatUuid] = 0;
+    if (activeSwipedChat.value === chatUuid) {
       activeSwipedChat.value = null;
     }
   }
   delete event.target.touchData;
 };
 
-const reportChat = async (chatId) => {
+const reportChat = async (chatUuid) => {
   setTimeout(() => {
     showCustomPopup({
       title: 'Пожаловаться',
       message: 'Укажите причину жалобы',
-      buttons: [
-        { id: 'submit', type: 'default', text: 'Отправить' }
-      ],
-      input: true,
+      buttons: [{ id: 'submit', type: 'default', text: 'Отправить' }],
+      input: true
     }, async (buttonId, inputText) => {
       if (buttonId === 'submit' && inputText) {
-        await submitReport(chatId, inputText);
+        await submitReport(chatUuid, inputText);
       }
     });
   }, 300);
-  swipeOffset.value[chatId] = 0;
-  if (activeSwipedChat.value === chatId) activeSwipedChat.value = null;
+  swipeOffset.value[chatUuid] = 0;
+  if (activeSwipedChat.value === chatUuid) activeSwipedChat.value = null;
 };
 
-const submitReport = async (chatId) => {
+const submitReport = async (chatUuid, reason) => {
   try {
-    const response = await axios.post(
-      `${BASE_URL}/api/report`,
-      { chatId, reason: modalInputValue.value },
-      { headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData } }
-    );
-    if (response.data.success) {
-      showNotification('Жалоба отправлена');
-      const statusResponse = await axios.get(`${BASE_URL}/api/chat/status/${chatId}`, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
-      });
-      chats.value = chats.value.map(chat =>
-        chat.id === chatId ? { ...chat, blocked: statusResponse.data.blocked } : chat
-      );
-    } else {
-      showNotification('Ошибка при отправке жалобы');
-    }
+    await axios.post(`${BASE_URL}/api/report`, {
+      chatUuid,
+      reason
+    }, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    Telegram.WebApp.showAlert('Жалоба отправлена');
+    fetchChats();
   } catch (error) {
-    showNotification('Ошибка при отправке жалобы');
+    console.error('Ошибка при отправке жалобы:', error);
+    Telegram.WebApp.showAlert('Ошибка при отправке жалобы');
   }
 };
 
-const deleteChat = async (chatId) => {
+const deleteChat = async (chatUuid) => {
   setTimeout(() => {
-    showCustomConfirm(
-      'Вы точно хотите удалить данный чат? История чата удаляется тоже',
-      async (buttonId) => {
-        if (buttonId === 'confirm') {
-          try {
-            const response = await axios.delete(`${BASE_URL}/api/chat/${chatId}`, {
-              headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
-            });
-            if (response.data.success) {
-              chats.value = chats.value.filter((chat) => chat.id !== chatId);
-            } else {
-              showNotification('Ошибка при удалении чата');
-            }
-          } catch (error) {
-            showNotification('Ошибка при удалении чата');
-          }
+    showCustomConfirm('Вы точно хотите удалить данный чат? История чата удаляется тоже', async (buttonId) => {
+      if (buttonId === 'confirm') {
+        try {
+          await axios.delete(`${BASE_URL}/api/chat/${chatUuid}`, {
+            headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+          });
+          chats.value = chats.value.filter(chat => chat.chatUuid !== chatUuid);
+          Telegram.WebApp.showAlert('Чат удалён');
+        } catch (error) {
+          console.error('Ошибка при удалении чата:', error);
+          Telegram.WebApp.showAlert('Ошибка при удалении чата');
         }
       }
-    );
+    });
   }, 300);
-  swipeOffset.value[chatId] = 0;
-  if (activeSwipedChat.value === chatId) activeSwipedChat.value = null;
+  swipeOffset.value[chatUuid] = 0;
+  if (activeSwipedChat.value === chatUuid) activeSwipedChat.value = null;
+};
+
+const setupWebSocket = () => {
+  ws.value = new WebSocket(WS_URL, [], {
+    headers: { 'user-id': currentUserId.value }
+  });
+  ws.value.onopen = () => console.log('WebSocket connected');
+  ws.value.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'newMessage') {
+      fetchChats();
+    }
+  };
+  ws.value.onerror = (error) => console.error('WebSocket error:', error);
+  ws.value.onclose = () => console.log('WebSocket disconnected');
 };
 
 onMounted(() => {
+  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+    currentUserId.value = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
+  } else {
+    Telegram.WebApp.showAlert('Откройте приложение через Telegram.');
+    return;
+  }
   fetchChats();
+  setupWebSocket();
   if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#97f492');
+});
+
+onUnmounted(() => {
+  if (ws.value) {
+    ws.value.close();
+  }
 });
 </script>
 

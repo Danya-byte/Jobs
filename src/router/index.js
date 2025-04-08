@@ -9,17 +9,12 @@ const router = createRouter({
       component: () => import('../views/HomeView.vue'),
     },
     {
-      path: '/profile',
+      path: '/profile/:userId?',
       name: 'profile',
       component: () => import('../views/ProfileView.vue'),
-    },
-    {
-      path: '/profile/:userId',
-      name: 'profileWithId',
-      component: () => import('../views/ProfileView.vue'),
       props: (route) => ({
-        userId: route.params.userId,
-        username: route.query.username,
+        userId: route.params.userId || null,
+        username: route.query.username || 'unknown',
       }),
     },
     {
@@ -28,26 +23,37 @@ const router = createRouter({
       component: () => import('../views/NftView.vue'),
     },
     {
-      path: '/chat/:chatId',
+      path: '/chat/:chatUuid',
       name: 'chat',
       component: () => import('../views/ChatView.vue'),
-      props: (route) => {
-        const chatId = route.params.chatId;
-        const [jobId, targetUserId] = chatId.split('_');
-        return {
-          jobId,
-          targetUserId,
-          chatId,
-          username: route.query.username,
-        };
-      },
-      beforeEnter: (to, from, next) => {
-        const chatId = to.params.chatId;
-        if (!chatId || !chatId.includes('_')) {
-          console.warn('Invalid chatId format. Expected: jobId_targetUserId');
-          next({ name: 'chatList' });
-        } else {
+      props: (route) => ({
+        chatUuid: route.params.chatUuid,
+        username: route.query.username,
+      }),
+      beforeEnter: async (to, from, next) => {
+        const chatUuid = to.params.chatUuid;
+        if (!chatUuid) {
+          console.warn('Chat UUID is missing');
+          return next({ name: 'chatList' });
+        }
+
+
+        try {
+          const response = await fetch(`/api/chat/status/${chatUuid}`, {
+            headers: {
+              'X-Telegram-Data': window.Telegram.WebApp.initData,
+            },
+          });
+          const { blocked } = await response.json();
+          if (!response.ok) throw new Error('Failed to fetch chat status');
+          if (blocked) {
+            console.warn('Chat is blocked');
+            return next({ name: 'chatList' });
+          }
           next();
+        } catch (error) {
+          console.error('Error checking chat status:', error);
+          next({ name: 'chatList' });
         }
       },
     },
@@ -55,6 +61,11 @@ const router = createRouter({
       path: '/chats',
       name: 'chatList',
       component: () => import('../views/ChatListView.vue'),
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('../views/NotFound.vue'),
     },
   ],
 });

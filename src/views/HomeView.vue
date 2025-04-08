@@ -42,7 +42,7 @@
                 </div>
                 <button v-else @click="showJobDetails(job)" class="job-card" v-for="job in filteredJobs" :key="job.id">
                     <div class="card-header">
-                        <img class="job-icon" src="https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp" loading="lazy">
+                        <img class="job-icon" :src="job.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'" loading="lazy">
                         <div class="job-info">
                             <p class="nick">{{ job.nick }}</p>
                             <p class="work">{{ job.position }}</p>
@@ -194,7 +194,7 @@
                     </div>
                     <div class="job-details">
                         <input v-model="newTask.title" placeholder="Task Title" class="search-input" :class="{ 'invalid': !newTask.title && formSubmitted }" />
-                        <input v-model="newTask.reward" placeholder="Reward ($)" type="number" min="1" class="search-inputanus" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
+                        <input v-model="newTask.reward" placeholder="Reward ($)" type="number" min="1" class="search-input" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
                         <input v-model="newTask.deadline" type="date" placeholder="Deadline" class="search-input" />
                         <textarea v-model="newTask.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newTask.description && formSubmitted }"></textarea>
                         <input v-model="tagsInput" @keyup.enter="addTaskTag" placeholder="Tags (Enter to add)" class="search-input" />
@@ -299,7 +299,7 @@
                                 :to="{ path: `/profile/${selectedJob.userId}`, query: { username: selectedJob.username } }"
                                 class="profile-link"
                             >
-                                <img :src="jobIcon" class="job-icon" loading="lazy">
+                                <img :src="selectedJob.photoUrl || jobIcon" class="job-icon" loading="lazy">
                                 <div>
                                     <p class="nickname">{{ selectedJob.nick }}</p>
                                     <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
@@ -331,10 +331,11 @@
                                 Закрепить вверху
                             </label>
                         </div>
-                        <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
+                        <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                         <RouterLink
-                            :to="isOwner(selectedJob.userId) ? '/chats' : `/chat/${getChatUuid(selectedJob.id, selectedJob.userId)}`"
+                            :to="isOwner(selectedJob.userId) ? '/chats' : { path: `/chat/${chatUuidMap[selectedJob.id] || ''}`, query: { jobId: selectedJob.id, targetUserId: selectedJob.userId } }"
                             class="chat-btn"
+                            @click="startChat(selectedJob.id, selectedJob.userId)"
                         >
                             {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
                         </RouterLink>
@@ -348,12 +349,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
+const WS_URL = 'wss://jobs.cloudpub.ru';
 
+const router = useRouter();
 const chatUuidMap = ref({});
 const open = ref(false);
 const showAddModal = ref(false);
@@ -413,6 +416,7 @@ const tagsInput = ref('');
 const formSubmitted = ref(false);
 const isVacancy = ref(false);
 const isTask = ref(false);
+const ws = ref(null);
 
 const categories = [
     { label: 'IT', value: 'it' },
@@ -434,12 +438,7 @@ const sortedJobs = computed(() => {
 const filteredJobs = computed(() => {
   let filtered = sortedJobs.value;
   if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(job => {
-      if (job.categories && job.categories.length > 0) {
-        return job.categories.some(cat => selectedCategories.value.includes(cat));
-      }
-      return false;
-    });
+    filtered = filtered.filter(job => job.categories?.some(cat => selectedCategories.value.includes(cat)));
   }
   if (showFavoritesOnly.value) {
     filtered = filtered.filter(job => isFavorite(job.id));
@@ -458,7 +457,7 @@ const filteredVacancies = computed(() => {
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
   if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(vacancy => vacancy.categories.some(cat => selectedCategories.value.includes(cat)));
+    filtered = filtered.filter(vacancy => vacancy.categories?.some(cat => selectedCategories.value.includes(cat)));
   }
   if (showFavoritesOnly.value) {
     filtered = filtered.filter(vacancy => isFavorite(vacancy.id));
@@ -481,18 +480,14 @@ const sortedTasks = computed(() => {
 const filteredTasks = computed(() => {
   let filtered = sortedTasks.value;
   if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(task =>
-      task.categories.some(cat => selectedCategories.value.includes(cat))
-    );
+    filtered = filtered.filter(task => task.categories?.some(cat => selectedCategories.value.includes(cat)));
   }
   if (showFavoritesOnly.value) {
     filtered = filtered.filter(task => isFavorite(task.id));
   }
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(task =>
-      task.title.toLowerCase().includes(query)
-    );
+    filtered = filtered.filter(task => task.title.toLowerCase().includes(query));
   }
   return filtered;
 });
@@ -506,8 +501,14 @@ const isNew = (item) => {
 
 const fetchJobs = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/jobs`, { timeout: 5000 });
-    jobs.value = response.data;
+    const response = await axios.get(`${BASE_URL}/api/jobs`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+      timeout: 5000
+    });
+    jobs.value = response.data.map(job => ({
+      ...job,
+      photoUrl: job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : jobIcon
+    }));
   } catch (error) {
     console.error(error);
   } finally {
@@ -541,6 +542,20 @@ const fetchFavorites = async () => {
       headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
     });
     favoriteJobs.value = response.data;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const fetchChatUuids = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/chats`, {
+      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+    });
+    chatUuidMap.value = response.data.reduce((map, chat) => {
+      map[chat.jobId] = chat.chatUuid;
+      return map;
+    }, {});
   } catch (error) {
     console.error(error);
   }
@@ -620,13 +635,13 @@ const showAddTaskModal = () => {
 };
 
 const toggleFilterModal = () => {
-    showFilterModal.value = !showFilterModal.value;
-    if (showFilterModal.value) {
-      nextTick(() => {
-        const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
-        firstCheckbox?.focus();
-      });
-    }
+  showFilterModal.value = !showFilterModal.value;
+  if (showFilterModal.value) {
+    nextTick(() => {
+      const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
+      firstCheckbox?.focus();
+    });
+  }
 };
 
 const addRequirement = () => {
@@ -658,7 +673,7 @@ const submitItem = async () => {
       return;
     }
     try {
-      const jobData = { ...newItem.value, contact: 'https://t.me/workiks_admin', categories: newItem.value.categories || [] };
+      const jobData = { ...newItem.value, categories: newItem.value.categories || [] };
       const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
         headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
@@ -666,6 +681,7 @@ const submitItem = async () => {
       showAddModal.value = false;
     } catch (error) {
       console.error(error);
+      Telegram.WebApp.showAlert("Failed to add job!");
     }
   } else {
     if (!newItem.value.companyUserId || !newItem.value.companyName || !newItem.value.position || !newItem.value.description || !newItem.value.contact || !newItem.value.officialWebsite || !newItem.value.photoUrl) {
@@ -681,6 +697,7 @@ const submitItem = async () => {
       showAddModal.value = false;
     } catch (error) {
       console.error(error);
+      Telegram.WebApp.showAlert("Failed to add vacancy!");
     }
   }
 };
@@ -700,6 +717,7 @@ const submitTask = async () => {
     showTaskModal.value = false;
   } catch (error) {
     console.error(error);
+    Telegram.WebApp.showAlert("Failed to add task!");
   }
 };
 
@@ -712,6 +730,7 @@ const deleteJob = async (jobId) => {
     open.value = false;
   } catch (error) {
     console.error(error);
+    Telegram.WebApp.showAlert("Failed to delete job!");
   }
 };
 
@@ -724,6 +743,7 @@ const deleteVacancy = async (vacancyId) => {
     open.value = false;
   } catch (error) {
     console.error(error);
+    Telegram.WebApp.showAlert("Failed to delete vacancy!");
   }
 };
 
@@ -736,6 +756,7 @@ const deleteTask = async (taskId) => {
     open.value = false;
   } catch (error) {
     console.error(error);
+    Telegram.WebApp.showAlert("Failed to delete task!");
   }
 };
 
@@ -799,19 +820,62 @@ const toggleFavorite = async (itemId) => {
 const isFavorite = (itemId) => favoriteJobs.value.includes(itemId);
 
 const handleImageError = (event) => {
-  event.target.src = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  event.target.src = jobIcon;
 };
 
 const handleAddJobsClick = () => {
-    if (isAdmin.value) {
-        showAdminModal.value = true;
-    } else {
-        window.open('https://t.me/workiks_admin', '_blank');
-    }
+  if (isAdmin.value) {
+    showAdminModal.value = true;
+  } else {
+    window.open('https://t.me/workiks_admin', '_blank');
+  }
 };
 
 const isOwner = (userId) => {
   return currentUserId.value === userId.toString();
+};
+
+const startChat = async (jobId, targetUserId) => {
+  if (isOwner(targetUserId)) {
+    router.push('/chats');
+    return;
+  }
+  try {
+    if (!chatUuidMap.value[jobId]) {
+      const response = await axios.post(`${BASE_URL}/api/chat/${targetUserId}`, {
+        jobId,
+        text: 'Hello! I’m interested in your job posting.'
+      }, {
+        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      });
+      if (response.data.invoiceLink) {
+        window.open(response.data.invoiceLink, '_blank');
+      } else {
+        chatUuidMap.value[jobId] = response.data.chatUuid;
+        router.push(`/chat/${response.data.chatUuid}`);
+      }
+    } else {
+      router.push(`/chat/${chatUuidMap.value[jobId]}`);
+    }
+  } catch (error) {
+    console.error(error);
+    Telegram.WebApp.showAlert("Failed to start chat!");
+  }
+};
+
+const setupWebSocket = () => {
+  ws.value = new WebSocket(WS_URL, [], {
+    headers: { 'user-id': currentUserId.value }
+  });
+  ws.value.onopen = () => console.log('WebSocket connected');
+  ws.value.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'newMessage') {
+      Telegram.WebApp.showAlert(`New message in chat ${data.chatUuid}`);
+    }
+  };
+  ws.value.onerror = (error) => console.error('WebSocket error:', error);
+  ws.value.onclose = () => console.log('WebSocket disconnected');
 };
 
 onMounted(() => {
@@ -836,6 +900,14 @@ onMounted(() => {
   fetchVacancies();
   fetchTasks();
   fetchFavorites();
+  fetchChatUuids();
+  setupWebSocket();
+});
+
+onUnmounted(() => {
+  if (ws.value) {
+    ws.value.close();
+  }
 });
 </script>
 
