@@ -194,13 +194,13 @@
                     </div>
                     <div class="job-details">
                         <input v-model="newTask.title" placeholder="Task Title" class="search-input" :class="{ 'invalid': !newTask.title && formSubmitted }" />
-                        <input v-model="newTask.reward" placeholder="Reward ($)" type="number" min="1" class="search-input" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
+                        <input v-model="newTask.reward" placeholder="Reward ($)" type="number" min="1" class="search-inputanus" :class="{ 'invalid': !newTask.reward && formSubmitted }" />
                         <input v-model="newTask.deadline" type="date" placeholder="Deadline" class="search-input" />
                         <textarea v-model="newTask.description" placeholder="Description" class="search-input" :class="{ 'invalid': !newTask.description && formSubmitted }"></textarea>
                         <input v-model="tagsInput" @keyup.enter="addTaskTag" placeholder="Tags (Enter to add)" class="search-input" />
                         <div class="tags">
                             <span v-for="(tag, i) in newTask.tags" :key="i" class="tag">
-                                {{ tag }} <button @click="newTask.tags.splice(i, 1)" class="delete-tag">×</button Griffin>
+                                {{ tag }} <button @click="newTask.tags.splice(i, 1)" class="delete-tag">×</button>
                             </span>
                         </div>
                         <div class="filter-section">
@@ -333,7 +333,7 @@
                         </div>
                         <a :href="selectedJob.username ? `https://t.me/@${selectedJob.username}` : 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                         <RouterLink
-                            :to="isOwner(selectedJob.userId) ? '/chats' : `/chat/${selectedJob.id}_${selectedJob.userId}`"
+                            :to="isOwner(selectedJob.userId) ? '/chats' : `/chat/${getChatUuid(selectedJob.id, selectedJob.userId)}`"
                             class="chat-btn"
                         >
                             {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
@@ -354,6 +354,7 @@ import axios from 'axios';
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
 
+const chatUuidMap = ref({});
 const open = ref(false);
 const showAddModal = ref(false);
 const showFilterModal = ref(false);

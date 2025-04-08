@@ -9,6 +9,7 @@ const path = require("path");
 const { Mutex } = require("async-mutex");
 const winston = require("winston");
 const DailyRotateFile = require("winston-daily-rotate-file");
+const { v4: uuidv4 } = require('uuid');
 require("dotenv").config();
 
 const app = express();
@@ -1302,9 +1303,9 @@ bot.on('callback_query:data', async (ctx) => {
     release();
   }
 });
-app.get("/api/messages/:chatId", async (req, res) => {
+app.get("/api/messages/:chatUuid", async (req, res) => {
   try {
-    const { chatId } = req.params;
+    const { chatUuid } = req.params;
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -1312,33 +1313,22 @@ app.get("/api/messages/:chatId", async (req, res) => {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
 
-    const parts = chatId.split('_');
-    if (parts.length !== 2) {
-      return res.status(400).json({ error: "Invalid chatId format" });
+    const chat = chatUnlocksData[chatUuid];
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
     }
-    const [jobId, targetUserId] = parts;
 
     const messages = messagesData
-      .filter((msg) => {
-        return (
-          msg.jobId === jobId &&
-          ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
-           (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()))
-        );
-      })
+      .filter((msg) => msg.chatUuid === chatUuid)
       .map((msg) => ({
         ...msg,
         isSender: msg.authorUserId.toString() === user.id.toString(),
       }))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    if (messages.length === 0) {
-      return res.status(404).json({ error: "Messages not found" });
-    }
-
     res.json(messages);
   } catch (error) {
-    logger.error(`Error in /api/messages/:chatId: ${error.message}`);
+    logger.error(`Error in /api/messages/:chatUuid: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1465,74 +1455,74 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get('user'));
+    const authorUserId = user.id.toString();
 
-    if (!user.id || !text || !rawJobId) {
-      return res.status(400).json({ error: 'Invalid data' });
+    // Поиск или создание chatUuid
+    let chatUuid = Object.keys(chatUnlocksData).find(key => {
+      const chat = chatUnlocksData[key];
+      return chat.jobId === rawJobId &&
+             ((chat.authorUserId === authorUserId && chat.targetUserId === targetUserId) ||
+              (chat.authorUserId === targetUserId && chat.targetUserId === authorUserId));
+    });
+
+    if (!chatUuid) {
+      chatUuid = uuidv4();
+      chatUnlocksData[chatUuid] = {
+        jobId: rawJobId,
+        authorUserId,
+        targetUserId,
+        blocked: false
+      };
+      await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
     }
 
-    const jobId = rawJobId.split('_')[0];
-    const chatId = `${rawJobId}_${user.id}_${targetUserId}`;
-    if (chatUnlocksData[chatId]?.blocked) {
+    if (chatUnlocksData[chatUuid].blocked) {
       return res.status(403).json({ error: 'Chat is blocked' });
     }
 
-    const job = jobsData.find(j => j.id === rawJobId);
-    const isOwner = job && job.userId.toString() === user.id.toString();
+    const message = {
+      id: `${authorUserId}_${Date.now()}`,
+      text,
+      authorUserId,
+      targetUserId,
+      jobId: rawJobId,
+      timestamp: new Date().toISOString(),
+      chatUuid
+    };
 
-    if (isOwner) {
-      const message = {
-        id: `${user.id}_${Date.now()}`,
-        text,
-        authorUserId: user.id.toString(),
-        targetUserId,
-        jobId: rawJobId,
-        timestamp: new Date().toISOString(),
-        isSender: true,
-      };
+    messagesData.push(message);
+    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
 
-      messagesData.push(message);
-      await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
-
-      try {
-        const targetData = await bot.api.getChat(targetUserId);
-        const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
-        const notification =
-          `*New Message\\!*\n\n` +
-          `User *${escapeMarkdownV2(user.first_name || 'Unknown')}* sent you a message:\n` +
-          `> ${escapeMarkdownV2(text)}\n\n` +
-          `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
-        const keyboard = new InlineKeyboard().webApp(
-          '💬 Open Chat',
-          `https://jobs-iota-one.vercel.app/chat/${user.id}?jobId=${rawJobId}`
-        );
-        await bot.api.sendMessage(targetUserId, notification, {
-          parse_mode: 'MarkdownV2',
-          reply_markup: keyboard
-        });
-      } catch (error) {
-        logger.error(`Failed to notify target user ${targetUserId}: ${error.message}`);
-      }
-
-      res.json({ success: true, message, updatedMessages: messagesData });
-    } else {
-      const invoiceResponse = await axios.post(
-        `${BASE_URL}/api/createMessageInvoice`,
-        { targetUserId: targetUserId, text, jobId: rawJobId },
-        { headers: { 'X-Telegram-Data': telegramData } }
+    // Уведомление
+    try {
+      const targetData = await bot.api.getChat(targetUserId);
+      const escapeMarkdownV2 = (str) => str.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1');
+      const notification =
+        `*New Message\\!*\n\n` +
+        `User *${escapeMarkdownV2(user.first_name || 'Unknown')}* sent you a message:\n` +
+        `> ${escapeMarkdownV2(text)}\n\n` +
+        `Date: ${escapeMarkdownV2(new Date().toLocaleString())}`;
+      const keyboard = new InlineKeyboard().webApp(
+        '💬 Open Chat',
+        `https://jobs-iota-one.vercel.app/chat/${chatUuid}`
       );
-      if (invoiceResponse.data.success) {
-        res.json({ success: true, invoiceLink: invoiceResponse.data.invoiceLink });
-      } else {
-        res.status(500).json({ error: 'Failed to create invoice' });
-      }
+      await bot.api.sendMessage(targetUserId, notification, {
+        parse_mode: 'MarkdownV2',
+        reply_markup: keyboard
+      });
+    } catch (error) {
+      logger.error(`Failed to notify target user ${targetUserId}: ${error.message}`);
     }
+
+    res.json({ success: true, chatUuid, message });
   } catch (error) {
-    logger.error(`Error in /api/chat/: ${error.message}`);
+    logger.error(`Error in /api/chat/:targetUserId: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     release();
   }
 });
+
 app.delete("/api/reviews/:reviewId", async (req, res) => {
   const release = await reviewsMutex.acquire();
   try {
