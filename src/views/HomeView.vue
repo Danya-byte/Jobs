@@ -911,6 +911,7 @@ onUnmounted(() => {
 });
 </script>
 
+
 <style scoped>
 .container { background: linear-gradient(45deg, #101622, #1a2233); min-height: 100vh; padding: 20px; overflow: hidden; position: relative; }
 .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }

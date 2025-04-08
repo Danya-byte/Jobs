@@ -248,6 +248,7 @@ onUnmounted(() => {
 });
 </script>
 
+
 <style scoped>
 .chat-container { display: flex; flex-direction: column; height: 100vh; background-color: #f0f0f0; font-family: Arial, sans-serif; }
 .chat-header { display: flex; align-items: center; padding: 10px; background-color: #97f492; color: #000; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
