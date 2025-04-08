@@ -336,7 +336,7 @@
                         <RouterLink
                             :to="selectedJob.isOwner ? '/chats' : { path: `/chat/${chatUuidMap[selectedJob.id] || ''}`, query: { jobId: selectedJob.id } }"
                             class="chat-btn"
-                            @click="startChat(selectedJob.id, selectedJob.userId)"
+                            @click="startChat(selectedJob.id)"
                         >
                             {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
                         </RouterLink>
