@@ -524,6 +524,7 @@ app.get('/api/favorites', async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 app.post("/api/vacancies", async (req, res) => {
   const release = await vacanciesMutex.acquire();
   try {

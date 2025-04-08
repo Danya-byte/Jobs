@@ -567,6 +567,7 @@ const showJobDetails = (job) => {
         isVacancy.value = false;
         isTask.value = false;
         open.value = true;
+    }
 };
 
 const showVacancyDetails = (vacancy) => {
