@@ -495,7 +495,35 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
 app.get("/api/vacancies", async (req, res) => {
   res.json(vacanciesData);
 });
+app.get('/api/favorites', async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    const userId = user.id.toString();
+
+    let favoriteJobs = [];
+    try {
+      const data = await fs.readFile(path.join(__dirname, "favoriteJobs.json"), "utf8");
+      favoriteJobs = JSON.parse(data || "[]");
+    } catch {
+      favoriteJobs = [];
+    }
+
+    const userFavorites = favoriteJobs
+      .filter(fav => fav.userId === userId)
+      .map(fav => fav.itemId);
+
+    res.json(userFavorites);
+  } catch (error) {
+    console.error(`Ошибка в /api/favorites: ${error.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 app.post("/api/vacancies", async (req, res) => {
   const release = await vacanciesMutex.acquire();
   try {
