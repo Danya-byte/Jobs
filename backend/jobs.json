@@ -1,6 +1,7 @@
 [
   {
     "id": "1741042127827_1",
+    "publicId": "1",
     "nick": "Matvey",
     "userId": 1029594875,
     "username": "whsxg",
@@ -27,6 +28,7 @@
   },
   {
     "id": "1741042127828_2",
+    "publicId": "2",
     "nick": "Danone",
     "userId": 7079899705,
     "username": "Danoneee777",
@@ -52,6 +54,7 @@
   },
   {
     "id": "1741209378920_1940359844",
+    "publicId": "4",
     "adminId": 1940359844,
     "userId": 6629517298,
     "username": "LowGas",
@@ -76,6 +79,7 @@
   },
   {
     "id": "1741465662819_1940359844",
+    "publicId": "3",
     "adminId": 1940359844,
     "userId": 1940359844,
     "username": "test",
@@ -99,6 +103,7 @@
   },
   {
     "id": "1741467056115_1940359844",
+    "publicId": "5",
     "adminId": 1940359844,
     "userId": 6568279325,
     "username": "GW_NEON",
@@ -122,6 +127,7 @@
   },
   {
     "id": "1741473414939_1940359844",
+    "publicId": "6",
     "adminId": 1940359844,
     "userId": 1871247390,
     "username": "rstmcrew",
@@ -145,6 +151,7 @@
   },
   {
     "id": "1741475360033_1940359844",
+    "publicId": "7",
     "adminId": 1940359844,
     "userId": 5531474912,
     "username": "tgArhi",
@@ -168,6 +175,7 @@
   },
   {
     "id": "1741712029730_1940359844",
+    "publicId": "8",
     "adminId": 1940359844,
     "userId": 5164023566,
     "username": "deniska_ivashin",
