@@ -29,3 +29,6 @@
 2025-04-09 01:43:28 [INFO]: Server running on port 3000
 2025-04-09 01:43:28 [INFO]: Chat unlocks data migrated successfully for bidirectional blocking
 2025-04-09 01:43:28 [ERROR]: Uncaught Exception: listen EADDRINUSE: address already in use :::3000
+2025-04-09 01:51:26 [INFO]: Server running on port 3000
+2025-04-09 01:51:26 [INFO]: Chat unlocks data migrated successfully for bidirectional blocking
+2025-04-09 01:51:26 [INFO]: Server initialization completed

@@ -13,9 +13,10 @@ const { v4: uuidv4 } = require('uuid');
 require("dotenv").config();
 const WebSocket = require('ws');
 
-
+// Инициализация Express
 const app = express();
 const port = process.env.PORT || 3000;
+
 // Настройка WebSocket сервера после создания HTTP-сервера
 const server = app.listen(port, () => {
   bot.start();
@@ -53,6 +54,7 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+// Константы и переменные
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "7745513073:AAEAXKeJal-t0jcQ8U4MIby9DSSSvZ_TS90";
 const REVIEWS_FILE = path.join(__dirname, "reviews.json");
 const MESSAGES_FILE = path.join(__dirname, "messages.json");
@@ -130,6 +132,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
+// Функции инициализации и загрузки данных
 async function initReviewsFile() {
   try {
     await fs.access(REVIEWS_FILE);
@@ -149,22 +152,18 @@ async function initMessagesFile() {
     await fs.writeFile(MESSAGES_FILE, "[]");
   }
 }
+
 async function migrateChatUnlocksData() {
   try {
     const rawData = await fs.readFile(CHAT_UNLOCKS_FILE, "utf8");
     const oldData = rawData.trim() ? JSON.parse(rawData) : {};
     const newData = { ...oldData };
 
-    for (const [chatId, value] of Object.entries(oldData)) {
-      const parts = chatId.split('_');
-      if (parts.length !== 3) continue; // Пропускаем некорректные записи
-
-      const [jobId, userId1, userId2] = parts;
-      const mirrorChatId = `${jobId}_${userId2}_${userId1}`; // Зеркальное направление
-
-      // Если зеркальной записи нет, создаем её
-      if (!newData[mirrorChatId]) {
-        newData[mirrorChatId] = { ...value };
+    for (const [chatUuid, value] of Object.entries(oldData)) {
+      const { jobId, authorUserId, targetUserId } = value;
+      const mirrorUuid = `${jobId}_${targetUserId}_${authorUserId}`;
+      if (!newData[mirrorUuid]) {
+        newData[mirrorUuid] = { ...value };
       }
     }
 
@@ -175,6 +174,7 @@ async function migrateChatUnlocksData() {
     logger.error(`Error migrating chatUnlocksData: ${error.message}`);
   }
 }
+
 async function initJobsFile() {
   try {
     await fs.access(JOBS_FILE);
@@ -346,6 +346,7 @@ function validateTelegramData(initData) {
   }
 }
 
+// API маршруты
 app.get('/api/jobs', async (req, res) => {
   const safeJobsData = jobsData.map(job => ({
     id: job.id,
@@ -754,9 +755,10 @@ app.delete("/api/tasks/:taskId", async (req, res) => {
     release();
   }
 });
+
 app.get("/api/reviews", async (req, res) => {
   try {
-    const { targetUserId } = req.query; // Получаем targetUserId из query-параметров
+    const { targetUserId } = req.query;
     const telegramData = req.headers["x-telegram-data"];
 
     if (!telegramData || !validateTelegramData(telegramData)) {
@@ -767,16 +769,7 @@ app.get("/api/reviews", async (req, res) => {
       return res.status(400).json({ error: "Параметр targetUserId обязателен" });
     }
 
-    let reviews = {};
-    try {
-      const rawData = await fs.readFile(REVIEWS_FILE, "utf8");
-      reviews = rawData.trim() ? JSON.parse(rawData) : {};
-    } catch (error) {
-      logger.error(`Ошибка чтения файла reviews.json: ${error.message}`);
-      return res.status(500).json({ error: "Ошибка сервера при загрузке отзывов" });
-    }
-
-    const userReviews = Object.values(reviews).filter(
+    const userReviews = Object.values(reviewsData).filter(
       (review) => review.targetUserId && review.targetUserId.toString() === targetUserId.toString()
     );
 
@@ -786,6 +779,7 @@ app.get("/api/reviews", async (req, res) => {
     res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 });
+
 app.post("/api/createInvoiceLink", async (req, res) => {
   const release = await reviewsMutex.acquire();
   try {
@@ -827,6 +821,7 @@ app.post("/api/createInvoiceLink", async (req, res) => {
     release();
   }
 });
+
 app.get("/api/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -853,12 +848,12 @@ app.get("/api/user/:userId", async (req, res) => {
     const userVacancy = vacanciesData.find((vacancy) => vacancy.companyUserId.toString() === userId);
 
     if (userJob) {
-      firstName = userJob.firstName || firstName;
+      firstName = userJob.nick || firstName;
       if (userJob.username) {
         photoUrl = `https://t.me/i/userpic/160/${userJob.username}.jpg`;
       }
     } else if (userVacancy) {
-      firstName = userVacancy.firstName || firstName;
+      firstName = userVacancy.companyName || firstName;
       photoUrl = userVacancy.photoUrl || photoUrl;
     }
 
@@ -868,6 +863,7 @@ app.get("/api/user/:userId", async (req, res) => {
     return res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 });
+
 app.get("/api/profile/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -987,6 +983,7 @@ app.post("/api/toggleFavorite", async (req, res) => {
     releaseCompany();
   }
 });
+
 app.get('/api/admin/chat/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
@@ -1037,6 +1034,7 @@ app.get('/api/admin/chat/:chatId', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 app.post('/api/report', async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
@@ -1090,9 +1088,9 @@ app.post('/api/report', async (req, res) => {
   }
 });
 
-app.get('/api/chat/status/:chatId', async (req, res) => {
+app.get('/api/chat/status/:chatUuid', async (req, res) => {
   try {
-    const { chatId } = req.params;
+    const { chatUuid } = req.params;
     const telegramData = req.headers['x-telegram-data'];
     if (!telegramData) {
       return res.status(401).json({ error: 'Telegram data is required' });
@@ -1102,23 +1100,22 @@ app.get('/api/chat/status/:chatId', async (req, res) => {
     const user = JSON.parse(params.get('user') || '{}');
     const currentUserId = user.id.toString();
 
-    const parts = chatId.split('_');
-    if (parts.length !== 2) {
-      return res.status(400).json({ error: 'Invalid chatId format' });
+    const chat = chatUnlocksData[chatUuid];
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
     }
-    const [jobId, targetUserId] = parts;
 
-    if (currentUserId !== targetUserId) {
+    if (currentUserId !== chat.authorUserId && currentUserId !== chat.targetUserId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const chatStatus = chatUnlocksData[chatId] || { blocked: false };
-    res.json({ blocked: chatStatus.blocked });
+    res.json({ blocked: chat.blocked });
   } catch (error) {
     logger.error(`Error in /api/chat/status: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 app.delete('/api/chat/:chatUuid', async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
@@ -1148,6 +1145,13 @@ app.delete('/api/chat/:chatUuid', async (req, res) => {
 
     await bot.api.sendMessage(currentUserId, `Чат с ${otherUserFirstName} удалён вами`);
     await bot.api.sendMessage(targetUserId, `Чат с ${currentUserFirstName} удалён пользователем`);
+
+    // Уведомление через WebSocket
+    wss.clients.forEach(client => {
+      if (client.userId === targetUserId || client.userId === authorUserId) {
+        client.send(JSON.stringify({ type: 'chatDeleted', chatUuid }));
+      }
+    });
 
     res.json({ success: true });
   } catch (error) {
@@ -1186,7 +1190,7 @@ bot.on('callback_query:data', async (ctx) => {
       return;
     }
 
-    const { jobId, authorUserId, targetUserId } = chat;
+    const { authorUserId, targetUserId } = chat;
 
     if (data.startsWith('view_')) {
       const chatMessages = messagesData
@@ -1219,6 +1223,14 @@ bot.on('callback_query:data', async (ctx) => {
 
       await bot.api.sendMessage(authorUserId, `Чат с ${user2Name} был разблокирован администратором`);
       await bot.api.sendMessage(targetUserId, `Чат с ${user1Name} был разблокирован администратором`);
+
+      // Уведомление через WebSocket
+      wss.clients.forEach(client => {
+        if (client.userId === targetUserId || client.userId === authorUserId) {
+          client.send(JSON.stringify({ type: 'chatUnblocked', chatUuid }));
+        }
+      });
+
       await ctx.answerCallbackQuery({ text: 'Чат разблокирован' });
     } else if (data.startsWith('delete_')) {
       messagesData = messagesData.filter(msg => msg.chatUuid !== chatUuid);
@@ -1233,6 +1245,14 @@ bot.on('callback_query:data', async (ctx) => {
 
       await bot.api.sendMessage(authorUserId, `Чат с ${user2Name} был удалён администратором`);
       await bot.api.sendMessage(targetUserId, `Чат с ${user1Name} был удалён администратором`);
+
+      // Уведомление через WebSocket
+      wss.clients.forEach(client => {
+        if (client.userId === targetUserId || client.userId === authorUserId) {
+          client.send(JSON.stringify({ type: 'chatDeleted', chatUuid }));
+        }
+      });
+
       await ctx.answerCallbackQuery({ text: 'Чат удалён' });
     }
   } catch (error) {
@@ -1283,13 +1303,14 @@ app.post("/api/createMessageInvoice", async (req, res) => {
 
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user"));
-    const { chatId, text } = req.body;
+    const { chatUuid, text } = req.body;
 
-    const parts = chatId.split('_');
-    if (parts.length !== 2) {
-      return res.status(400).json({ error: "Invalid chatId format" });
+    const chat = chatUnlocksData[chatUuid];
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
     }
-    const [jobId, targetUserId] = parts;
+
+    const { jobId, authorUserId, targetUserId } = chat;
 
     if (!user?.id || !text) {
       return res.status(400).json({ error: "Invalid data" });
@@ -1305,7 +1326,7 @@ app.post("/api/createMessageInvoice", async (req, res) => {
     }
 
     const payload = `${user.id}_${Date.now()}`;
-    pendingMessagesData[payload] = { text, authorUserId: user.id, targetUserId, jobId, type: "message" };
+    pendingMessagesData[payload] = { text, authorUserId: user.id, targetUserId, jobId, chatUuid, type: "message" };
     await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
     const invoiceLink = await bot.api.createInvoiceLink(
@@ -1334,15 +1355,36 @@ app.get("/api/chats", async (req, res) => {
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
+    const currentUserId = user.id.toString();
 
-    const userMessages = messagesData.filter(
-      (msg) => msg.authorUserId.toString() === user.id.toString() || msg.targetUserId.toString() === user.id.toString()
-    );
-    res.json(userMessages);
-  } catch {
+    const userChats = Object.values(chatUnlocksData)
+      .filter(chat => chat.authorUserId === currentUserId || chat.targetUserId === currentUserId)
+      .map(chat => {
+        const lastMessage = messagesData
+          .filter(msg => msg.chatUuid === chat.chatUuid)
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+        const otherUserId = chat.authorUserId === currentUserId ? chat.targetUserId : chat.authorUserId;
+        const job = jobsData.find(j => j.id === chat.jobId);
+
+        return {
+          chatUuid: chat.chatUuid,
+          jobId: chat.jobId,
+          targetUserId: otherUserId,
+          nick: job ? job.nick : 'Unknown',
+          photoUrl: job && job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp',
+          lastMessage: lastMessage ? lastMessage.text : '',
+          blocked: chat.blocked
+        };
+      });
+
+    res.json(userChats);
+  } catch (error) {
+    logger.error(`Error in /api/chats: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 app.get('/api/chat/:targetUserId', async (req, res) => {
   try {
     const { targetUserId } = req.params;
@@ -1358,25 +1400,25 @@ app.get('/api/chat/:targetUserId', async (req, res) => {
       return res.status(400).json({ error: 'Missing jobId or targetUserId' });
     }
 
-    const jobIdBase = jobId.split('_')[0];
+    const chatUuid = Object.keys(chatUnlocksData).find(key => {
+      const chat = chatUnlocksData[key];
+      return chat.jobId === jobId &&
+             ((chat.authorUserId === user.id.toString() && chat.targetUserId === targetUserId) ||
+              (chat.authorUserId === targetUserId && chat.targetUserId === user.id.toString()));
+    });
+
+    if (!chatUuid) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
 
     const chatMessages = messagesData
-      .filter(
-        (msg) => {
-          const msgJobIdBase = msg.jobId ? msg.jobId.split('_')[0] : null;
-          const matchesJobId = !jobId || msg.jobId === jobId || msgJobIdBase === jobIdBase;
-          return matchesJobId &&
-            ((msg.authorUserId.toString() === user.id.toString() && msg.targetUserId.toString() === targetUserId) ||
-             (msg.authorUserId.toString() === targetUserId && msg.targetUserId.toString() === user.id.toString()));
-        }
-      )
+      .filter((msg) => msg.chatUuid === chatUuid)
       .map((msg) => ({
         ...msg,
         isSender: msg.authorUserId.toString() === user.id.toString()
       }))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    logger.info(`Chat messages for user ${user.id}, target ${targetUserId}, jobId ${jobId}: ${JSON.stringify(chatMessages)}`);
     res.json(chatMessages);
   } catch (error) {
     logger.error(`Error in /api/chat/: ${error.message}`);
@@ -1388,7 +1430,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
     const { targetUserId } = req.params;
-    const { text, jobId: rawJobId } = req.body;
+    const { text, jobId } = req.body;
     const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -1399,7 +1441,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
 
     let chatUuid = Object.keys(chatUnlocksData).find(key => {
       const chat = chatUnlocksData[key];
-      return chat.jobId === rawJobId &&
+      return chat.jobId === jobId &&
              ((chat.authorUserId === authorUserId && chat.targetUserId === targetUserId) ||
               (chat.authorUserId === targetUserId && chat.targetUserId === authorUserId));
     });
@@ -1407,7 +1449,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     if (!chatUuid) {
       chatUuid = uuidv4();
       chatUnlocksData[chatUuid] = {
-        jobId: rawJobId,
+        jobId,
         authorUserId,
         targetUserId,
         blocked: false
@@ -1419,29 +1461,28 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
       return res.status(403).json({ error: 'Chat is blocked' });
     }
 
-    const job = jobsData.find(j => j.id === rawJobId);
+    const job = jobsData.find(j => j.id === jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    // Проверка: если автор — фрилансер (владелец вакансии), сообщение бесплатно
+    const message = {
+      id: `${authorUserId}_${Date.now()}`,
+      text,
+      authorUserId,
+      targetUserId,
+      jobId,
+      timestamp: new Date().toISOString(),
+      chatUuid
+    };
+
     if (job.userId.toString() === authorUserId) {
-      const message = {
-        id: `${authorUserId}_${Date.now()}`,
-        text,
-        authorUserId,
-        targetUserId,
-        jobId: rawJobId,
-        timestamp: new Date().toISOString(),
-        chatUuid
-      };
       messagesData.push(message);
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
       res.json({ success: true, chatUuid, message });
     } else {
-      // Для клиентов создаём инвойс (см. ниже)
       const payload = `${authorUserId}_${Date.now()}`;
-      pendingMessagesData[payload] = { text, authorUserId, targetUserId, jobId: rawJobId, chatUuid, type: 'message' };
+      pendingMessagesData[payload] = { text, authorUserId, targetUserId, jobId, chatUuid, type: 'message' };
       await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
 
       const invoiceLink = await bot.api.createInvoiceLink(
@@ -1455,10 +1496,10 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
       res.json({ success: true, invoiceLink });
     }
 
-    // Уведомление через WebSocket (см. ниже)
+    // Уведомление через WebSocket
     wss.clients.forEach(client => {
       if (client.userId === targetUserId || client.userId === authorUserId) {
-        client.send(JSON.stringify({ type: 'newMessage', chatUuid, message: { text, timestamp: new Date().toISOString() } }));
+        client.send(JSON.stringify({ type: 'newMessage', chatUuid, text, timestamp: message.timestamp }));
       }
     });
   } catch (error) {
@@ -1523,6 +1564,7 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
     release();
   }
 });
+
 app.get("/api/isAdmin", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -1563,15 +1605,15 @@ bot.on("message:successful_payment", async (ctx) => {
     const pendingReview = reviewsData[payload];
 
     if (pendingMessage && pendingMessage.type === "message") {
-      const { authorUserId, targetUserId, text, jobId } = pendingMessage;
+      const { authorUserId, targetUserId, text, jobId, chatUuid } = pendingMessage;
       const message = {
         id: `${authorUserId}_${Date.now()}`,
         text,
         authorUserId,
         targetUserId,
         jobId,
-        timestamp: new Date().toISOString(),
-        isSender: true
+        chatUuid,
+        timestamp: new Date().toISOString()
       };
 
       if (!Array.isArray(messagesData)) {
@@ -1598,7 +1640,7 @@ bot.on("message:successful_payment", async (ctx) => {
 
         const keyboard = new InlineKeyboard().webApp(
           "💬 Open Chat",
-          `https://jobs-iota-one.vercel.app/chat/${jobId}_${authorUserId}`
+          `https://jobs-iota-one.vercel.app/chat/${chatUuid}`
         );
 
         await bot.api.sendMessage(
@@ -1609,6 +1651,13 @@ bot.on("message:successful_payment", async (ctx) => {
             reply_markup: keyboard
           }
         );
+
+        // Уведомление через WebSocket
+        wss.clients.forEach(client => {
+          if (client.userId === targetUserId || client.userId === authorUserId) {
+            client.send(JSON.stringify({ type: 'newMessage', chatUuid, text, timestamp: message.timestamp }));
+          }
+        });
       } catch (error) {
         logger.error(`Failed to notify target user ${targetUserId}: ${error.message}`);
       }
@@ -1691,6 +1740,7 @@ async function ensureLogsDir() {
     await fs.mkdir(LOGS_DIR, { recursive: true });
   } catch {}
 }
+
 app.use((req, res, next) => {
   logger.warn(`Маршрут не найден: ${req.method} ${req.path}`);
   res.status(404).json({ error: "Ресурс не найден" });
@@ -1700,8 +1750,6 @@ app.use((err, req, res, next) => {
   logger.error(`Необработанная ошибка: ${err.stack}`);
   res.status(500).json({ error: "Внутренняя ошибка сервера" });
 });
-
-
 
 Promise.all([
   ensureLogsDir(),
@@ -1724,15 +1772,12 @@ Promise.all([
     await loadTasks();
     await loadCompanySubscriptions();
     await loadChatUnlocks();
-    await migrateChatUnlocksData(); // Добавляем миграцию
+    await migrateChatUnlocksData();
     await loadPendingMessages();
-    app.listen(port, () => {
-      bot.start();
-      logger.info(`Server running on port ${port}`);
-    });
+    logger.info('Server initialization completed');
   })
-  .catch(() => {
-    logger.error(`Failed to start server`);
+  .catch((error) => {
+    logger.error(`Failed to start server: ${error.message}`);
     process.exit(1);
   });
 
