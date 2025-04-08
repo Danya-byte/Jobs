@@ -585,6 +585,7 @@ const showTaskDetails = (task) => {
 const showAddJobModal = () => {
   showAdminModal.value = false;
   newItem.value = {
+    publicId: '',
     userId: '',
     nick: '',
     username: '',

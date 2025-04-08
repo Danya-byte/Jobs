@@ -385,7 +385,7 @@ app.post("/api/jobs", async (req, res) => {
 
     const newJob = {
       id: `${Date.now()}_${user.id}`,
-      publicId: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}
+      publicId,
       adminId: user.id,
       userId,
       username: req.body.username || "unknown",
