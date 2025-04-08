@@ -296,7 +296,7 @@
                     <div class="job-details" v-else>
                         <div class="user-info">
                             <RouterLink
-                                :to="{ path: `/profile/${selectedJob.userId}`, query: { username: selectedJob.username } }"
+                                :to="{ path: `/profile/${selectedJob.publicId}` }"
                                 class="profile-link"
                             >
                                 <img :src="selectedJob.photoUrl || jobIcon" class="job-icon" loading="lazy">

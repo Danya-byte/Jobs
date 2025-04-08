@@ -350,13 +350,15 @@ function validateTelegramData(initData) {
 app.get('/api/jobs', async (req, res) => {
   const safeJobsData = jobsData.map(job => ({
     id: job.id,
+    publicId: job.publicId,
     nick: job.nick,
     position: job.position,
     description: job.description,
     tags: job.tags,
     categories: job.categories,
     createdAt: job.createdAt,
-    pinned: job.pinned
+    pinned: job.pinned,
+    username: job.username
   }));
   res.json(safeJobsData);
 });
@@ -383,6 +385,7 @@ app.post("/api/jobs", async (req, res) => {
 
     const newJob = {
       id: `${Date.now()}_${user.id}`,
+      publicId: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}
       adminId: user.id,
       userId,
       username: req.body.username || "unknown",

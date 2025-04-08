@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "id": "1940359844_1744154433389",
+    "text": "Hello! I’m interested in your job posting.",
+    "authorUserId": "1940359844",
+    "targetUserId": "5164023566",
+    "jobId": "1741712029730_1940359844",
+    "chatUuid": "bcd038e8-193c-41a2-be6d-adfdd1a53917",
+    "timestamp": "2025-04-08T23:20:33.389Z"
+  }
+]

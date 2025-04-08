@@ -1,1 +1,10 @@
-{}
+{
+  "1940359844_1744154447553": {
+    "text": "Hello! I’m interested in your job posting.",
+    "authorUserId": "1940359844",
+    "targetUserId": "5164023566",
+    "jobId": "1741712029730_1940359844",
+    "chatUuid": "bcd038e8-193c-41a2-be6d-adfdd1a53917",
+    "type": "message"
+  }
+}
