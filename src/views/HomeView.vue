@@ -334,7 +334,7 @@
                         </div>
                         <a :href="selectedJob.contact || 'https://t.me/workiks_admin'" class="contact-btn" target="_blank">Contact via Telegram</a>
                         <RouterLink
-                            :to="isOwner(selectedJob.userId) ? '/chats' : { path: `/chat/${chatUuidMap[selectedJob.id] || ''}`, query: { jobId: selectedJob.id, targetUserId: selectedJob.userId } }"
+                            :to="selectedJob.isOwner ? '/chats' : { path: `/chat/${chatUuidMap[selectedJob.id] || ''}`, query: { jobId: selectedJob.id } }"
                             class="chat-btn"
                             @click="startChat(selectedJob.id, selectedJob.userId)"
                         >

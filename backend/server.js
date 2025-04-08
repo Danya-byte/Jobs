@@ -348,6 +348,15 @@ function validateTelegramData(initData) {
 
 // API маршруты
 app.get('/api/jobs', async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  let currentUserId = null;
+
+  if (telegramData && validateTelegramData(telegramData)) {
+    const params = new URLSearchParams(telegramData);
+    const user = JSON.parse(params.get("user") || "{}");
+    currentUserId = user.id ? user.id.toString() : null;
+  }
+
   const safeJobsData = jobsData.map(job => ({
     id: job.id,
     publicId: job.publicId,
@@ -358,8 +367,10 @@ app.get('/api/jobs', async (req, res) => {
     categories: job.categories,
     createdAt: job.createdAt,
     pinned: job.pinned,
-    username: job.username
+    username: job.username,
+    isOwner: currentUserId && job.userId.toString() === currentUserId
   }));
+
   res.json(safeJobsData);
 });
 
