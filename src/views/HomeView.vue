@@ -148,7 +148,7 @@
                     <div class="job-details">
                         <input v-if="addMode === 'vacancy'" v-model="newItem.companyUserId" placeholder="Company User ID (e.g., 1234567890)" class="search-input" type="number" :class="{ 'invalid': !newItem.companyUserId && formSubmitted }">
                         <input v-if="addMode === 'vacancy'" v-model="newItem.companyName" placeholder="Company Name" class="search-input" :class="{ 'invalid': !newItem.companyName && formSubmitted }">
-                        <input v-if="addMode === 'job'" v-model="newItem.publicId" placeholder="Public ID" class="search-input" type="number" min="0">
+                        <input v-if="addMode === 'job'" v-model="newItem.publicId" placeholder="Public ID (e.g. all card(number) + 1)" class="search-input" type="number" min="0">
                         <input v-if="addMode === 'job'" v-model="newItem.userId" placeholder="User ID (e.g., 1029594875)" class="search-input" type="number" :class="{ 'invalid': !newItem.userId && formSubmitted }">
                         <input v-if="addMode === 'job'" v-model="newItem.nick" placeholder="Nick" class="search-input" :class="{ 'invalid': !newItem.nick && formSubmitted }">
                         <input v-if="addMode === 'job'" v-model="newItem.username" placeholder="Username (optional)" class="search-input">
