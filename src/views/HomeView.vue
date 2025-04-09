@@ -358,8 +358,6 @@ import { retrieveLaunchParams } from '@telegram-apps/sdk';
 const BASE_URL = 'https://jobs.cloudpub.ru';
 const WS_URL = 'wss://jobs.cloudpub.ru';
 
-const { initData } = retrieveLaunchParams();
-const router = useRouter();
 const chatUuidMap = ref({});
 const open = ref(false);
 const showAddModal = ref(false);
@@ -420,6 +418,7 @@ const formSubmitted = ref(false);
 const isVacancy = ref(false);
 const isTask = ref(false);
 const ws = ref(null);
+const initDataRaw = ref('');
 
 const categories = [
     { label: 'IT', value: 'it' },
@@ -429,6 +428,35 @@ const categories = [
     { label: 'Marketing', value: 'marketing' },
     { label: 'Finance', value: 'finance' }
 ];
+
+const initUserData = () => {
+  try {
+    const { initData, initDataRaw: rawData } = retrieveLaunchParams();
+    initDataRaw.value = rawData;
+    if (initData?.user) {
+      const user = initData.user;
+      userPhoto.value = user.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      userFirstName.value = user.first_name || 'Workiks';
+      userLastName.value = user.last_name || 'Workiks';
+      currentUserId.value = user.id.toString();
+      currentUsername.value = user.username || `user${user.id}`;
+    } else {
+      console.warn('No user data in initData, fallback to defaults');
+      userPhoto.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      userFirstName.value = 'Workiks';
+      userLastName.value = 'Workiks';
+      currentUserId.value = 'default';
+      currentUsername.value = 'default';
+    }
+  } catch (error) {
+    console.error('Failed to retrieve launch params:', error);
+    userPhoto.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    userFirstName.value = 'Workiks';
+    userLastName.value = 'Workiks';
+    currentUserId.value = 'default';
+    currentUsername.value = 'default';
+  }
+};
 
 const sortedJobs = computed(() => {
   return [...jobs.value].sort((a, b) => {
@@ -505,27 +533,26 @@ const isNew = (item) => {
 const fetchJobs = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/jobs`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData },
+      headers: { 'Authorization': `tma ${initDataRaw.value}` },
       timeout: 5000
     });
     jobs.value = response.data.map(job => ({
       ...job,
-      photoUrl: job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : jobIcon
+      photoUrl: job.photoUrl || jobIcon
     }));
   } catch (error) {
-    console.error(error);
+    console.error('Fetch jobs error:', error);
   } finally {
     isLoading.value = false;
   }
 };
-
 
 const fetchVacancies = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/vacancies`, { timeout: 5000 });
     vacancies.value = response.data;
   } catch (error) {
-    console.error(error);
+    console.error('Fetch vacancies error:', error);
   }
 };
 
@@ -534,7 +561,7 @@ const fetchTasks = async () => {
     const response = await axios.get(`${BASE_URL}/api/tasks`, { timeout: 5000 });
     tasks.value = response.data;
   } catch (error) {
-    console.error(error);
+    console.error('Fetch tasks error:', error);
   } finally {
     isLoading.value = false;
   }
@@ -543,25 +570,25 @@ const fetchTasks = async () => {
 const fetchFavorites = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/favorites`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     favoriteJobs.value = response.data;
   } catch (error) {
-    console.error(error);
+    console.error('Fetch favorites error:', error);
   }
 };
 
 const fetchChatUuids = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/chats`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     chatUuidMap.value = response.data.reduce((map, chat) => {
       map[chat.jobId] = chat.chatUuid;
       return map;
     }, {});
   } catch (error) {
-    console.error(error);
+    console.error('Fetch chat UUIDs error:', error);
   }
 };
 
@@ -680,12 +707,12 @@ const submitItem = async () => {
     try {
       const jobData = { ...newItem.value, categories: newItem.value.categories || [] };
       const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        headers: { 'Authorization': `tma ${initDataRaw.value}` }
       });
       jobs.value.push(response.data.job);
       showAddModal.value = false;
     } catch (error) {
-      console.error(error);
+      console.error('Submit job error:', error);
       Telegram.WebApp.showAlert("Failed to add job!");
     }
   } else {
@@ -696,12 +723,12 @@ const submitItem = async () => {
     try {
       const vacancyData = { ...newItem.value, categories: newItem.value.categories || [] };
       const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        headers: { 'Authorization': `tma ${initDataRaw.value}` }
       });
       vacancies.value.push(response.data.vacancy);
       showAddModal.value = false;
     } catch (error) {
-      console.error(error);
+      console.error('Submit vacancy error:', error);
       Telegram.WebApp.showAlert("Failed to add vacancy!");
     }
   }
@@ -716,12 +743,12 @@ const submitTask = async () => {
   try {
     const taskData = { ...newTask.value, categories: newTask.value.categories || [] };
     const response = await axios.post(`${BASE_URL}/api/tasks`, taskData, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     tasks.value.push(response.data.task);
     showTaskModal.value = false;
   } catch (error) {
-    console.error(error);
+    console.error('Submit task error:', error);
     Telegram.WebApp.showAlert("Failed to add task!");
   }
 };
@@ -729,12 +756,12 @@ const submitTask = async () => {
 const deleteJob = async (jobId) => {
   try {
     await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
   } catch (error) {
-    console.error(error);
+    console.error('Delete job error:', error);
     Telegram.WebApp.showAlert("Failed to delete job!");
   }
 };
@@ -742,12 +769,12 @@ const deleteJob = async (jobId) => {
 const deleteVacancy = async (vacancyId) => {
   try {
     await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
     open.value = false;
   } catch (error) {
-    console.error(error);
+    console.error('Delete vacancy error:', error);
     Telegram.WebApp.showAlert("Failed to delete vacancy!");
   }
 };
@@ -755,12 +782,12 @@ const deleteVacancy = async (vacancyId) => {
 const deleteTask = async (taskId) => {
   try {
     await axios.delete(`${BASE_URL}/api/tasks/${taskId}`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     tasks.value = tasks.value.filter(task => task.id !== taskId);
     open.value = false;
   } catch (error) {
-    console.error(error);
+    console.error('Delete task error:', error);
     Telegram.WebApp.showAlert("Failed to delete task!");
   }
 };
@@ -771,14 +798,14 @@ const togglePinned = async (item) => {
                     item.userId ? `/api/jobs/${item.id}/pinned` :
                     `/api/tasks/${item.id}/pinned`;
     await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned }, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     fetchJobs();
     fetchVacancies();
     fetchTasks();
     Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
   } catch (error) {
-    console.error(error);
+    console.error('Toggle pinned error:', error);
     Telegram.WebApp.showAlert('Не удалось изменить статус закрепления');
   }
 };
@@ -786,11 +813,11 @@ const togglePinned = async (item) => {
 const checkAdminStatus = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     isAdmin.value = response.data.isAdmin;
   } catch (error) {
-    console.error(error);
+    console.error('Check admin status error:', error);
     isAdmin.value = false;
   }
 };
@@ -808,7 +835,7 @@ const toggleFavorite = async (itemId) => {
   const wasFavorite = favoriteJobs.value.includes(itemId);
   try {
     const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-      headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+      headers: { 'Authorization': `tma ${initDataRaw.value}` }
     });
     favoriteJobs.value = response.data.favorites;
     if (wasFavorite) {
@@ -817,7 +844,7 @@ const toggleFavorite = async (itemId) => {
       Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
     }
   } catch (error) {
-    console.error(error);
+    console.error('Toggle favorite error:', error);
     Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
   }
 };
@@ -854,13 +881,13 @@ const startChat = async (jobId) => {
   try {
     if (!chatUuidMap.value[jobId]) {
       const response = await axios.post(`${BASE_URL}/api/startChat`, { jobId }, {
-        headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
+        headers: { 'Authorization': `tma ${initDataRaw.value}` }
       });
       chatUuidMap.value[jobId] = response.data.chatUuid;
     }
     router.push(`/chat/${chatUuidMap.value[jobId]}`);
   } catch (error) {
-    console.error('Ошибка начала чата:', error);
+    console.error('Start chat error:', error);
     Telegram.WebApp.showAlert("Failed to start chat!");
   }
 };
@@ -880,7 +907,11 @@ const setupWebSocket = () => {
   ws.value.onclose = () => console.log('WebSocket disconnected');
 };
 
+const router = useRouter();
+
 onMounted(() => {
+  initUserData();
+
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
@@ -888,15 +919,8 @@ onMounted(() => {
     if (Telegram.WebApp.setHeaderColor) {
       Telegram.WebApp.setHeaderColor('#97f492');
     }
-    if (initData?.user) {
-      const user = initData.user;
-      userPhoto.value = user.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-      userFirstName.value = user.first_name || 'Workiks';
-      userLastName.value = user.last_name || 'Workiks';
-      currentUserId.value = user.id.toString();
-      currentUsername.value = user.username;
-    }
   }
+
   checkAdminStatus();
   fetchJobs();
   fetchVacancies();
@@ -912,7 +936,6 @@ onUnmounted(() => {
   }
 });
 </script>
-
 
 <style scoped>
 .container { background: linear-gradient(45deg, #101622, #1a2233); min-height: 100vh; padding: 20px; overflow: hidden; position: relative; }
