@@ -517,6 +517,7 @@ const fetchJobs = async () => {
   }
 };
 
+
 const fetchVacancies = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/vacancies`, { timeout: 5000 });
@@ -833,30 +834,31 @@ const handleAddJobsClick = () => {
   }
 };
 
-const startChat = async (jobId, targetUserId) => {
-  if (isOwner(targetUserId)) {
+const isOwner = (targetUserId) => {
+  return currentUserId.value === targetUserId;
+};
+
+const startChat = async (jobId) => {
+  const job = jobs.value.find(j => j.id === jobId);
+  if (!job) return;
+
+  selectedJob.value = job;
+
+  if (isOwner(job.userId)) {
     router.push('/chats');
     return;
   }
+
   try {
     if (!chatUuidMap.value[jobId]) {
-      const response = await axios.post(`${BASE_URL}/api/chat/${targetUserId}`, {
-        jobId,
-        text: 'Hello! I’m interested in your job posting.'
-      }, {
+      const response = await axios.post(`${BASE_URL}/api/startChat`, { jobId }, {
         headers: { 'X-Telegram-Data': window.Telegram.WebApp.initData }
       });
-      if (response.data.invoiceLink) {
-        window.open(response.data.invoiceLink, '_blank');
-      } else {
-        chatUuidMap.value[jobId] = response.data.chatUuid;
-        router.push(`/chat/${response.data.chatUuid}`);
-      }
-    } else {
-      router.push(`/chat/${chatUuidMap.value[jobId]}`);
+      chatUuidMap.value[jobId] = response.data.chatUuid;
     }
+    router.push(`/chat/${chatUuidMap.value[jobId]}`);
   } catch (error) {
-    console.error(error);
+    console.error('Ошибка начала чата:', error);
     Telegram.WebApp.showAlert("Failed to start chat!");
   }
 };

@@ -373,7 +373,43 @@ app.get('/api/jobs', async (req, res) => {
 
   res.json(safeJobsData);
 });
+app.post('/api/startChat', async (req, res) => {
+  const telegramData = req.headers["x-telegram-data"];
+  if (!telegramData || !validateTelegramData(telegramData)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
+  const params = new URLSearchParams(telegramData);
+  const user = JSON.parse(params.get("user"));
+  const currentUserId = user.id.toString();
+  const { jobId } = req.body;
+
+  const job = jobsData.find(j => j.id === jobId);
+  if (!job) {
+    return res.status(404).json({ error: "Вакансия не найдена" });
+  }
+
+  const ownerUserId = job.userId.toString();
+  let chatUuid = Object.keys(chatUnlocksData).find(key => {
+    const chat = chatUnlocksData[key];
+    return chat.jobId === jobId &&
+           ((chat.authorUserId === currentUserId && chat.targetUserId === ownerUserId) ||
+            (chat.authorUserId === ownerUserId && chat.targetUserId === currentUserId));
+  });
+
+  if (!chatUuid) {
+    chatUuid = uuidv4();
+    chatUnlocksData[chatUuid] = {
+      jobId,
+      authorUserId: currentUserId,
+      targetUserId: ownerUserId,
+      blocked: false
+    };
+    await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
+  }
+
+  res.json({ success: true, chatUuid });
+});
 app.post("/api/jobs", async (req, res) => {
   const release = await jobsMutex.acquire();
   try {
@@ -1336,59 +1372,7 @@ app.get('/api/messages/:chatUuid', async (req, res) => {
   }
 });
 
-app.post("/api/createMessageInvoice", async (req, res) => {
-  const release = await messagesMutex.acquire();
-  try {
-    const telegramData = req.headers["x-telegram-data"];
-    if (!telegramData || !validateTelegramData(telegramData)) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
 
-    const params = new URLSearchParams(telegramData);
-    const user = JSON.parse(params.get("user"));
-    const { chatUuid, text } = req.body;
-
-    const chat = chatUnlocksData[chatUuid];
-    if (!chat) {
-      return res.status(404).json({ error: "Chat not found" });
-    }
-
-    const { jobId, authorUserId, targetUserId } = chat;
-
-    if (!user?.id || !text) {
-      return res.status(400).json({ error: "Invalid data" });
-    }
-
-    const job = jobsData.find((j) => j.id === jobId);
-    if (!job) {
-      return res.status(404).json({ error: "Job not found" });
-    }
-
-    if (job.userId.toString() === user.id.toString()) {
-      return res.status(400).json({ error: "Job owner can send messages for free" });
-    }
-
-    const payload = `${user.id}_${Date.now()}`;
-    pendingMessagesData[payload] = { text, authorUserId: user.id, targetUserId, jobId, chatUuid, type: "message" };
-    await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
-
-    const invoiceLink = await bot.api.createInvoiceLink(
-      "Send a Message",
-      "Pay 1 Telegram Star to send a message to the freelancer",
-      payload,
-      "",
-      "XTR",
-      [{ label: "Message Sending", amount: 1 }]
-    );
-
-    res.json({ success: true, invoiceLink });
-  } catch (error) {
-    logger.error(`Error in /api/createMessageInvoice: ${error.message}`);
-    res.status(500).json({ error: "Internal server error" });
-  } finally {
-    release();
-  }
-});
 
 app.get("/api/chats", async (req, res) => {
   try {
@@ -1473,7 +1457,7 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
   const release = await messagesMutex.acquire();
   try {
     const { targetUserId } = req.params;
-    const { text, jobId } = req.body;
+    const { text, jobId, chatUuid } = req.body; // Добавляем chatUuid в тело запроса
     const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -1482,25 +1466,12 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     const user = JSON.parse(params.get('user'));
     const authorUserId = user.id.toString();
 
-    let chatUuid = Object.keys(chatUnlocksData).find(key => {
-      const chat = chatUnlocksData[key];
-      return chat.jobId === jobId &&
-             ((chat.authorUserId === authorUserId && chat.targetUserId === targetUserId) ||
-              (chat.authorUserId === targetUserId && chat.targetUserId === authorUserId));
-    });
-
-    if (!chatUuid) {
-      chatUuid = uuidv4();
-      chatUnlocksData[chatUuid] = {
-        jobId,
-        authorUserId,
-        targetUserId,
-        blocked: false
-      };
-      await fs.writeFile(CHAT_UNLOCKS_FILE, JSON.stringify(chatUnlocksData, null, 2));
+    const chat = chatUnlocksData[chatUuid];
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
     }
 
-    if (chatUnlocksData[chatUuid].blocked) {
+    if (chat.blocked) {
       return res.status(403).json({ error: 'Chat is blocked' });
     }
 
@@ -1520,10 +1491,19 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
     };
 
     if (job.userId.toString() === authorUserId) {
+      // Владелец вакансии отправляет сообщение бесплатно
       messagesData.push(message);
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(messagesData, null, 2));
       res.json({ success: true, chatUuid, message });
+
+      // Уведомление через WebSocket
+      wss.clients.forEach(client => {
+        if (client.userId === targetUserId || client.userId === authorUserId) {
+          client.send(JSON.stringify({ type: 'newMessage', chatUuid, text, timestamp: message.timestamp }));
+        }
+      });
     } else {
+      // Не владелец платит 1 XTR
       const payload = `${authorUserId}_${Date.now()}`;
       pendingMessagesData[payload] = { text, authorUserId, targetUserId, jobId, chatUuid, type: 'message' };
       await fs.writeFile(PENDING_MESSAGES_FILE, JSON.stringify(pendingMessagesData, null, 2));
@@ -1538,13 +1518,6 @@ app.post('/api/chat/:targetUserId', async (req, res) => {
       );
       res.json({ success: true, invoiceLink });
     }
-
-    // Уведомление через WebSocket
-    wss.clients.forEach(client => {
-      if (client.userId === targetUserId || client.userId === authorUserId) {
-        client.send(JSON.stringify({ type: 'newMessage', chatUuid, text, timestamp: message.timestamp }));
-      }
-    });
   } catch (error) {
     logger.error(`Error in /api/chat/:targetUserId: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
@@ -1698,7 +1671,12 @@ bot.on("message:successful_payment", async (ctx) => {
         // Уведомление через WebSocket
         wss.clients.forEach(client => {
           if (client.userId === targetUserId || client.userId === authorUserId) {
-            client.send(JSON.stringify({ type: 'newMessage', chatUuid, text, timestamp: message.timestamp }));
+            client.send(JSON.stringify({
+              type: 'newMessage',
+              chatUuid,
+              text,
+              timestamp: message.timestamp
+            }));
           }
         });
       } catch (error) {
@@ -1744,7 +1722,9 @@ bot.on("message:successful_payment", async (ctx) => {
             reply_markup: keyboard
           }
         );
-      } catch {}
+      } catch (error) {
+        logger.error(`Failed to notify target user ${targetUserId} about review: ${error.message}`);
+      }
     } else {
       await ctx.reply("Error: Payment data not found.");
     }
