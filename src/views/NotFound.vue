@@ -22,21 +22,6 @@
       <div class="progress animate__animated animate__fadeInUp animate__delay-2s">
         <div class="progress-bar"></div>
       </div>
-
-      <div class="timer animate__animated animate__fadeInUp animate__delay-3s">
-        <div class="time-block">
-          <div class="time">{{ hours }}</div>
-          <div class="label">Часов</div>
-        </div>
-        <div class="time-block">
-          <div class="time">{{ minutes }}</div>
-          <div class="label">Минут</div>
-        </div>
-        <div class="time-block">
-          <div class="time">{{ seconds }}</div>
-          <div class="label">Секунд</div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
