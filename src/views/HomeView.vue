@@ -453,12 +453,13 @@ const initUserData = async () => {
                 userPhoto.value = jobIcon;
                 return;
             }
-            const user = launchParams.initData?.user;
-            currentUserId.value = user?.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
-            userFirstName.value = user?.first_name || '';
-            userLastName.value = user?.last_name || '';
-            currentUsername.value = user?.username || '';
-            await fetchUserAvatar(currentUserId.value);
+            const params = new URLSearchParams(initDataRaw.value);
+            const user = JSON.parse(params.get("user") || "{}");
+            currentUserId.value = user.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
+            userFirstName.value = user.first_name || '';
+            userLastName.value = user.last_name || '';
+            currentUsername.value = user.username || '';
+            userPhoto.value = user.photo_url || jobIcon;
         } else {
             console.warn('Не в Telegram Mini Apps, используются значения по умолчанию');
             currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
@@ -470,19 +471,6 @@ const initUserData = async () => {
         currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
         userPhoto.value = jobIcon;
         initDataRaw.value = '';
-    }
-};
-
-const fetchUserAvatar = async (userId) => {
-    try {
-        const response = await axios.get(`${BASE_URL}/api/user/${userId}/avatar`, {
-            headers: { 'X-Telegram-Data': initDataRaw.value }, // Оставляем GET для аватара
-            timeout: 5000
-        });
-        userPhoto.value = response.data.photoUrl;
-    } catch (error) {
-        console.error('Ошибка загрузки аватара:', error);
-        userPhoto.value = jobIcon;
     }
 };
 
