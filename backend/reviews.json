@@ -417,5 +417,11 @@
     "authorUserId": 1940359844,
     "targetUserId": "5164023566",
     "date": "2025-04-08T20:04:49.338Z"
+  },
+  "1940359844_1744218684200": {
+    "text": "й",
+    "authorUserId": 1940359844,
+    "targetUserId": "default_user_qrldik8wy",
+    "type": "review"
   }
 }

@@ -329,28 +329,37 @@ async function loadPendingMessages() {
 
 function validateTelegramData(initData) {
   try {
+    if (!initData) {
+      logger.warn('initData отсутствует');
+      return false;
+    }
+
     const params = new URLSearchParams(initData);
     const receivedHash = params.get('hash');
     if (!receivedHash) {
       logger.warn(`Нет hash в initData: ${initData}`);
       return false;
     }
+
     const dataCheckString = Array.from(params.entries())
       .filter(([key]) => key !== 'hash')
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, val]) => `${key}=${val}`)
       .join('\n');
+
     const secretKey = crypto.createHmac('sha256', 'WebAppData')
       .update(BOT_TOKEN)
       .digest();
     const calculatedHash = crypto.createHmac('sha256', secretKey)
       .update(dataCheckString)
       .digest('hex');
-    logger.info(`Полученный hash: ${receivedHash}, Рассчитанный hash: ${calculatedHash}`);
+
+    logger.info(`Полученный hash: ${receivedHash}, Рассчитанный hash: ${calculatedHash}, initData: ${initData}`);
     if (calculatedHash !== receivedHash) {
       logger.warn('Хэши не совпадают');
       return false;
     }
+
     return true;
   } catch (error) {
     logger.error(`Ошибка валидации: ${error.message}, initData: ${initData}`);
@@ -358,32 +367,51 @@ function validateTelegramData(initData) {
   }
 }
 
-// API маршруты
 app.get('/api/jobs', async (req, res) => {
-  const telegramData = req.headers["x-telegram-data"];
-  let currentUserId = null;
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      logger.warn(`Ошибка авторизации для /api/jobs, telegramData: ${telegramData}`);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
-  if (telegramData && validateTelegramData(telegramData)) {
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
-    currentUserId = user.id ? user.id.toString() : null;
+    const currentUserId = user.id ? user.id.toString() : null;
+
+    const jobsWithAvatars = await Promise.all(jobsData.map(async (job) => {
+      let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      try {
+        const photosResponse = await bot.api.getUserProfilePhotos(job.userId);
+        if (photosResponse.total_count > 0) {
+          const photo = photosResponse.photos[0].slice(-1)[0];
+          const fileResponse = await bot.api.getFile(photo.file_id);
+          photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+        }
+      } catch (error) {
+        logger.error(`Telegram API error for user ${job.userId}: ${error.message}`);
+      }
+
+      return {
+        id: job.id,
+        publicId: job.publicId,
+        nick: job.nick,
+        position: job.position,
+        description: job.description,
+        tags: job.tags,
+        categories: job.categories,
+        createdAt: job.createdAt,
+        pinned: job.pinned,
+        isOwner: currentUserId && job.userId.toString() === currentUserId,
+        photoUrl
+      };
+    }));
+
+    res.json(jobsWithAvatars);
+  } catch (error) {
+    logger.error(`Error in /api/jobs: ${error.message}`);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const safeJobsData = jobsData.map(job => ({
-    id: job.id,
-    publicId: job.publicId,
-    nick: job.nick,
-    position: job.position,
-    description: job.description,
-    tags: job.tags,
-    categories: job.categories,
-    createdAt: job.createdAt,
-    pinned: job.pinned,
-    username: job.username,
-    isOwner: currentUserId && job.userId.toString() === currentUserId
-  }));
-
-  res.json(safeJobsData);
 });
 app.post('/api/startChat', async (req, res) => {
   const telegramData = req.headers["x-telegram-data"];
@@ -1390,32 +1418,47 @@ app.get("/api/chats", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
+      logger.warn(`Ошибка авторизации для /api/chats, telegramData: ${telegramData}`);
       return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
     const user = JSON.parse(params.get("user") || "{}");
     const currentUserId = user.id.toString();
 
-    const userChats = Object.values(chatUnlocksData)
-      .filter(chat => chat.authorUserId === currentUserId || chat.targetUserId === currentUserId)
-      .map(chat => {
-        const lastMessage = messagesData
-          .filter(msg => msg.chatUuid === chat.chatUuid)
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+    const userChats = await Promise.all(
+      Object.values(chatUnlocksData)
+        .filter(chat => chat.authorUserId === currentUserId || chat.targetUserId === currentUserId)
+        .map(async (chat) => {
+          const lastMessage = messagesData
+            .filter(msg => msg.chatUuid === chat.chatUuid)
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
-        const otherUserId = chat.authorUserId === currentUserId ? chat.targetUserId : chat.authorUserId;
-        const job = jobsData.find(j => j.id === chat.jobId);
+          const otherUserId = chat.authorUserId === currentUserId ? chat.targetUserId : chat.authorUserId;
+          const job = jobsData.find(j => j.id === chat.jobId);
 
-        return {
-          chatUuid: chat.chatUuid,
-          jobId: chat.jobId,
-          targetUserId: otherUserId,
-          nick: job ? job.nick : 'Unknown',
-          photoUrl: job && job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp',
-          lastMessage: lastMessage ? lastMessage.text : '',
-          blocked: chat.blocked
-        };
-      });
+          let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+          try {
+            const photosResponse = await bot.api.getUserProfilePhotos(otherUserId);
+            if (photosResponse.total_count > 0) {
+              const photo = photosResponse.photos[0].slice(-1)[0];
+              const fileResponse = await bot.api.getFile(photo.file_id);
+              photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+            }
+          } catch (error) {
+            logger.error(`Telegram API error for user ${otherUserId}: ${error.message}`);
+          }
+
+          return {
+            chatUuid: chat.chatUuid,
+            jobId: chat.jobId,
+            targetUserId: otherUserId,
+            nick: job ? job.nick : 'Unknown',
+            photoUrl,
+            lastMessage: lastMessage ? lastMessage.text : '',
+            blocked: chat.blocked
+          };
+        })
+    );
 
     res.json(userChats);
   } catch (error) {
@@ -1543,30 +1586,26 @@ app.get('/api/user/:userId/avatar', async (req, res) => {
     const { userId } = req.params;
     const telegramData = req.headers['x-telegram-data'];
     if (!telegramData || !validateTelegramData(telegramData)) {
+      logger.warn(`Ошибка авторизации для /api/user/:userId/avatar, telegramData: ${telegramData}`);
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Попробуем получить фотографии профиля через Bot API
-    const photosResponse = await bot.api.getUserProfilePhotos(userId);
-    let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'; // Дефолтный jobIcon
-
-    if (photosResponse.total_count > 0) {
-      // Берем первую фотографию в максимальном размере
-      const photo = photosResponse.photos[0].slice(-1)[0]; // Последний элемент — наибольшее разрешение
-      const fileResponse = await bot.api.getFile(photo.file_id);
-      photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+    let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    try {
+      const photosResponse = await bot.api.getUserProfilePhotos(userId);
+      if (photosResponse.total_count > 0) {
+        const photo = photosResponse.photos[0].slice(-1)[0];
+        const fileResponse = await bot.api.getFile(photo.file_id);
+        photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+      }
+    } catch (telegramError) {
+      logger.error(`Telegram API error for user ${userId}: ${telegramError.message}`);
     }
 
-    // Получаем имя пользователя для дополнительной информации
-    const userData = await bot.api.getChat(userId);
-    const firstName = userData.first_name || 'Unknown';
-
-    res.json({ firstName, photoUrl });
+    res.json({ photoUrl });
   } catch (error) {
     logger.error(`Error in /api/user/:userId/avatar: ${error.message}`);
-    // В случае любой ошибки (включая 404) возвращаем дефолтный jobIcon
     res.json({
-      firstName: 'Unknown',
       photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
     });
   }
@@ -1608,6 +1647,7 @@ app.get("/api/isAdmin", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
+      logger.warn(`Ошибка авторизации для /api/isAdmin, telegramData: ${telegramData}`);
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -1620,7 +1660,8 @@ app.get("/api/isAdmin", async (req, res) => {
 
     const isAdmin = ADMIN_IDS.includes(user.id.toString());
     res.json({ isAdmin });
-  } catch {
+  } catch (error) {
+    logger.error(`Error in /api/isAdmin: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
   }
 });

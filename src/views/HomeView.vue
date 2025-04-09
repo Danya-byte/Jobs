@@ -458,7 +458,6 @@ const fetchUserAvatar = async (userId) => {
       timeout: 5000
     });
     userPhoto.value = response.data.photoUrl;
-    userFirstName.value = response.data.firstName;
   } catch (error) {
     console.error('Ошибка загрузки аватара:', error);
     userPhoto.value = jobIcon;
@@ -545,10 +544,11 @@ const fetchJobs = async () => {
     });
     jobs.value = response.data.map(job => ({
       ...job,
-      photoUrl: job.photoUrl || (job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : jobIcon)
+      photoUrl: job.photoUrl || jobIcon
     }));
   } catch (error) {
-    console.error('Fetch jobs error:', error);
+    console.error('Fetch jobs error:', error.response?.status, error.response?.data || error.message);
+    jobs.value = [];
   } finally {
     isLoading.value = false;
   }
