@@ -353,7 +353,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-import { isTMA } from '@telegram-apps/bridge'; // Используем для проверки окружения
+import { isTMA } from '@telegram-apps/bridge';
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
 const WS_URL = 'wss://jobs.cloudpub.ru';
@@ -430,30 +430,23 @@ const categories = [
 ];
 
 const initUserData = () => {
-  if (window.Telegram?.WebApp?.initData) {
-    initDataRaw.value = window.Telegram.WebApp.initData;
-    const user = window.Telegram.WebApp.initDataUnsafe?.user;
-    if (user) {
-      userPhoto.value = user.photo_url || jobIcon;
-      userFirstName.value = user.first_name || 'Workiks';
-      userLastName.value = user.last_name || 'Workiks';
-      currentUserId.value = user.id?.toString() || 'default';
-      currentUsername.value = user.username || `user${user.id || 'default'}`;
-    } else {
-      console.warn('No user data in initData, using defaults');
-      userPhoto.value = jobIcon;
-      userFirstName.value = 'Workiks';
-      userLastName.value = 'Workiks';
-      currentUserId.value = 'default';
-      currentUsername.value = 'default';
+  if (isTMA('simple')) {
+    try {
+      const launchParams = retrieveLaunchParams();
+      initDataRaw.value = launchParams.initDataRaw;
+      console.log('initDataRaw:', initDataRaw.value);
+      const user = launchParams.initData?.user;
+      currentUserId.value = user?.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
+      username.value = user?.username || "Anonymous";
+    } catch (error) {
+      console.error('Ошибка получения launchParams:', error);
+      currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
+      username.value = "Anonymous";
     }
   } else {
-    console.warn('Telegram Web App not available, using defaults');
-    userPhoto.value = jobIcon;
-    userFirstName.value = 'Workiks';
-    userLastName.value = 'Workiks';
-    currentUserId.value = 'default';
-    currentUsername.value = 'default';
+    console.warn('Не в Telegram, используются значения по умолчанию');
+    currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
+    username.value = "Anonymous";
   }
 };
 
@@ -532,7 +525,7 @@ const isNew = (item) => {
 const fetchJobs = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/jobs`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` },
+      headers: { 'X-Telegram-Data': initDataRaw.value },
       timeout: 5000
     });
     jobs.value = response.data.map(job => ({
@@ -549,7 +542,7 @@ const fetchJobs = async () => {
 const fetchVacancies = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/vacancies`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` },
+      headers: { 'X-Telegram-Data': initDataRaw.value },
       timeout: 5000
     });
     vacancies.value = response.data.map(vacancy => ({
@@ -564,7 +557,7 @@ const fetchVacancies = async () => {
 const fetchTasks = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/tasks`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` },
+      headers: { 'X-Telegram-Data': initDataRaw.value },
       timeout: 5000
     });
     tasks.value = response.data.map(task => ({
@@ -581,7 +574,7 @@ const fetchTasks = async () => {
 const fetchFavorites = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/favorites`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     favoriteJobs.value = response.data;
   } catch (error) {
@@ -592,7 +585,7 @@ const fetchFavorites = async () => {
 const fetchChatUuids = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/chats`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     chatUuidMap.value = response.data.reduce((map, chat) => {
       map[chat.jobId] = chat.chatUuid;
@@ -718,7 +711,7 @@ const submitItem = async () => {
     try {
       const jobData = { ...newItem.value, categories: newItem.value.categories || [] };
       const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
-        headers: { 'Authorization': `tma ${initDataRaw.value}` }
+        headers: { 'X-Telegram-Data': initDataRaw.value }
       });
       jobs.value.push(response.data.job);
       showAddModal.value = false;
@@ -734,7 +727,7 @@ const submitItem = async () => {
     try {
       const vacancyData = { ...newItem.value, categories: newItem.value.categories || [] };
       const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, {
-        headers: { 'Authorization': `tma ${initDataRaw.value}` }
+        headers: { 'X-Telegram-Data': initDataRaw.value }
       });
       vacancies.value.push(response.data.vacancy);
       showAddModal.value = false;
@@ -754,7 +747,7 @@ const submitTask = async () => {
   try {
     const taskData = { ...newTask.value, categories: newTask.value.categories || [] };
     const response = await axios.post(`${BASE_URL}/api/tasks`, taskData, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     tasks.value.push(response.data.task);
     showTaskModal.value = false;
@@ -767,7 +760,7 @@ const submitTask = async () => {
 const deleteJob = async (jobId) => {
   try {
     await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     jobs.value = jobs.value.filter(job => job.id !== jobId);
     open.value = false;
@@ -780,7 +773,7 @@ const deleteJob = async (jobId) => {
 const deleteVacancy = async (vacancyId) => {
   try {
     await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
     open.value = false;
@@ -793,7 +786,7 @@ const deleteVacancy = async (vacancyId) => {
 const deleteTask = async (taskId) => {
   try {
     await axios.delete(`${BASE_URL}/api/tasks/${taskId}`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     tasks.value = tasks.value.filter(task => task.id !== taskId);
     open.value = false;
@@ -809,7 +802,7 @@ const togglePinned = async (item) => {
                     item.userId ? `/api/jobs/${item.id}/pinned` :
                     `/api/tasks/${item.id}/pinned`;
     await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned }, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     fetchJobs();
     fetchVacancies();
@@ -824,7 +817,7 @@ const togglePinned = async (item) => {
 const checkAdminStatus = async () => {
   try {
     const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     isAdmin.value = response.data.isAdmin;
   } catch (error) {
@@ -846,7 +839,7 @@ const toggleFavorite = async (itemId) => {
   const wasFavorite = favoriteJobs.value.includes(itemId);
   try {
     const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-      headers: { 'Authorization': `tma ${initDataRaw.value}` }
+      headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     favoriteJobs.value = response.data.favorites;
     if (wasFavorite) {
@@ -892,7 +885,7 @@ const startChat = async (jobId) => {
   try {
     if (!chatUuidMap.value[jobId]) {
       const response = await axios.post(`${BASE_URL}/api/startChat`, { jobId }, {
-        headers: { 'Authorization': `tma ${initDataRaw.value}` }
+        headers: { 'X-Telegram-Data': initDataRaw.value }
       });
       chatUuidMap.value[jobId] = response.data.chatUuid;
     }
