@@ -45,6 +45,7 @@ onMounted(() => {
   Telegram.WebApp.setHeaderColor('#97f492');
   window.Telegram.WebApp.ready();
   window.Telegram.WebApp.expand();
+  postEvent('web_app_setup_back_button', { is_visible: true });
   updateTimer()
 })
 

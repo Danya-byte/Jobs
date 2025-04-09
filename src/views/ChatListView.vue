@@ -293,6 +293,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  postEvent('web_app_setup_back_button', { is_visible: true });
   if (ws.value) {
     ws.value.close();
   }
