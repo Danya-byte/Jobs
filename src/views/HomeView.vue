@@ -894,7 +894,7 @@ onMounted(() => {
       userFirstName.value = user.first_name || 'Workiks';
       userLastName.value = user.last_name || 'Workiks';
       currentUserId.value = user.id.toString();
-      currentUsername.value = user.username || `user${user.id}`;
+      currentUsername.value = user.username;
     }
   }
   checkAdminStatus();
