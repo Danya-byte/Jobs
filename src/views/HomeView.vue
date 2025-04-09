@@ -369,7 +369,7 @@ const selectedJob = ref({});
 const selectedVacancy = ref({});
 const selectedTask = ref({});
 const username = ref('');
-const userPhoto = ref('');
+const userPhoto = ref(jobIcon);
 const userFirstName = ref('');
 const userLastName = ref('');
 const currentUserId = ref('');
@@ -431,24 +431,37 @@ const categories = [
     { label: 'Finance', value: 'finance' }
 ];
 
-const initUserData = () => {
+const initUserData = async () => {
   if (isTMA('simple')) {
     try {
       const launchParams = retrieveLaunchParams();
       initDataRaw.value = launchParams.initDataRaw;
-      console.log('initDataRaw:', initDataRaw.value);
       const user = launchParams.initData?.user;
       currentUserId.value = user?.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
-      username.value = user?.username || "Anonymous";
+      await fetchUserAvatar(currentUserId.value);
     } catch (error) {
       console.error('Ошибка получения launchParams:', error);
       currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
-      username.value = "Anonymous";
+      userPhoto.value = jobIcon;
     }
   } else {
     console.warn('Не в Telegram, используются значения по умолчанию');
     currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
-    username.value = "Anonymous";
+    userPhoto.value = jobIcon;
+  }
+};
+
+const fetchUserAvatar = async (userId) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/user/${userId}/avatar`, {
+      headers: { 'X-Telegram-Data': initDataRaw.value },
+      timeout: 5000
+    });
+    userPhoto.value = response.data.photoUrl;
+    userFirstName.value = response.data.firstName;
+  } catch (error) {
+    console.error('Ошибка загрузки аватара:', error);
+    userPhoto.value = jobIcon;
   }
 };
 

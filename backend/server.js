@@ -1546,18 +1546,29 @@ app.get('/api/user/:userId/avatar', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // Попробуем получить фотографии профиля через Bot API
+    const photosResponse = await bot.api.getUserProfilePhotos(userId);
+    let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'; // Дефолтный jobIcon
+
+    if (photosResponse.total_count > 0) {
+      // Берем первую фотографию в максимальном размере
+      const photo = photosResponse.photos[0].slice(-1)[0]; // Последний элемент — наибольшее разрешение
+      const fileResponse = await bot.api.getFile(photo.file_id);
+      photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+    }
+
+    // Получаем имя пользователя для дополнительной информации
     const userData = await bot.api.getChat(userId);
     const firstName = userData.first_name || 'Unknown';
-    let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-
-    if (userData.username) {
-      photoUrl = `https://t.me/i/userpic/160/${userData.username}.jpg`;
-    }
 
     res.json({ firstName, photoUrl });
   } catch (error) {
     logger.error(`Error in /api/user/:userId/avatar: ${error.message}`);
-    res.status(500).json({ error: 'Internal server error' });
+    // В случае любой ошибки (включая 404) возвращаем дефолтный jobIcon
+    res.json({
+      firstName: 'Unknown',
+      photoUrl: 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+    });
   }
 });
 
