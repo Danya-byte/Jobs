@@ -432,22 +432,39 @@ const categories = [
 ];
 
 const initUserData = async () => {
-  if (isTMA('simple')) {
-    try {
+  try {
+    init();
+    console.log('SDK initialized');
+
+    const isTelegram = await isTMA({ timeout: 100 });
+    if (isTelegram) {
       const launchParams = retrieveLaunchParams();
       initDataRaw.value = launchParams.initDataRaw;
+      console.log('Client initDataRaw:', initDataRaw.value); // Отладка
+      if (!initDataRaw.value) {
+        console.error('initDataRaw пустой. Запустите через Telegram Web App.');
+        Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+        currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
+        userPhoto.value = jobIcon;
+        return;
+      }
       const user = launchParams.initData?.user;
       currentUserId.value = user?.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
+      userFirstName.value = user?.first_name || '';
+      userLastName.value = user?.last_name || '';
+      currentUsername.value = user?.username || '';
       await fetchUserAvatar(currentUserId.value);
-    } catch (error) {
-      console.error('Ошибка получения launchParams:', error);
+    } else {
+      console.warn('Не в Telegram Mini Apps, используются значения по умолчанию');
       currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
       userPhoto.value = jobIcon;
+      initDataRaw.value = ''; // Явно пустое значение
     }
-  } else {
-    console.warn('Не в Telegram, используются значения по умолчанию');
+  } catch (error) {
+    console.error('Ошибка инициализации SDK или получения launchParams:', error);
     currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
     userPhoto.value = jobIcon;
+    initDataRaw.value = '';
   }
 };
 
@@ -538,6 +555,7 @@ const isNew = (item) => {
 
 const fetchJobs = async () => {
   try {
+    console.log('Fetching jobs with initDataRaw:', initDataRaw.value);
     const response = await axios.get(`${BASE_URL}/api/jobs`, {
       headers: { 'X-Telegram-Data': initDataRaw.value },
       timeout: 5000
@@ -556,6 +574,7 @@ const fetchJobs = async () => {
 
 const fetchVacancies = async () => {
   try {
+    console.log('Fetching vacancies with initDataRaw:', initDataRaw.value);
     const response = await axios.get(`${BASE_URL}/api/vacancies`, {
       headers: { 'X-Telegram-Data': initDataRaw.value },
       timeout: 5000
@@ -565,12 +584,14 @@ const fetchVacancies = async () => {
       photoUrl: vacancy.photoUrl || jobIcon
     }));
   } catch (error) {
-    console.error('Fetch vacancies error:', error);
+    console.error('Fetch vacancies error:', error.response?.status, error.response?.data || error.message);
+    vacancies.value = [];
   }
 };
 
 const fetchTasks = async () => {
   try {
+    console.log('Fetching tasks with initDataRaw:', initDataRaw.value);
     const response = await axios.get(`${BASE_URL}/api/tasks`, {
       headers: { 'X-Telegram-Data': initDataRaw.value },
       timeout: 5000
@@ -580,7 +601,8 @@ const fetchTasks = async () => {
       photoUrl: task.photoUrl || jobIcon
     }));
   } catch (error) {
-    console.error('Fetch tasks error:', error);
+    console.error('Fetch tasks error:', error.response?.status, error.response?.data || error.message);
+    tasks.value = [];
   } finally {
     isLoading.value = false;
   }
@@ -588,17 +610,20 @@ const fetchTasks = async () => {
 
 const fetchFavorites = async () => {
   try {
+    console.log('Fetching favorites with initDataRaw:', initDataRaw.value);
     const response = await axios.get(`${BASE_URL}/api/favorites`, {
       headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     favoriteJobs.value = response.data;
   } catch (error) {
-    console.error('Fetch favorites error:', error);
+    console.error('Fetch favorites error:', error.response?.status, error.response?.data || error.message);
+    favoriteJobs.value = [];
   }
 };
 
 const fetchChatUuids = async () => {
   try {
+    console.log('Fetching chat UUIDs with initDataRaw:', initDataRaw.value);
     const response = await axios.get(`${BASE_URL}/api/chats`, {
       headers: { 'X-Telegram-Data': initDataRaw.value }
     });
@@ -607,7 +632,7 @@ const fetchChatUuids = async () => {
       return map;
     }, {});
   } catch (error) {
-    console.error('Fetch chat UUIDs error:', error);
+    console.error('Fetch chat UUIDs error:', error.response?.status, error.response?.data || error.message);
   }
 };
 
@@ -831,12 +856,13 @@ const togglePinned = async (item) => {
 
 const checkAdminStatus = async () => {
   try {
+    console.log('Checking admin status with initDataRaw:', initDataRaw.value);
     const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
       headers: { 'X-Telegram-Data': initDataRaw.value }
     });
     isAdmin.value = response.data.isAdmin;
   } catch (error) {
-    console.error('Check admin status error:', error);
+    console.error('Check admin status error:', error.response?.status, error.response?.data || error.message);
     isAdmin.value = false;
   }
 };
@@ -929,26 +955,29 @@ const setupWebSocket = () => {
 const router = useRouter();
 
 onMounted(async () => {
+  await initUserData();
+
   const isTelegram = await isTMA({ timeout: 100 });
   if (isTelegram) {
-    initUserData();
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
     if (Telegram.WebApp.setHeaderColor) {
       Telegram.WebApp.setHeaderColor('#97f492');
     }
+    console.log('Telegram Web App инициализирован, currentUserId:', currentUserId.value);
   } else {
-    console.warn('Not in Telegram environment, using defaults');
-    initUserData();
+    console.warn('Приложение запущено вне Telegram Mini Apps');
   }
 
-  checkAdminStatus();
-  fetchJobs();
-  fetchVacancies();
-  fetchTasks();
-  fetchFavorites();
-  fetchChatUuids();
+  await Promise.all([
+    checkAdminStatus(),
+    fetchJobs(),
+    fetchVacancies(),
+    fetchTasks(),
+    fetchFavorites(),
+    fetchChatUuids()
+  ]);
   setupWebSocket();
 });
 
