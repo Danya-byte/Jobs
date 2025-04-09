@@ -48,23 +48,21 @@ const router = createRouter({
       beforeEnter: async (to, from, next) => {
         const chatUuid = to.params.chatUuid;
         if (!chatUuid) {
-          console.warn('Chat UUID is missing');
           return next({ name: 'chatList' });
         }
-
         try {
-          const response = await fetch(`/api/chat/status/${chatUuid}`, {
+          const response = await fetch(`https://jobs.cloudpub.ru/api/chat/status/${chatUuid}`, {
             headers: {
               'X-Telegram-Data': window.Telegram.WebApp.initData,
             },
           });
-          const { blocked } = await response.json();
           if (!response.ok) {
-            console.warn('Server unavailable or bad response');
             return next({ name: 'not-found' });
           }
+          const text = await response.text();
+          const data = JSON.parse(text);
+          const { blocked } = data;
           if (blocked) {
-            console.warn('Chat is blocked');
             return next({ name: 'chatList' });
           }
           next();
