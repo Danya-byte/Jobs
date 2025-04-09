@@ -330,18 +330,30 @@ async function loadPendingMessages() {
 function validateTelegramData(initData) {
   try {
     const params = new URLSearchParams(initData);
-    const receivedHash = params.get("hash");
-    if (!receivedHash) return false;
-
+    const receivedHash = params.get('hash');
+    if (!receivedHash) {
+      logger.warn(`Нет hash в initData: ${initData}`);
+      return false;
+    }
     const dataCheckString = Array.from(params.entries())
-      .filter(([key]) => key !== "hash")
+      .filter(([key]) => key !== 'hash')
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, val]) => `${key}=${val}`)
-      .join("\n");
-
-    const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
-    return crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex") === receivedHash;
-  } catch {
+      .join('\n');
+    const secretKey = crypto.createHmac('sha256', 'WebAppData')
+      .update(BOT_TOKEN)
+      .digest();
+    const calculatedHash = crypto.createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+    logger.info(`Полученный hash: ${receivedHash}, Рассчитанный hash: ${calculatedHash}`);
+    if (calculatedHash !== receivedHash) {
+      logger.warn('Хэши не совпадают');
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logger.error(`Ошибка валидации: ${error.message}, initData: ${initData}`);
     return false;
   }
 }
