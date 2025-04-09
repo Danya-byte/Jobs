@@ -353,6 +353,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { retrieveLaunchParams } from '@telegram-apps/sdk';
 import { isTMA } from '@telegram-apps/bridge';
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
