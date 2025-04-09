@@ -338,7 +338,7 @@
                             class="chat-btn"
                             @click="startChat(selectedJob.id)"
                         >
-                            {{ isOwner(selectedJob.userId) ? 'Open Chat' : 'Chat with Freelancer' }}
+                            {{ selectedJob.isOwner ? 'Open Chat' : 'Chat with Freelancer' }}
                         </RouterLink>
                         <button v-if="isAdmin" @click="deleteJob(selectedJob.id)" class="delete-btn">Delete Job</button>
                     </div>
@@ -831,10 +831,6 @@ const handleAddJobsClick = () => {
   } else {
     window.open('https://t.me/workiks_admin', '_blank');
   }
-};
-
-const isOwner = (userId) => {
-  return currentUserId.value === userId.toString();
 };
 
 const startChat = async (jobId, targetUserId) => {
