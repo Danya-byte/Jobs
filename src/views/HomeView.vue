@@ -367,6 +367,7 @@ const showTaskModal = ref(false);
 const selectedJob = ref({});
 const selectedVacancy = ref({});
 const selectedTask = ref({});
+const username = ref('');
 const userPhoto = ref('');
 const userFirstName = ref('');
 const userLastName = ref('');
