@@ -10,6 +10,7 @@ const { Mutex } = require("async-mutex");
 const winston = require("winston");
 const DailyRotateFile = require("winston-daily-rotate-file");
 const { v4: uuidv4 } = require('uuid');
+const { parse, validate } = require('@telegram-apps/init-data-node');
 require("dotenv").config();
 const WebSocket = require('ws');
 

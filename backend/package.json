@@ -4,6 +4,7 @@
     "@grammyjs/files": "^1.1.1",
     "@grammyjs/ratelimiter": "^1.2.1",
     "@prisma/client": "^6.4.1",
+    "@telegram-apps/init-data-node": "^2.0.3",
     "async-mutex": "^0.5.0",
     "axios": "^1.8.1",
     "bull": "^4.16.5",

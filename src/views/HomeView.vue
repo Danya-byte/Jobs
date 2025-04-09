@@ -431,209 +431,214 @@ const categories = [
     { label: 'Finance', value: 'finance' }
 ];
 
-const initUserData = async () => {
-  try {
-    init();
-    console.log('SDK initialized');
+// Инициализация initDataRaw
+initDataRaw.value = window.Telegram.WebApp.initData;
+if (!initDataRaw.value) {
+    console.error("initDataRaw не получен!");
+} else {
+    console.log("initDataRaw:", initDataRaw.value);
+}
 
-    const isTelegram = await isTMA({ timeout: 100 });
-    if (isTelegram) {
-      const launchParams = retrieveLaunchParams();
-      initDataRaw.value = launchParams.initDataRaw;
-      console.log('Client initDataRaw:', initDataRaw.value); // Отладка
-      if (!initDataRaw.value) {
-        console.error('initDataRaw пустой. Запустите через Telegram Web App.');
-        Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+const initUserData = async () => {
+    try {
+        const isTelegram = await isTMA({ timeout: 100 });
+        if (isTelegram) {
+            const launchParams = retrieveLaunchParams();
+            initDataRaw.value = launchParams.initDataRaw || window.Telegram.WebApp.initData;
+            console.log('Client initDataRaw:', initDataRaw.value);
+            if (!initDataRaw.value) {
+                console.error('initDataRaw пустой. Запустите через Telegram Web App.');
+                Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+                currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
+                userPhoto.value = jobIcon;
+                return;
+            }
+            const user = launchParams.initData?.user;
+            currentUserId.value = user?.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
+            userFirstName.value = user?.first_name || '';
+            userLastName.value = user?.last_name || '';
+            currentUsername.value = user?.username || '';
+            await fetchUserAvatar(currentUserId.value);
+        } else {
+            console.warn('Не в Telegram Mini Apps, используются значения по умолчанию');
+            currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
+            userPhoto.value = jobIcon;
+            initDataRaw.value = '';
+        }
+    } catch (error) {
+        console.error('Ошибка инициализации SDK или получения launchParams:', error);
         currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
         userPhoto.value = jobIcon;
-        return;
-      }
-      const user = launchParams.initData?.user;
-      currentUserId.value = user?.id?.toString() || "default_user_" + Math.random().toString(36).substr(2, 9);
-      userFirstName.value = user?.first_name || '';
-      userLastName.value = user?.last_name || '';
-      currentUsername.value = user?.username || '';
-      await fetchUserAvatar(currentUserId.value);
-    } else {
-      console.warn('Не в Telegram Mini Apps, используются значения по умолчанию');
-      currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
-      userPhoto.value = jobIcon;
-      initDataRaw.value = ''; // Явно пустое значение
+        initDataRaw.value = '';
     }
-  } catch (error) {
-    console.error('Ошибка инициализации SDK или получения launchParams:', error);
-    currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
-    userPhoto.value = jobIcon;
-    initDataRaw.value = '';
-  }
 };
 
 const fetchUserAvatar = async (userId) => {
-  try {
-    const response = await axios.get(`${BASE_URL}/api/user/${userId}/avatar`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value },
-      timeout: 5000
-    });
-    userPhoto.value = response.data.photoUrl;
-  } catch (error) {
-    console.error('Ошибка загрузки аватара:', error);
-    userPhoto.value = jobIcon;
-  }
+    try {
+        const response = await axios.get(`${BASE_URL}/api/user/${userId}/avatar`, {
+            headers: { 'X-Telegram-Data': initDataRaw.value }, // Оставляем GET для аватара
+            timeout: 5000
+        });
+        userPhoto.value = response.data.photoUrl;
+    } catch (error) {
+        console.error('Ошибка загрузки аватара:', error);
+        userPhoto.value = jobIcon;
+    }
 };
 
 const sortedJobs = computed(() => {
-  return [...jobs.value].sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
+    return [...jobs.value].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 });
 
 const filteredJobs = computed(() => {
-  let filtered = sortedJobs.value;
-  if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(job => job.categories?.some(cat => selectedCategories.value.includes(cat)));
-  }
-  if (showFavoritesOnly.value) {
-    filtered = filtered.filter(job => isFavorite(job.id));
-  }
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(job => job.position.toLowerCase().includes(query));
-  }
-  return filtered;
+    let filtered = sortedJobs.value;
+    if (selectedCategories.value.length > 0) {
+        filtered = filtered.filter(job => job.categories?.some(cat => selectedCategories.value.includes(cat)));
+    }
+    if (showFavoritesOnly.value) {
+        filtered = filtered.filter(job => isFavorite(job.id));
+    }
+    if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filtered = filtered.filter(job => job.position.toLowerCase().includes(query));
+    }
+    return filtered;
 });
 
 const filteredVacancies = computed(() => {
-  let filtered = [...vacancies.value].sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
-  if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(vacancy => vacancy.categories?.some(cat => selectedCategories.value.includes(cat)));
-  }
-  if (showFavoritesOnly.value) {
-    filtered = filtered.filter(vacancy => isFavorite(vacancy.id));
-  }
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(vacancy => vacancy.position.toLowerCase().includes(query));
-  }
-  return filtered;
+    let filtered = [...vacancies.value].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+    if (selectedCategories.value.length > 0) {
+        filtered = filtered.filter(vacancy => vacancy.categories?.some(cat => selectedCategories.value.includes(cat)));
+    }
+    if (showFavoritesOnly.value) {
+        filtered = filtered.filter(vacancy => isFavorite(vacancy.id));
+    }
+    if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filtered = filtered.filter(vacancy => vacancy.position.toLowerCase().includes(query));
+    }
+    return filtered;
 });
 
 const sortedTasks = computed(() => {
-  return [...tasks.value].sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
+    return [...tasks.value].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!b.pinned && b.pinned) return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 });
 
 const filteredTasks = computed(() => {
-  let filtered = sortedTasks.value;
-  if (selectedCategories.value.length > 0) {
-    filtered = filtered.filter(task => task.categories?.some(cat => selectedCategories.value.includes(cat)));
-  }
-  if (showFavoritesOnly.value) {
-    filtered = filtered.filter(task => isFavorite(task.id));
-  }
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(task => task.title.toLowerCase().includes(query));
-  }
-  return filtered;
+    let filtered = sortedTasks.value;
+    if (selectedCategories.value.length > 0) {
+        filtered = filtered.filter(task => task.categories?.some(cat => selectedCategories.value.includes(cat)));
+    }
+    if (showFavoritesOnly.value) {
+        filtered = filtered.filter(task => isFavorite(task.id));
+    }
+    if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filtered = filtered.filter(task => task.title.toLowerCase().includes(query));
+    }
+    return filtered;
 });
 
 const isNew = (item) => {
-  const now = new Date();
-  const itemDate = new Date(item.createdAt);
-  const diffInDays = (now - itemDate) / (1000 * 60 * 60 * 24);
-  return diffInDays <= 3;
+    const now = new Date();
+    const itemDate = new Date(item.createdAt);
+    const diffInDays = (now - itemDate) / (1000 * 60 * 60 * 24);
+    return diffInDays <= 3;
 };
 
 const fetchJobs = async () => {
-  try {
-    console.log('Fetching jobs with initDataRaw:', initDataRaw.value);
-    const response = await axios.get(`${BASE_URL}/api/jobs`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value },
-      timeout: 5000
-    });
-    jobs.value = response.data.map(job => ({
-      ...job,
-      photoUrl: job.photoUrl || jobIcon
-    }));
-  } catch (error) {
-    console.error('Fetch jobs error:', error.response?.status, error.response?.data || error.message);
-    jobs.value = [];
-  } finally {
-    isLoading.value = false;
-  }
+    try {
+        console.log('Fetching jobs with initDataRaw:', initDataRaw.value);
+        const response = await axios.post(`${BASE_URL}/api/jobs`, { initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000
+        });
+        jobs.value = response.data.map(job => ({
+            ...job,
+            photoUrl: job.photoUrl || jobIcon
+        }));
+    } catch (error) {
+        console.error('Fetch jobs error:', error.response?.status, error.response?.data || error.message);
+        jobs.value = [];
+    } finally {
+        isLoading.value = false;
+    }
 };
 
 const fetchVacancies = async () => {
-  try {
-    console.log('Fetching vacancies with initDataRaw:', initDataRaw.value);
-    const response = await axios.get(`${BASE_URL}/api/vacancies`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value },
-      timeout: 5000
-    });
-    vacancies.value = response.data.map(vacancy => ({
-      ...vacancy,
-      photoUrl: vacancy.photoUrl || jobIcon
-    }));
-  } catch (error) {
-    console.error('Fetch vacancies error:', error.response?.status, error.response?.data || error.message);
-    vacancies.value = [];
-  }
+    try {
+        console.log('Fetching vacancies with initDataRaw:', initDataRaw.value);
+        const response = await axios.post(`${BASE_URL}/api/vacancies`, { initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000
+        });
+        vacancies.value = response.data.map(vacancy => ({
+            ...vacancy,
+            photoUrl: vacancy.photoUrl || jobIcon
+        }));
+    } catch (error) {
+        console.error('Fetch vacancies error:', error.response?.status, error.response?.data || error.message);
+        vacancies.value = [];
+    }
 };
 
 const fetchTasks = async () => {
-  try {
-    console.log('Fetching tasks with initDataRaw:', initDataRaw.value);
-    const response = await axios.get(`${BASE_URL}/api/tasks`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value },
-      timeout: 5000
-    });
-    tasks.value = response.data.map(task => ({
-      ...task,
-      photoUrl: task.photoUrl || jobIcon
-    }));
-  } catch (error) {
-    console.error('Fetch tasks error:', error.response?.status, error.response?.data || error.message);
-    tasks.value = [];
-  } finally {
-    isLoading.value = false;
-  }
+    try {
+        console.log('Fetching tasks with initDataRaw:', initDataRaw.value);
+        const response = await axios.post(`${BASE_URL}/api/tasks`, { initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000
+        });
+        tasks.value = response.data.map(task => ({
+            ...task,
+            photoUrl: task.photoUrl || jobIcon
+        }));
+    } catch (error) {
+        console.error('Fetch tasks error:', error.response?.status, error.response?.data || error.message);
+        tasks.value = [];
+    } finally {
+        isLoading.value = false;
+    }
 };
 
 const fetchFavorites = async () => {
-  try {
-    console.log('Fetching favorites with initDataRaw:', initDataRaw.value);
-    const response = await axios.get(`${BASE_URL}/api/favorites`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    favoriteJobs.value = response.data;
-  } catch (error) {
-    console.error('Fetch favorites error:', error.response?.status, error.response?.data || error.message);
-    favoriteJobs.value = [];
-  }
+    try {
+        console.log('Fetching favorites with initDataRaw:', initDataRaw.value);
+        const response = await axios.post(`${BASE_URL}/api/favorites`, { initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        favoriteJobs.value = response.data;
+    } catch (error) {
+        console.error('Fetch favorites error:', error.response?.status, error.response?.data || error.message);
+        favoriteJobs.value = [];
+    }
 };
 
 const fetchChatUuids = async () => {
-  try {
-    console.log('Fetching chat UUIDs with initDataRaw:', initDataRaw.value);
-    const response = await axios.get(`${BASE_URL}/api/chats`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    chatUuidMap.value = response.data.reduce((map, chat) => {
-      map[chat.jobId] = chat.chatUuid;
-      return map;
-    }, {});
-  } catch (error) {
-    console.error('Fetch chat UUIDs error:', error.response?.status, error.response?.data || error.message);
-  }
+    try {
+        console.log('Fetching chat UUIDs with initDataRaw:', initDataRaw.value);
+        const response = await axios.post(`${BASE_URL}/api/chats`, { initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        chatUuidMap.value = response.data.reduce((map, chat) => {
+            map[chat.jobId] = chat.chatUuid;
+            return map;
+        }, {});
+    } catch (error) {
+        console.error('Fetch chat UUIDs error:', error.response?.status, error.response?.data || error.message);
+    }
 };
 
 const showJobDetails = (job) => {
@@ -644,347 +649,350 @@ const showJobDetails = (job) => {
 };
 
 const showVacancyDetails = (vacancy) => {
-  selectedVacancy.value = vacancy;
-  isVacancy.value = true;
-  isTask.value = false;
-  open.value = true;
+    selectedVacancy.value = vacancy;
+    isVacancy.value = true;
+    isTask.value = false;
+    open.value = true;
 };
 
 const showTaskDetails = (task) => {
-  selectedTask.value = task;
-  isTask.value = true;
-  isVacancy.value = false;
-  open.value = true;
+    selectedTask.value = task;
+    isTask.value = true;
+    isVacancy.value = false;
+    open.value = true;
 };
 
 const showAddJobModal = () => {
-  showAdminModal.value = false;
-  newItem.value = {
-    publicId: '',
-    userId: '',
-    nick: '',
-    username: '',
-    position: '',
-    experience: null,
-    description: '',
-    requirements: [],
-    tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin'
-  };
-  addMode.value = 'job';
-  showAddModal.value = true;
+    showAdminModal.value = false;
+    newItem.value = {
+        publicId: '',
+        userId: '',
+        nick: '',
+        username: '',
+        position: '',
+        experience: null,
+        description: '',
+        requirements: [],
+        tags: [],
+        categories: [],
+        contact: 'https://t.me/workiks_admin'
+    };
+    addMode.value = 'job';
+    showAddModal.value = true;
 };
 
 const showAddVacancyModal = () => {
-  showAdminModal.value = false;
-  newItem.value = {
-    companyUserId: '',
-    companyName: '',
-    position: '',
-    description: '',
-    requirements: [],
-    tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin',
-    officialWebsite: '',
-    verified: false,
-    photoUrl: ''
-  };
-  addMode.value = 'vacancy';
-  showAddModal.value = true;
+    showAdminModal.value = false;
+    newItem.value = {
+        companyUserId: '',
+        companyName: '',
+        position: '',
+        description: '',
+        requirements: [],
+        tags: [],
+        categories: [],
+        contact: 'https://t.me/workiks_admin',
+        officialWebsite: '',
+        verified: false,
+        photoUrl: ''
+    };
+    addMode.value = 'vacancy';
+    showAddModal.value = true;
 };
 
 const showAddTaskModal = () => {
-  showAdminModal.value = false;
-  newTask.value = {
-    title: '',
-    reward: '',
-    deadline: '',
-    description: '',
-    tags: [],
-    categories: [],
-    contact: 'https://t.me/workiks_admin',
-    photoUrl: 'https://i.postimg.cc/Yq9BtRJH/tasks.webp'
-  };
-  showTaskModal.value = true;
+    showAdminModal.value = false;
+    newTask.value = {
+        title: '',
+        reward: '',
+        deadline: '',
+        description: '',
+        tags: [],
+        categories: [],
+        contact: 'https://t.me/workiks_admin',
+        photoUrl: 'https://i.postimg.cc/Yq9BtRJH/tasks.webp'
+    };
+    showTaskModal.value = true;
 };
 
 const toggleFilterModal = () => {
-  showFilterModal.value = !showFilterModal.value;
-  if (showFilterModal.value) {
-    nextTick(() => {
-      const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
-      firstCheckbox?.focus();
-    });
-  }
+    showFilterModal.value = !showFilterModal.value;
+    if (showFilterModal.value) {
+        nextTick(() => {
+            const firstCheckbox = document.querySelector('.filter-modal input[type="checkbox"]');
+            firstCheckbox?.focus();
+        });
+    }
 };
 
 const addRequirement = () => {
-  if (requirementsInput.value.trim()) {
-    newItem.value.requirements.push(requirementsInput.value.trim());
-    requirementsInput.value = '';
-  }
+    if (requirementsInput.value.trim()) {
+        newItem.value.requirements.push(requirementsInput.value.trim());
+        requirementsInput.value = '';
+    }
 };
 
 const addTag = () => {
-  if (tagsInput.value.trim()) {
-    newItem.value.tags.push(tagsInput.value.trim());
-    tagsInput.value = '';
-  }
+    if (tagsInput.value.trim()) {
+        newItem.value.tags.push(tagsInput.value.trim());
+        tagsInput.value = '';
+    }
 };
 
 const addTaskTag = () => {
-  if (tagsInput.value.trim()) {
-    newTask.value.tags.push(tagsInput.value.trim());
-    tagsInput.value = '';
-  }
+    if (tagsInput.value.trim()) {
+        newTask.value.tags.push(tagsInput.value.trim());
+        tagsInput.value = '';
+    }
 };
 
 const submitItem = async () => {
-  formSubmitted.value = true;
-  if (addMode.value === 'job') {
-    if (!newItem.value.userId || !newItem.value.nick || !newItem.value.position || !newItem.value.description) {
-      Telegram.WebApp.showAlert("Please fill in all required fields!");
-      return;
+    formSubmitted.value = true;
+    if (addMode.value === 'job') {
+        if (!newItem.value.userId || !newItem.value.nick || !newItem.value.position || !newItem.value.description) {
+            Telegram.WebApp.showAlert("Please fill in all required fields!");
+            return;
+        }
+        try {
+            const jobData = { ...newItem.value, categories: newItem.value.categories || [], initDataRaw: initDataRaw.value };
+            const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+            jobs.value.push(response.data.job);
+            showAddModal.value = false;
+        } catch (error) {
+            console.error('Submit job error:', error);
+            Telegram.WebApp.showAlert("Failed to add job!");
+        }
+    } else {
+        if (!newItem.value.companyUserId || !newItem.value.companyName || !newItem.value.position || !newItem.value.description || !newItem.value.contact || !newItem.value.officialWebsite || !newItem.value.photoUrl) {
+            Telegram.WebApp.showAlert("Please fill in all required fields!");
+            return;
+        }
+        try {
+            const vacancyData = { ...newItem.value, categories: newItem.value.categories || [], initDataRaw: initDataRaw.value };
+            const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+            vacancies.value.push(response.data.vacancy);
+            showAddModal.value = false;
+        } catch (error) {
+            console.error('Submit vacancy error:', error);
+            Telegram.WebApp.showAlert("Failed to add vacancy!");
+        }
     }
-    try {
-      const jobData = { ...newItem.value, categories: newItem.value.categories || [] };
-      const response = await axios.post(`${BASE_URL}/api/jobs`, jobData, {
-        headers: { 'X-Telegram-Data': initDataRaw.value }
-      });
-      jobs.value.push(response.data.job);
-      showAddModal.value = false;
-    } catch (error) {
-      console.error('Submit job error:', error);
-      Telegram.WebApp.showAlert("Failed to add job!");
-    }
-  } else {
-    if (!newItem.value.companyUserId || !newItem.value.companyName || !newItem.value.position || !newItem.value.description || !newItem.value.contact || !newItem.value.officialWebsite || !newItem.value.photoUrl) {
-      Telegram.WebApp.showAlert("Please fill in all required fields!");
-      return;
-    }
-    try {
-      const vacancyData = { ...newItem.value, categories: newItem.value.categories || [] };
-      const response = await axios.post(`${BASE_URL}/api/vacancies`, vacancyData, {
-        headers: { 'X-Telegram-Data': initDataRaw.value }
-      });
-      vacancies.value.push(response.data.vacancy);
-      showAddModal.value = false;
-    } catch (error) {
-      console.error('Submit vacancy error:', error);
-      Telegram.WebApp.showAlert("Failed to add vacancy!");
-    }
-  }
 };
 
 const submitTask = async () => {
-  formSubmitted.value = true;
-  if (!newTask.value.title || !newTask.value.reward || !newTask.value.description || !newTask.value.contact) {
-    Telegram.WebApp.showAlert("Please fill in all required fields!");
-    return;
-  }
-  try {
-    const taskData = { ...newTask.value, categories: newTask.value.categories || [] };
-    const response = await axios.post(`${BASE_URL}/api/tasks`, taskData, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    tasks.value.push(response.data.task);
-    showTaskModal.value = false;
-  } catch (error) {
-    console.error('Submit task error:', error);
-    Telegram.WebApp.showAlert("Failed to add task!");
-  }
+    formSubmitted.value = true;
+    if (!newTask.value.title || !newTask.value.reward || !newTask.value.description || !newTask.value.contact) {
+        Telegram.WebApp.showAlert("Please fill in all required fields!");
+        return;
+    }
+    try {
+        const taskData = { ...newTask.value, categories: newTask.value.categories || [], initDataRaw: initDataRaw.value };
+        const response = await axios.post(`${BASE_URL}/api/tasks`, taskData, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        tasks.value.push(response.data.task);
+        showTaskModal.value = false;
+    } catch (error) {
+        console.error('Submit task error:', error);
+        Telegram.WebApp.showAlert("Failed to add task!");
+    }
 };
 
 const deleteJob = async (jobId) => {
-  try {
-    await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    jobs.value = jobs.value.filter(job => job.id !== jobId);
-    open.value = false;
-  } catch (error) {
-    console.error('Delete job error:', error);
-    Telegram.WebApp.showAlert("Failed to delete job!");
-  }
+    try {
+        await axios.delete(`${BASE_URL}/api/jobs/${jobId}`, {
+            data: { initDataRaw: initDataRaw.value }, // DELETE с телом
+            headers: { 'Content-Type': 'application/json' }
+        });
+        jobs.value = jobs.value.filter(job => job.id !== jobId);
+        open.value = false;
+    } catch (error) {
+        console.error('Delete job error:', error);
+        Telegram.WebApp.showAlert("Failed to delete job!");
+    }
 };
 
 const deleteVacancy = async (vacancyId) => {
-  try {
-    await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
-    open.value = false;
-  } catch (error) {
-    console.error('Delete vacancy error:', error);
-    Telegram.WebApp.showAlert("Failed to delete vacancy!");
-  }
+    try {
+        await axios.delete(`${BASE_URL}/api/vacancies/${vacancyId}`, {
+            data: { initDataRaw: initDataRaw.value },
+            headers: { 'Content-Type': 'application/json' }
+        });
+        vacancies.value = vacancies.value.filter(vacancy => vacancy.id !== vacancyId);
+        open.value = false;
+    } catch (error) {
+        console.error('Delete vacancy error:', error);
+        Telegram.WebApp.showAlert("Failed to delete vacancy!");
+    }
 };
 
 const deleteTask = async (taskId) => {
-  try {
-    await axios.delete(`${BASE_URL}/api/tasks/${taskId}`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    tasks.value = tasks.value.filter(task => task.id !== taskId);
-    open.value = false;
-  } catch (error) {
-    console.error('Delete task error:', error);
-    Telegram.WebApp.showAlert("Failed to delete task!");
-  }
+    try {
+        await axios.delete(`${BASE_URL}/api/tasks/${taskId}`, {
+            data: { initDataRaw: initDataRaw.value },
+            headers: { 'Content-Type': 'application/json' }
+        });
+        tasks.value = tasks.value.filter(task => task.id !== taskId);
+        open.value = false;
+    } catch (error) {
+        console.error('Delete task error:', error);
+        Telegram.WebApp.showAlert("Failed to delete task!");
+    }
 };
 
 const togglePinned = async (item) => {
-  try {
-    const endpoint = item.companyUserId ? `/api/vacancies/${item.id}/pinned` :
-                    item.userId ? `/api/jobs/${item.id}/pinned` :
-                    `/api/tasks/${item.id}/pinned`;
-    await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned }, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    fetchJobs();
-    fetchVacancies();
-    fetchTasks();
-    Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
-  } catch (error) {
-    console.error('Toggle pinned error:', error);
-    Telegram.WebApp.showAlert('Не удалось изменить статус закрепления');
-  }
+    try {
+        const endpoint = item.companyUserId ? `/api/vacancies/${item.id}/pinned` :
+                        item.userId ? `/api/jobs/${item.id}/pinned` :
+                        `/api/tasks/${item.id}/pinned`;
+        await axios.put(`${BASE_URL}${endpoint}`, { pinned: item.pinned, initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        fetchJobs();
+        fetchVacancies();
+        fetchTasks();
+        Telegram.WebApp.showAlert(`Элемент ${item.pinned ? 'закреплен' : 'откреплен'}!`);
+    } catch (error) {
+        console.error('Toggle pinned error:', error);
+        Telegram.WebApp.showAlert('Не удалось изменить статус закрепления');
+    }
 };
 
 const checkAdminStatus = async () => {
-  try {
-    console.log('Checking admin status with initDataRaw:', initDataRaw.value);
-    const response = await axios.get(`${BASE_URL}/api/isAdmin`, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    isAdmin.value = response.data.isAdmin;
-  } catch (error) {
-    console.error('Check admin status error:', error.response?.status, error.response?.data || error.message);
-    isAdmin.value = false;
-  }
+    try {
+        console.log('Checking admin status with initDataRaw:', initDataRaw.value);
+        const response = await axios.post(`${BASE_URL}/api/isAdmin`, { initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        isAdmin.value = response.data.isAdmin;
+    } catch (error) {
+        console.error('Check admin status error:', error.response?.status, error.response?.data || error.message);
+        isAdmin.value = false;
+    }
 };
 
 const handleClickOutside = (event) => {
-  const isProfileLink = event.target.closest('.profile-link') !== null;
-  if (searchInput.value && !searchInput.value.contains(event.target)) {
-    searchInput.value.blur();
-  }
-  if (isProfileLink) return;
+    const isProfileLink = event.target.closest('.profile-link') !== null;
+    if (searchInput.value && !searchInput.value.contains(event.target)) {
+        searchInput.value.blur();
+    }
+    if (isProfileLink) return;
 };
 
 const toggleFavorite = async (itemId) => {
-  const isVacancyItem = vacancies.value.some(v => v.id === itemId);
-  const wasFavorite = favoriteJobs.value.includes(itemId);
-  try {
-    const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId }, {
-      headers: { 'X-Telegram-Data': initDataRaw.value }
-    });
-    favoriteJobs.value = response.data.favorites;
-    if (wasFavorite) {
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
-    } else {
-      Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
+    const isVacancyItem = vacancies.value.some(v => v.id === itemId);
+    const wasFavorite = favoriteJobs.value.includes(itemId);
+    try {
+        const response = await axios.post(`${BASE_URL}/api/toggleFavorite`, { itemId, initDataRaw: initDataRaw.value }, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        favoriteJobs.value = response.data.favorites;
+        if (wasFavorite) {
+            Telegram.WebApp.showAlert(isVacancyItem ? "Вы отписались от вакансий компании." : "Удалено из избранного!");
+        } else {
+            Telegram.WebApp.showAlert(isVacancyItem ? "Вы подписались на вакансии компании!" : "Добавлено в избранное!");
+        }
+    } catch (error) {
+        console.error('Toggle favorite error:', error);
+        Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
     }
-  } catch (error) {
-    console.error('Toggle favorite error:', error);
-    Telegram.WebApp.showAlert("Произошла ошибка при подписке/отписке.");
-  }
 };
 
 const isFavorite = (itemId) => favoriteJobs.value.includes(itemId);
 
 const handleImageError = (event) => {
-  event.target.src = jobIcon;
+    event.target.src = jobIcon;
 };
 
 const handleAddJobsClick = () => {
-  if (isAdmin.value) {
-    showAdminModal.value = true;
-  } else {
-    window.open('https://t.me/workiks_admin', '_blank');
-  }
+    if (isAdmin.value) {
+        showAdminModal.value = true;
+    } else {
+        window.open('https://t.me/workiks_admin', '_blank');
+    }
 };
 
 const isOwner = (targetUserId) => {
-  return currentUserId.value === targetUserId;
+    return currentUserId.value === targetUserId;
 };
 
 const startChat = async (jobId) => {
-  const job = jobs.value.find(j => j.id === jobId);
-  if (!job) return;
+    const job = jobs.value.find(j => j.id === jobId);
+    if (!job) return;
 
-  selectedJob.value = job;
+    selectedJob.value = job;
 
-  if (isOwner(job.userId)) {
-    router.push('/chats');
-    return;
-  }
-
-  try {
-    if (!chatUuidMap.value[jobId]) {
-      const response = await axios.post(`${BASE_URL}/api/startChat`, { jobId }, {
-        headers: { 'X-Telegram-Data': initDataRaw.value }
-      });
-      chatUuidMap.value[jobId] = response.data.chatUuid;
+    if (isOwner(job.userId)) {
+        router.push('/chats');
+        return;
     }
-    router.push(`/chat/${chatUuidMap.value[jobId]}`);
-  } catch (error) {
-    console.error('Start chat error:', error);
-    Telegram.WebApp.showAlert("Failed to start chat!");
-  }
+
+    try {
+        if (!chatUuidMap.value[jobId]) {
+            const response = await axios.post(`${BASE_URL}/api/startChat`, { jobId, initDataRaw: initDataRaw.value }, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+            chatUuidMap.value[jobId] = response.data.chatUuid;
+        }
+        router.push(`/chat/${chatUuidMap.value[jobId]}`);
+    } catch (error) {
+        console.error('Start chat error:', error);
+        Telegram.WebApp.showAlert("Failed to start chat!");
+    }
 };
 
 const setupWebSocket = () => {
-  ws.value = new WebSocket(WS_URL, [], {
-    headers: { 'user-id': currentUserId.value }
-  });
-  ws.value.onopen = () => console.log('WebSocket connected');
-  ws.value.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === 'newMessage') {
-      Telegram.WebApp.showAlert(`New message in chat ${data.chatUuid}`);
-    }
-  };
-  ws.value.onerror = (error) => console.error('WebSocket error:', error);
-  ws.value.onclose = () => console.log('WebSocket disconnected');
+    ws.value = new WebSocket(WS_URL, [], {
+        headers: { 'user-id': currentUserId.value }
+    });
+    ws.value.onopen = () => console.log('WebSocket connected');
+    ws.value.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'newMessage') {
+            Telegram.WebApp.showAlert(`New message in chat ${data.chatUuid}`);
+        }
+    };
+    ws.value.onerror = (error) => console.error('WebSocket error:', error);
+    ws.value.onclose = () => console.log('WebSocket disconnected');
 };
 
 const router = useRouter();
 
 onMounted(async () => {
-  await initUserData();
+    await initUserData();
 
-  const isTelegram = await isTMA({ timeout: 100 });
-  if (isTelegram) {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
-    Telegram.WebApp.disableVerticalSwipes();
-    if (Telegram.WebApp.setHeaderColor) {
-      Telegram.WebApp.setHeaderColor('#97f492');
+    const isTelegram = await isTMA({ timeout: 100 });
+    if (isTelegram) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.disableVerticalSwipes();
+        if (Telegram.WebApp.setHeaderColor) {
+            Telegram.WebApp.setHeaderColor('#97f492');
+        }
+        console.log('Telegram Web App инициализирован, currentUserId:', currentUserId.value);
+    } else {
+        console.warn('Приложение запущено вне Telegram Mini Apps');
     }
-    console.log('Telegram Web App инициализирован, currentUserId:', currentUserId.value);
-  } else {
-    console.warn('Приложение запущено вне Telegram Mini Apps');
-  }
 
-  await Promise.all([
-    checkAdminStatus(),
-    fetchJobs(),
-    fetchVacancies(),
-    fetchTasks(),
-    fetchFavorites(),
-    fetchChatUuids()
-  ]);
-  setupWebSocket();
+    await Promise.all([
+        checkAdminStatus(),
+        fetchJobs(),
+        fetchVacancies(),
+        fetchTasks(),
+        fetchFavorites(),
+        fetchChatUuids()
+    ]);
+    setupWebSocket();
 });
 
 onUnmounted(() => {
-  if (ws.value) {
-    ws.value.close();
-  }
+    if (ws.value) {
+        ws.value.close();
+    }
 });
 </script>
 
