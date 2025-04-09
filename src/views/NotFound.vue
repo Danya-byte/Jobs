@@ -41,11 +41,6 @@ const updateTimer = () => {
   }
 }
 
-const back = () => {
-  window.Telegram.WebApp.BackButton.hide();
-  window.location.href = '/';
-};
-
 onMounted(() => {
   Telegram.WebApp.setHeaderColor('#97f492');
   window.Telegram.WebApp.ready();
