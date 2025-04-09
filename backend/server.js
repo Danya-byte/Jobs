@@ -335,32 +335,8 @@ function validateTelegramData(initData) {
       return false;
     }
 
-    const params = new URLSearchParams(initData);
-    const receivedHash = params.get('hash');
-    if (!receivedHash) {
-      logger.warn(`Нет hash в initData: ${initData}`);
-      return false;
-    }
-
-    const dataCheckString = Array.from(params.entries())
-      .filter(([key]) => key !== 'hash')
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, val]) => `${key}=${val}`)
-      .join('\n');
-
-    const secretKey = crypto.createHmac('sha256', 'WebAppData')
-      .update(BOT_TOKEN)
-      .digest();
-    const calculatedHash = crypto.createHmac('sha256', secretKey)
-      .update(dataCheckString)
-      .digest('hex');
-
-    logger.info(`Полученный hash: ${receivedHash}, Рассчитанный hash: ${calculatedHash}, initData: ${initData}`);
-    if (calculatedHash !== receivedHash) {
-      logger.warn('Хэши не совпадают');
-      return false;
-    }
-
+    // Используем библиотеку @telegram-apps/init-data-node для валидации
+    validate(initData, BOT_TOKEN);
     return true;
   } catch (error) {
     logger.error(`Ошибка валидации: ${error.message}, initData: ${initData}`);
@@ -414,6 +390,7 @@ app.get('/api/jobs', async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 app.post('/api/startChat', async (req, res) => {
   const telegramData = req.headers["x-telegram-data"];
   if (!telegramData || !validateTelegramData(telegramData)) {
@@ -583,9 +560,26 @@ app.delete("/api/jobs/:jobId", async (req, res) => {
   }
 });
 
-app.get("/api/vacancies", async (req, res) => {
-  res.json(vacanciesData);
+app.get('/api/vacancies', async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      logger.warn(`Ошибка авторизации для /api/vacancies, telegramData: ${telegramData || 'отсутствует'}`);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const vacanciesWithDefaultPhoto = vacanciesData.map(vacancy => ({
+      ...vacancy,
+      photoUrl: vacancy.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+    }));
+
+    res.json(vacanciesWithDefaultPhoto);
+  } catch (error) {
+    logger.error(`Error in /api/vacancies: ${error.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
+
 app.get('/api/favorites', async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
@@ -759,8 +753,24 @@ app.delete("/api/vacancies/:vacancyId", async (req, res) => {
   }
 });
 
-app.get("/api/tasks", async (req, res) => {
-  res.json(tasksData);
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const telegramData = req.headers["x-telegram-data"];
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      logger.warn(`Ошибка авторизации для /api/tasks, telegramData: ${telegramData || 'отсутствует'}`);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const tasksWithDefaultPhoto = tasksData.map(task => ({
+      ...task,
+      photoUrl: task.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp'
+    }));
+
+    res.json(tasksWithDefaultPhoto);
+  } catch (error) {
+    logger.error(`Error in /api/tasks: ${error.message}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 app.post("/api/tasks", async (req, res) => {
@@ -1419,7 +1429,7 @@ app.get("/api/chats", async (req, res) => {
   try {
     const telegramData = req.headers["x-telegram-data"];
     if (!telegramData || !validateTelegramData(telegramData)) {
-      logger.warn(`Ошибка авторизации для /api/chats, telegramData: ${telegramData}`);
+      logger.warn(`Ошибка авторизации для /api/chats, telegramData: ${telegramData || 'отсутствует'}`);
       return res.status(401).json({ error: "Unauthorized" });
     }
     const params = new URLSearchParams(telegramData);
@@ -1427,11 +1437,11 @@ app.get("/api/chats", async (req, res) => {
     const currentUserId = user.id.toString();
 
     const userChats = await Promise.all(
-      Object.values(chatUnlocksData)
-        .filter(chat => chat.authorUserId === currentUserId || chat.targetUserId === currentUserId)
-        .map(async (chat) => {
+      Object.entries(chatUnlocksData)
+        .filter(([_, chat]) => chat.authorUserId === currentUserId || chat.targetUserId === currentUserId)
+        .map(async ([chatUuid, chat]) => {
           const lastMessage = messagesData
-            .filter(msg => msg.chatUuid === chat.chatUuid)
+            .filter(msg => msg.chatUuid === chatUuid)
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
           const otherUserId = chat.authorUserId === currentUserId ? chat.targetUserId : chat.authorUserId;
@@ -1450,7 +1460,7 @@ app.get("/api/chats", async (req, res) => {
           }
 
           return {
-            chatUuid: chat.chatUuid,
+            chatUuid,
             jobId: chat.jobId,
             targetUserId: otherUserId,
             nick: job ? job.nick : 'Unknown',

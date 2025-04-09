@@ -561,8 +561,8 @@ const isNew = (item) => {
 const fetchJobs = async () => {
     try {
         console.log('Fetching jobs with initDataRaw:', initDataRaw.value);
-        const response = await axios.post(`${BASE_URL}/api/jobs`, { initDataRaw: initDataRaw.value }, {
-            headers: { 'Content-Type': 'application/json' },
+        const response = await axios.get(`${BASE_URL}/api/jobs`, {
+            headers: { 'X-Telegram-Data': initDataRaw.value },
             timeout: 5000
         });
         jobs.value = response.data.map(job => ({
@@ -579,9 +579,8 @@ const fetchJobs = async () => {
 
 const fetchVacancies = async () => {
     try {
-        console.log('Fetching vacancies with initDataRaw:', initDataRaw.value);
-        const response = await axios.post(`${BASE_URL}/api/vacancies`, { initDataRaw: initDataRaw.value }, {
-            headers: { 'Content-Type': 'application/json' },
+        const response = await axios.get(`${BASE_URL}/api/vacancies`, {
+            headers: { 'X-Telegram-Data': initDataRaw.value },
             timeout: 5000
         });
         vacancies.value = response.data.map(vacancy => ({
@@ -596,9 +595,8 @@ const fetchVacancies = async () => {
 
 const fetchTasks = async () => {
     try {
-        console.log('Fetching tasks with initDataRaw:', initDataRaw.value);
-        const response = await axios.post(`${BASE_URL}/api/tasks`, { initDataRaw: initDataRaw.value }, {
-            headers: { 'Content-Type': 'application/json' },
+        const response = await axios.get(`${BASE_URL}/api/tasks`, {
+            headers: { 'X-Telegram-Data': initDataRaw.value },
             timeout: 5000
         });
         tasks.value = response.data.map(task => ({
@@ -628,16 +626,14 @@ const fetchFavorites = async () => {
 
 const fetchChatUuids = async () => {
     try {
-        console.log('Fetching chat UUIDs with initDataRaw:', initDataRaw.value);
-        const response = await axios.post(`${BASE_URL}/api/chats`, { initDataRaw: initDataRaw.value }, {
-            headers: { 'Content-Type': 'application/json' }
+        const response = await axios.get(`${BASE_URL}/api/chats`, {
+            headers: { 'X-Telegram-Data': initDataRaw.value },
+            timeout: 5000
         });
-        chatUuidMap.value = response.data.reduce((map, chat) => {
-            map[chat.jobId] = chat.chatUuid;
-            return map;
-        }, {});
+        chats.value = response.data;
     } catch (error) {
-        console.error('Fetch chat UUIDs error:', error.response?.status, error.response?.data || error.message);
+        console.error('Fetch chats error:', error.response?.status, error.response?.data || error.message);
+        chats.value = [];
     }
 };
 
