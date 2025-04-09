@@ -1,5 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
+const originalFetch = window.fetch;
+window.fetch = async function (...args) {
+  try {
+    const response = await originalFetch(...args);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response;
+  } catch (error) {
+    console.error('Fetch error:', error);
+    router.push({ name: 'not-found', query: { error: error.message } });
+    throw error;
+  }
+};
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -74,7 +89,7 @@ const router = createRouter({
 
 router.onError((error) => {
   console.error('Router error:', error);
-  router.push({ name: 'not-found' });
+  router.push({ name: 'not-found', query: { error: error.message } });
 });
 
 router.beforeEach((to, from, next) => {
@@ -84,5 +99,21 @@ router.beforeEach((to, from, next) => {
     next();
   }
 });
+
+const originalWebSocket = window.WebSocket;
+window.WebSocket = function (...args) {
+  const ws = new originalWebSocket(...args);
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    router.push({ name: 'not-found', query: { error: 'WebSocket connection failed' } });
+  };
+  ws.onclose = (event) => {
+    if (!event.wasClean) {
+      console.error('WebSocket disconnected:', event);
+      router.push({ name: 'not-found', query: { error: 'WebSocket disconnected unexpectedly' } });
+    }
+  };
+  return ws;
+};
 
 export default router;
