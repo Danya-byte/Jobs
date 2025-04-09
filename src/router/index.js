@@ -34,9 +34,8 @@ const router = createRouter({
         const chatUuid = to.params.chatUuid;
         if (!chatUuid) {
           console.warn('Chat UUID is missing');
-          return next({ name: 'chatList' });
+          return next({ name: 'not-found' });
         }
-
 
         try {
           const response = await fetch(`/api/chat/status/${chatUuid}`, {
@@ -44,16 +43,21 @@ const router = createRouter({
               'X-Telegram-Data': window.Telegram.WebApp.initData,
             },
           });
+
+          if (!response.ok) {
+            console.warn('Server error or unavailable');
+            return next({ name: 'not-found' });
+          }
+
           const { blocked } = await response.json();
-          if (!response.ok) throw new Error('Failed to fetch chat status');
           if (blocked) {
             console.warn('Chat is blocked');
-            return next({ name: 'chatList' });
+            return next({ name: 'not-found' });
           }
           next();
         } catch (error) {
           console.error('Error checking chat status:', error);
-          next({ name: 'chatList' });
+          next({ name: 'not-found' });
         }
       },
     },
@@ -70,5 +74,9 @@ const router = createRouter({
   ],
 });
 
+router.onError((error) => {
+  console.error('Router error:', error);
+  router.push({ name: 'not-found' });
+});
 
 export default router;
