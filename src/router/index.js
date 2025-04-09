@@ -1,5 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
+const fetchWithFallback = async (url, options = {}) => {
+  try {
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Network/Server error:', error);
+    router.push({ name: 'not-found' });
+    throw error;
+  }
+};
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -38,26 +54,21 @@ const router = createRouter({
         }
 
         try {
-          const response = await fetch(`/api/chat/status/${chatUuid}`, {
+          const response = await fetchWithFallback(`/api/chat/status/${chatUuid}`, {
             headers: {
               'X-Telegram-Data': window.Telegram.WebApp.initData,
             },
           });
-
-          if (!response.ok) {
-            console.warn('Server error or unavailable');
-            return next({ name: 'not-found' });
-          }
 
           const { blocked } = await response.json();
           if (blocked) {
             console.warn('Chat is blocked');
             return next({ name: 'not-found' });
           }
+
           next();
         } catch (error) {
-          console.error('Error checking chat status:', error);
-          next({ name: 'not-found' });
+          return false;
         }
       },
     },
