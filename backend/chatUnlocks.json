@@ -10,5 +10,11 @@
     "authorUserId": "1940359844",
     "targetUserId": "5164023566",
     "blocked": false
+  },
+  "790b7e00-d06b-4cb0-b68d-ca275e1f164a": {
+    "jobId": "1741465662819_1940359844",
+    "authorUserId": "1940359844",
+    "targetUserId": "1940359844",
+    "blocked": false
   }
 }
