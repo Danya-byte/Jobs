@@ -431,12 +431,11 @@ const categories = [
     { label: 'Finance', value: 'finance' }
 ];
 
-// Инициализация initDataRaw
 initDataRaw.value = window.Telegram.WebApp.initData;
 if (!initDataRaw.value) {
-    console.error("initDataRaw не получен!");
+    console.error("initDataRaw undefined");
 } else {
-    console.log("initDataRaw:", initDataRaw.value);
+    //console.log("initDataRaw:", initDataRaw.value);
 }
 
 const initUserData = async () => {
@@ -445,10 +444,9 @@ const initUserData = async () => {
         if (isTelegram) {
             const launchParams = retrieveLaunchParams();
             initDataRaw.value = launchParams.initDataRaw || window.Telegram.WebApp.initData;
-            console.log('Client initDataRaw:', initDataRaw.value);
+            //console.log('Client initDataRaw:', initDataRaw.value);
             if (!initDataRaw.value) {
-                console.error('initDataRaw пустой. Запустите через Telegram Web App.');
-                Telegram.WebApp.showAlert('Пожалуйста, откройте приложение через Telegram.');
+                console.error('initDataRaw empty.Open via Telegram Web App.');
                 currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
                 userPhoto.value = jobIcon;
                 return;
@@ -467,7 +465,7 @@ const initUserData = async () => {
             initDataRaw.value = '';
         }
     } catch (error) {
-        console.error('Ошибка инициализации SDK или получения launchParams:', error);
+        console.error('error sdk', error);
         currentUserId.value = "default_user_" + Math.random().toString(36).substr(2, 9);
         userPhoto.value = jobIcon;
         initDataRaw.value = '';
@@ -548,7 +546,7 @@ const isNew = (item) => {
 
 const fetchJobs = async () => {
     try {
-        console.log('Fetching jobs with initDataRaw:', initDataRaw.value);
+        //console.log('Fetching jobs with initDataRaw:', initDataRaw.value);
         const response = await axios.get(`${BASE_URL}/api/jobs`, {
             headers: { 'X-Telegram-Data': initDataRaw.value },
             timeout: 5000
@@ -601,7 +599,7 @@ const fetchTasks = async () => {
 
 const fetchFavorites = async () => {
     try {
-        console.log('Fetching favorites with initDataRaw:', initDataRaw.value);
+        //console.log('Fetching favorites with initDataRaw:', initDataRaw.value);
         const response = await axios.post(`${BASE_URL}/api/favorites`, { initDataRaw: initDataRaw.value }, {
             headers: { 'Content-Type': 'application/json' }
         });
@@ -848,7 +846,7 @@ const togglePinned = async (item) => {
 
 const checkAdminStatus = async () => {
     try {
-        console.log('Checking admin status with initDataRaw:', initDataRaw.value);
+        //console.log('Checking admin status with initDataRaw:', initDataRaw.value);
         const response = await axios.post(`${BASE_URL}/api/isAdmin`, { initDataRaw: initDataRaw.value }, {
             headers: { 'Content-Type': 'application/json' }
         });
@@ -957,7 +955,7 @@ onMounted(async () => {
         if (Telegram.WebApp.setHeaderColor) {
             Telegram.WebApp.setHeaderColor('#97f492');
         }
-        console.log('Telegram Web App инициализирован, currentUserId:', currentUserId.value);
+        console.log('currentUserId:', currentUserId.value);
     } else {
         console.warn('Приложение запущено вне Telegram Mini Apps');
     }
