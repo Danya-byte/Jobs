@@ -42,6 +42,9 @@ const updateTimer = () => {
 }
 
 onMounted(() => {
+  Telegram.WebApp.setHeaderColor('#97f492');
+  window.Telegram.WebApp.ready();
+  window.Telegram.WebApp.expand();
   updateTimer()
 })
 
