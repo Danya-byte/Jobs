@@ -353,7 +353,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-import { retrieveLaunchParams } from '@telegram-apps/sdk';
+import { isTMA } from '@telegram-apps/bridge'; // Используем для проверки окружения
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
 const WS_URL = 'wss://jobs.cloudpub.ru';
@@ -430,27 +430,26 @@ const categories = [
 ];
 
 const initUserData = () => {
-  try {
-    const { initData, initDataRaw: rawData } = retrieveLaunchParams();
-    initDataRaw.value = rawData;
-    if (initData?.user) {
-      const user = initData.user;
-      userPhoto.value = user.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  if (window.Telegram?.WebApp?.initData) {
+    initDataRaw.value = window.Telegram.WebApp.initData;
+    const user = window.Telegram.WebApp.initDataUnsafe?.user;
+    if (user) {
+      userPhoto.value = user.photo_url || jobIcon;
       userFirstName.value = user.first_name || 'Workiks';
       userLastName.value = user.last_name || 'Workiks';
-      currentUserId.value = user.id.toString();
-      currentUsername.value = user.username || `user${user.id}`;
+      currentUserId.value = user.id?.toString() || 'default';
+      currentUsername.value = user.username || `user${user.id || 'default'}`;
     } else {
-      console.warn('No user data in initData, fallback to defaults');
-      userPhoto.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      console.warn('No user data in initData, using defaults');
+      userPhoto.value = jobIcon;
       userFirstName.value = 'Workiks';
       userLastName.value = 'Workiks';
       currentUserId.value = 'default';
       currentUsername.value = 'default';
     }
-  } catch (error) {
-    console.error('Failed to retrieve launch params:', error);
-    userPhoto.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+  } else {
+    console.warn('Telegram Web App not available, using defaults');
+    userPhoto.value = jobIcon;
     userFirstName.value = 'Workiks';
     userLastName.value = 'Workiks';
     currentUserId.value = 'default';
@@ -538,7 +537,7 @@ const fetchJobs = async () => {
     });
     jobs.value = response.data.map(job => ({
       ...job,
-      photoUrl: job.photoUrl || jobIcon
+      photoUrl: job.photoUrl || (job.username ? `https://t.me/i/userpic/160/${job.username}.jpg` : jobIcon)
     }));
   } catch (error) {
     console.error('Fetch jobs error:', error);
@@ -549,8 +548,14 @@ const fetchJobs = async () => {
 
 const fetchVacancies = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/vacancies`, { timeout: 5000 });
-    vacancies.value = response.data;
+    const response = await axios.get(`${BASE_URL}/api/vacancies`, {
+      headers: { 'Authorization': `tma ${initDataRaw.value}` },
+      timeout: 5000
+    });
+    vacancies.value = response.data.map(vacancy => ({
+      ...vacancy,
+      photoUrl: vacancy.photoUrl || jobIcon
+    }));
   } catch (error) {
     console.error('Fetch vacancies error:', error);
   }
@@ -558,8 +563,14 @@ const fetchVacancies = async () => {
 
 const fetchTasks = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/api/tasks`, { timeout: 5000 });
-    tasks.value = response.data;
+    const response = await axios.get(`${BASE_URL}/api/tasks`, {
+      headers: { 'Authorization': `tma ${initDataRaw.value}` },
+      timeout: 5000
+    });
+    tasks.value = response.data.map(task => ({
+      ...task,
+      photoUrl: task.photoUrl || jobIcon
+    }));
   } catch (error) {
     console.error('Fetch tasks error:', error);
   } finally {
@@ -909,16 +920,19 @@ const setupWebSocket = () => {
 
 const router = useRouter();
 
-onMounted(() => {
-  initUserData();
-
-  if (window.Telegram?.WebApp) {
+onMounted(async () => {
+  const isTelegram = await isTMA({ timeout: 100 });
+  if (isTelegram) {
+    initUserData();
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     Telegram.WebApp.disableVerticalSwipes();
     if (Telegram.WebApp.setHeaderColor) {
       Telegram.WebApp.setHeaderColor('#97f492');
     }
+  } else {
+    console.warn('Not in Telegram environment, using defaults');
+    initUserData();
   }
 
   checkAdminStatus();
