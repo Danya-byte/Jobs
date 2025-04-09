@@ -353,10 +353,12 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { retrieveLaunchParams } from '@telegram-apps/sdk';
 
 const BASE_URL = 'https://jobs.cloudpub.ru';
 const WS_URL = 'wss://jobs.cloudpub.ru';
 
+const { initData } = retrieveLaunchParams();
 const router = useRouter();
 const chatUuidMap = ref({});
 const open = ref(false);
@@ -886,13 +888,13 @@ onMounted(() => {
     if (Telegram.WebApp.setHeaderColor) {
       Telegram.WebApp.setHeaderColor('#97f492');
     }
-    if (window.Telegram.WebApp.initDataUnsafe?.user) {
-      const user = Telegram.WebApp.initDataUnsafe.user;
-      userPhoto.value = user.photo_url || `https://t.me/i/userpic/160/${user.username}.jpg`;
-      userFirstName.value = user.first_name || '';
-      userLastName.value = user.last_name || '';
+    if (initData?.user) {
+      const user = initData.user;
+      userPhoto.value = user.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      userFirstName.value = user.first_name || 'Workiks';
+      userLastName.value = user.last_name || 'Workiks';
       currentUserId.value = user.id.toString();
-      currentUsername.value = user.username;
+      currentUsername.value = user.username || `user${user.id}`;
     }
   }
   checkAdminStatus();
