@@ -105,14 +105,10 @@ const handleTouchEnd = () => {
 };
 
 const loadProfileData = async () => {
-  console.log('Current user:', currentUser.value);
-  console.log('User ID:', userId.value);
-
   if (userId.value === currentUser.value?.id?.toString()) {
     profileData.firstName = currentUser.value.first_name || 'Unknown';
     profileData.username = currentUser.value.username || '';
     avatarSrc.value = currentUser.value.photo_url || (currentUser.value.username ? `https://t.me/i/userpic/160/${currentUser.value.username}.jpg` : 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp');
-    console.log('Using current user data:', profileData);
   } else {
     try {
       const response = await fetch(`https://jobs.cloudpub.ru/api/user/${userId.value}`, {
@@ -125,9 +121,7 @@ const loadProfileData = async () => {
       profileData.firstName = data.firstName || 'Unknown';
       profileData.username = data.username || '';
       avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-      console.log('Loaded from API:', profileData);
     } catch (error) {
-      console.error('Ошибка загрузки профиля:', error);
       profileData.firstName = 'Unknown';
       avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     }
@@ -135,41 +129,36 @@ const loadProfileData = async () => {
   loaded.value = true;
 };
 
-const loadProfileData = async () => {
-  console.log('Current user:', currentUser.value);
-  console.log('Public ID (from route):', userId.value);
-
-  const jobsData = JSON.parse(localStorage.getItem('jobsData') || '[]');
-  const userJob = jobsData.find(job => job.publicId === userId.value && job.userId === currentUser.value?.id?.toString());
-
-  if (userJob) {
-    profileData.firstName = currentUser.value.first_name || 'Unknown';
-    profileData.username = currentUser.value.username || '';
-    avatarSrc.value = currentUser.value.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    console.log('Using current user data:', profileData);
-  } else {
-    try {
-      const response = await fetch(`https://jobs.cloudpub.ru/api/user/public/${userId.value}`, {
-        headers: {
-          'X-Telegram-Data': Telegram.WebApp.initData
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+const loadReviews = async () => {
+  try {
+    const response = await fetch(`https://jobs.cloudpub.ru/api/reviews?targetUserId=${userId.value}`, {
+      headers: {
+        'X-Telegram-Data': Telegram.WebApp.initData
       }
+    });
+    if (!response.ok) {
+      if (response.status === 404) {
+        allReviews.value = [];
+      } else if (response.status === 401) {
+        allReviews.value = [];
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ошибка! Статус: ${response.status}`);
+      }
+    } else {
       const data = await response.json();
-      console.log('Server response:', data);
-      profileData.firstName = data.firstName || 'Unknown';
-      profileData.username = data.username || '';
-      avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-    } catch (error) {
-      console.error('Ошибка загрузки профиля:', error);
-      profileData.firstName = 'Unknown';
-      profileData.username = '';
-      avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+      if (!Array.isArray(data)) {
+        allReviews.value = [];
+      } else {
+        const filteredAndSortedReviews = data
+          .filter(review => review.date)
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        allReviews.value = filteredAndSortedReviews;
+      }
     }
+  } catch (error) {
+    allReviews.value = [];
   }
-  loaded.value = true;
 };
 
 const deleteReview = async (reviewId) => {
@@ -230,13 +219,11 @@ const checkAdminStatus = async () => {
     const data = await response.json();
     isAdmin.value = data.isAdmin;
   } catch (error) {
-    console.error('Error checking admin status:', error);
     isAdmin.value = false;
   }
 };
 
 onMounted(async () => {
-  console.log('Telegram initData:', Telegram.WebApp.initData);
   currentUser.value = Telegram.WebApp.initDataUnsafe?.user;
   userId.value = route.params.userId || currentUser.value?.id?.toString();
   if (!userId.value) {
