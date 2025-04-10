@@ -888,7 +888,7 @@ app.delete("/api/tasks/:taskId", async (req, res) => {
 
 app.get("/api/reviews", async (req, res) => {
   try {
-    const { targetUserId } = req.query;
+    const { targetUserId } = req.query; // targetUserId теперь publicId
     const telegramData = req.headers["x-telegram-data"];
 
     if (!telegramData || !validateTelegramData(telegramData)) {
@@ -899,9 +899,26 @@ app.get("/api/reviews", async (req, res) => {
       return res.status(400).json({ error: "Параметр targetUserId обязателен" });
     }
 
-    const userReviews = Object.values(reviewsData).filter(
-      (review) => review.targetUserId && review.targetUserId.toString() === targetUserId.toString()
-    );
+    // Находим Telegram userId по publicId в jobsData
+    const userJob = jobsData.find((job) => job.publicId === targetUserId);
+    if (!userJob) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const telegramUserId = userJob.userId.toString();
+
+    // Фильтруем отзывы по Telegram userId
+    const userReviews = Object.values(reviewsData)
+      .filter(
+        (review) =>
+          review.targetUserId &&
+          review.targetUserId.toString() === telegramUserId
+      )
+      .map((review) => ({
+        reviewId: review.id,
+        text: review.text,
+        date: review.date || new Date().toISOString(), // Добавляем дату, если её нет
+      }));
 
     res.json(userReviews);
   } catch (error) {
@@ -1475,6 +1492,42 @@ app.get("/api/chats", async (req, res) => {
   } catch (error) {
     logger.error(`Error in /api/chats: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/user/public/:publicId", async (req, res) => {
+  try {
+    const { publicId } = req.params;
+    const telegramData = req.headers["x-telegram-data"];
+
+    if (!telegramData || !validateTelegramData(telegramData)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Находим пользователя в jobsData по publicId
+    const userJob = jobsData.find((job) => job.publicId === publicId);
+    if (!userJob) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    let firstName = userJob.nick || "Unknown";
+    let photoUrl = "https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp";
+
+    // Пробуем получить данные из Telegram по userId
+    try {
+      const userData = await bot.api.getChat(userJob.userId);
+      firstName = userData.first_name || userJob.nick || "Unknown";
+      photoUrl = userData.username
+        ? `https://t.me/i/userpic/160/${userData.username}.jpg`
+        : photoUrl;
+    } catch (telegramError) {
+      logger.error(`Telegram API error for user ${userJob.userId}: ${telegramError.message}`);
+    }
+
+    res.json({ firstName, photoUrl });
+  } catch (error) {
+    logger.error(`Ошибка в /api/user/public/${req.params.publicId}: ${error.message}`);
+    res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 });
 

@@ -135,40 +135,41 @@ const loadProfileData = async () => {
   loaded.value = true;
 };
 
-const loadReviews = async () => {
-  try {
-    const response = await fetch(`https://jobs.cloudpub.ru/api/reviews?targetUserId=${userId.value}`, {
-      headers: {
-        'X-Telegram-Data': Telegram.WebApp.initData
+const loadProfileData = async () => {
+  console.log('Current user:', currentUser.value);
+  console.log('Public ID (from route):', userId.value);
+
+  const jobsData = JSON.parse(localStorage.getItem('jobsData') || '[]');
+  const userJob = jobsData.find(job => job.publicId === userId.value && job.userId === currentUser.value?.id?.toString());
+
+  if (userJob) {
+    profileData.firstName = currentUser.value.first_name || 'Unknown';
+    profileData.username = currentUser.value.username || '';
+    avatarSrc.value = currentUser.value.photo_url || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    console.log('Using current user data:', profileData);
+  } else {
+    try {
+      const response = await fetch(`https://jobs.cloudpub.ru/api/user/public/${userId.value}`, {
+        headers: {
+          'X-Telegram-Data': Telegram.WebApp.initData
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-    });
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.error('Endpoint /api/reviews не найден на сервере');
-        allReviews.value = [];
-      } else if (response.status === 401) {
-        console.error('Не авторизован: проверьте Telegram WebApp initData');
-        allReviews.value = [];
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ошибка! Статус: ${response.status}`);
-      }
-    } else {
       const data = await response.json();
-      if (!Array.isArray(data)) {
-        console.error('Ответ от /api/reviews не является массивом:', data);
-        allReviews.value = [];
-      } else {
-        const filteredAndSortedReviews = data
-          .filter(review => review.date)
-          .sort((a, b) => new Date(b.date) - new Date(a.date));
-        allReviews.value = filteredAndSortedReviews;
-      }
+      console.log('Server response:', data);
+      profileData.firstName = data.firstName || 'Unknown';
+      profileData.username = data.username || '';
+      avatarSrc.value = data.photoUrl || 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
+    } catch (error) {
+      console.error('Ошибка загрузки профиля:', error);
+      profileData.firstName = 'Unknown';
+      profileData.username = '';
+      avatarSrc.value = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
     }
-  } catch (error) {
-    console.error('Ошибка загрузки отзывов:', error);
-    allReviews.value = [];
   }
+  loaded.value = true;
 };
 
 const deleteReview = async (reviewId) => {
