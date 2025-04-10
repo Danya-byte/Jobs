@@ -300,7 +300,7 @@
                                 :to="{ path: `/profile/${selectedJob.publicId}` }"
                                 class="profile-link"
                             >
-                                <img :src="selectedJob.photoUrl || jobIcon" class="job-icon" loading="lazy">
+                                <img :src="selectedJob.avatar || jobIcon" class="job-icon" loading="lazy" @error="handleImageError">
                                 <div>
                                     <p class="nickname">{{ selectedJob.nick }}</p>
                                     <p class="experience">{{ selectedJob.experience ? `${selectedJob.experience} years experience` : 'No experience specified' }}</p>
