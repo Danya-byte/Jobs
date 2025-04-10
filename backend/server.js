@@ -11,6 +11,7 @@ const winston = require("winston");
 const DailyRotateFile = require("winston-daily-rotate-file");
 const { v4: uuidv4 } = require('uuid');
 const { parse, validate } = require('@telegram-apps/init-data-node');
+const axios = require('axios');
 require("dotenv").config();
 const WebSocket = require('ws');
 
@@ -68,6 +69,7 @@ const CHAT_UNLOCKS_FILE = path.join(__dirname, "chatUnlocks.json");
 const PENDING_MESSAGES_FILE = path.join(__dirname, "pendingMessages.json");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ADMIN_IDS = ["1940359844"];
+const avatarCache = {};
 
 const jobsMutex = new Mutex();
 const reviewsMutex = new Mutex();
@@ -356,17 +358,26 @@ app.get('/api/jobs', async (req, res) => {
     const user = JSON.parse(params.get("user") || "{}");
     const currentUserId = user.id ? user.id.toString() : null;
 
-    const jobsWithAvatars = await Promise.all(jobsData.map(async (job) => {
-      let photoUrl = 'https://i.postimg.cc/3RcrzSdP/2d29f4d64bf746a8c6e55370c9a224c0.webp';
-      try {
-        const photosResponse = await bot.api.getUserProfilePhotos(job.userId);
-        if (photosResponse.total_count > 0) {
-          const photo = photosResponse.photos[0].slice(-1)[0];
-          const fileResponse = await bot.api.getFile(photo.file_id);
-          photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+    const jobsWithDetails = await Promise.all(jobsData.map(async (job) => {
+      let avatarBase64;
+      if (avatarCache[job.publicId]) {
+        avatarBase64 = avatarCache[job.publicId];
+      } else {
+        avatarBase64 = 'data:image/webp;base64,' + Buffer.from(await fs.readFile(path.join(__dirname, 'default.webp'))).toString('base64');
+        try {
+          const photosResponse = await bot.api.getUserProfilePhotos(job.userId);
+          if (photosResponse.total_count > 0) {
+            const photo = photosResponse.photos[0].slice(-1)[0];
+            const fileResponse = await bot.api.getFile(photo.file_id);
+            const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResponse.file_path}`;
+
+            const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+            avatarBase64 = `data:image/jpeg;base64,${Buffer.from(response.data).toString('base64')}`;
+          }
+        } catch (error) {
+          logger.error(`Telegram API error for user ${job.userId}: ${error.message}`);
         }
-      } catch (error) {
-        logger.error(`Telegram API error for user ${job.userId}: ${error.message}`);
+        avatarCache[job.publicId] = avatarBase64;
       }
 
       return {
@@ -380,11 +391,11 @@ app.get('/api/jobs', async (req, res) => {
         createdAt: job.createdAt,
         pinned: job.pinned,
         isOwner: currentUserId && job.userId.toString() === currentUserId,
-        photoUrl
+        avatar: avatarBase64
       };
     }));
 
-    res.json(jobsWithAvatars);
+    res.json(jobsWithDetails);
   } catch (error) {
     logger.error(`Error in /api/jobs: ${error.message}`);
     res.status(500).json({ error: "Internal server error" });
